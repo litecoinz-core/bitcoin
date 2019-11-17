@@ -866,6 +866,25 @@ AC_LINK_IFELSE([AC_LANG_SOURCE([
   ]
 )
 
+dnl Check for CWG1579 (http://www.open-std.org/jtc1/sc22/wg21/docs/cwg_defects.html#1579) fix in C++ compiler
+AC_MSG_CHECKING([whether $CXX has a fix for CWG1579])
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+  #include <memory>
+  struct S1 {};
+  struct S2: S1 {};
+  std::unique_ptr<S1> f() {
+    std::unique_ptr<S2> s2(new S2);
+    return s2;
+  }
+  ])],
+  [
+    AC_DEFINE(HAVE_CXX_CWG1579_FIX,1,[Define this symbol when the C++ compiler has a fix for <http://www.open-std.org/jtc1/sc22/wg21/docs/cwg_defects.html#1579> "Return by converting move constructor".])
+    AC_MSG_RESULT([yes])
+  ],
+    [AC_MSG_RESULT([no])
+  ]
+)
+
 if test "x$use_thread_local" = xyes || { test "x$use_thread_local" = xauto && test "x$use_glibc_compat" = xno; }; then
   TEMP_LDFLAGS="$LDFLAGS"
   LDFLAGS="$TEMP_LDFLAGS $PTHREAD_CFLAGS"
