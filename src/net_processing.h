@@ -21,6 +21,9 @@ static const unsigned int DEFAULT_BLOCK_RECONSTRUCTION_EXTRA_TXN = 100;
 static constexpr bool DEFAULT_ENABLE_BIP61{false};
 static const bool DEFAULT_PEERBLOOMFILTERS = false;
 
+/** if disabled, blocks will not be requested automatically, useful for low-resources-available mode */
+static const bool DEFAULT_AUTOMATIC_BLOCK_REQUESTS = true;
+
 class PeerLogicValidation final : public CValidationInterface, public NetEventsInterface {
 private:
     CConnman* const connman;
@@ -92,5 +95,11 @@ bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats);
 
 /** Relay transaction to every node */
 void RelayTransaction(const uint256&, const CConnman& connman);
+
+void setAutoRequestBlocks(bool);
+bool isAutoRequestingBlocks();
+
+/** returns the amount of blocks in flight (in total) */
+unsigned int getAmountOfBlocksInFlight();
 
 #endif // BITCOIN_NET_PROCESSING_H

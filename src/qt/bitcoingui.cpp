@@ -559,6 +559,10 @@ void BitcoinGUI::setClientModel(ClientModel *_clientModel)
         connect(_clientModel, &ClientModel::networkActiveChanged, this, &BitcoinGUI::setNetworkActive);
 
         modalOverlay->setKnownBestHeight(_clientModel->getHeaderTipHeight(), QDateTime::fromTime_t(_clientModel->getHeaderTipTime()));
+        modalOverlay->setPauseResumeState(!_clientModel->isAutoRequestingBlocks());
+        connect(modalOverlay, &ModalOverlay::requestVerificationPauseOrResume, _clientModel, &ClientModel::toggleAutoRequestBlocks);
+        connect(_clientModel, &ClientModel::verificationProgressPauseStateHasChanged, modalOverlay, &ModalOverlay::setPauseResumeState);
+
         setNumBlocks(m_node.getNumBlocks(), QDateTime::fromTime_t(m_node.getLastBlockTime()), m_node.getVerificationProgress(), false);
         connect(_clientModel, &ClientModel::numBlocksChanged, this, &BitcoinGUI::setNumBlocks);
 

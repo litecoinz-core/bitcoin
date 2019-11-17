@@ -267,6 +267,10 @@ public:
         result = MakeWallet(wallet);
         return status;
     }
+
+    bool isAutorequestBlocks() override { return ::isAutoRequestingBlocks(); }
+    void setAutorequestBlocks(bool state) override { ::setAutoRequestBlocks(state); }
+
     std::unique_ptr<Handler> handleInitMessage(InitMessageFn fn) override
     {
         return MakeHandler(::uiInterface.InitMessage_connect(fn));

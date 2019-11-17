@@ -205,6 +205,12 @@ public:
     //! Create a wallet from file
     virtual WalletCreationStatus createWallet(const SecureString& passphrase, uint64_t wallet_creation_flags, const std::string& name, std::string& error, std::vector<std::string>& warnings, std::unique_ptr<Wallet>& result) = 0;
 
+    //! get autorequesting-blocks during IBD state
+    virtual bool isAutorequestBlocks() = 0;
+
+    //! set autorequesting-blocks during IBD state
+    virtual void setAutorequestBlocks(bool state) = 0;
+
     //! Register handler for init messages.
     using InitMessageFn = std::function<void(const std::string& message)>;
     virtual std::unique_ptr<Handler> handleInitMessage(InitMessageFn fn) = 0;
