@@ -343,6 +343,7 @@ if test "x$CXXFLAGS_overridden" = "xno"; then
   AX_CHECK_COMPILE_FLAG([-Wunused-local-typedef],[NOWARN_CXXFLAGS="$NOWARN_CXXFLAGS -Wno-unused-local-typedef"],,[[$CXXFLAG_WERROR]])
   AX_CHECK_COMPILE_FLAG([-Wdeprecated-register],[NOWARN_CXXFLAGS="$NOWARN_CXXFLAGS -Wno-deprecated-register"],,[[$CXXFLAG_WERROR]])
   AX_CHECK_COMPILE_FLAG([-Wimplicit-fallthrough],[NOWARN_CXXFLAGS="$NOWARN_CXXFLAGS -Wno-implicit-fallthrough"],,[[$CXXFLAG_WERROR]])
+  AX_CHECK_COMPILE_FLAG([-Wdeprecated-copy],[NOWARN_CXXFLAGS="$NOWARN_CXXFLAGS -Wno-deprecated-copy"],,[[$CXXFLAG_WERROR]])
 fi
 
 enable_hwcrc32=no
@@ -863,6 +864,25 @@ AC_LINK_IFELSE([AC_LANG_SOURCE([
     if test x$use_reduce_exports = xyes; then
       AC_MSG_ERROR([Cannot find a working visibility attribute. Use --disable-reduce-exports.])
     fi
+  ]
+)
+
+dnl Check for CWG1579 (http://www.open-std.org/jtc1/sc22/wg21/docs/cwg_defects.html#1579) fix in C++ compiler
+AC_MSG_CHECKING([whether $CXX has a fix for CWG1579])
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+  #include <memory>
+  struct S1 {};
+  struct S2: S1 {};
+  std::unique_ptr<S1> f() {
+    std::unique_ptr<S2> s2(new S2);
+    return s2;
+  }
+  ])],
+  [
+    AC_DEFINE(HAVE_CXX_CWG1579_FIX,1,[Define this symbol when the C++ compiler has a fix for <http://www.open-std.org/jtc1/sc22/wg21/docs/cwg_defects.html#1579> "Return by converting move constructor".])
+    AC_MSG_RESULT([yes])
+  ],
+    [AC_MSG_RESULT([no])
   ]
 )
 
