@@ -11,6 +11,7 @@
 #include <qt/forms/ui_helpmessagedialog.h>
 
 #include <qt/bitcoingui.h>
+#include <qt/guiutil.h>
 
 #include <clientversion.h>
 #include <init.h>
@@ -111,6 +112,8 @@ HelpMessageDialog::HelpMessageDialog(interfaces::Node& node, QWidget *parent, bo
         ui->scrollArea->setVisible(false);
         ui->aboutLogo->setVisible(false);
     }
+
+    GUIUtil::handleCloseWindowShortcut(this);
 }
 
 HelpMessageDialog::~HelpMessageDialog()
@@ -150,6 +153,8 @@ ShutdownWindow::ShutdownWindow(QWidget *parent, Qt::WindowFlags f):
         tr("%1 is shutting down...").arg(PACKAGE_NAME) + "<br /><br />" +
         tr("Do not shut down the computer until this window disappears.")));
     setLayout(layout);
+
+    GUIUtil::handleCloseWindowShortcut(this);
 }
 
 QWidget *ShutdownWindow::showShutdownWindow(BitcoinGUI *window)
