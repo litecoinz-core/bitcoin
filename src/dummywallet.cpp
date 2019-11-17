@@ -70,7 +70,7 @@ std::vector<std::shared_ptr<CWallet>> GetWallets()
     throw std::logic_error("Wallet function called in non-wallet build.");
 }
 
-std::shared_ptr<CWallet> LoadWallet(interfaces::Chain& chain, const std::string& name, std::string& error, std::vector<std::string>& warnings)
+std::shared_ptr<CWallet> LoadExistingWallet(interfaces::Chain& chain, const std::string& name, bool& exists, std::string& error, std::vector<std::string>& warnings)
 {
     throw std::logic_error("Wallet function called in non-wallet build.");
 }
