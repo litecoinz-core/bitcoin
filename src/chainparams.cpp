@@ -124,7 +124,8 @@ public:
 
         // guarantees the first 2 characters, when base58 encoded, are "L1"
         base58Prefixes[PUBKEY_ADDRESS] = {0x0A, 0xB3};
-        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,5);
+        // guarantees the first 2 characters, when base58 encoded, are "L3"
+        base58Prefixes[SCRIPT_ADDRESS] = {0x0A, 0xB8};
         base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,128);
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x88, 0xB2, 0x1E};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x88, 0xAD, 0xE4};
@@ -221,7 +222,8 @@ public:
 
         // guarantees the first 2 characters, when base58 encoded, are "T1"
         base58Prefixes[PUBKEY_ADDRESS] = {0x0E, 0xA4};
-        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
+        // guarantees the first 2 characters, when base58 encoded, are "T3"
+        base58Prefixes[SCRIPT_ADDRESS] = {0x0E, 0xA9};
         base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,239);
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
@@ -320,7 +322,8 @@ public:
 
         // guarantees the first 2 characters, when base58 encoded, are "T1"
         base58Prefixes[PUBKEY_ADDRESS] = {0x0E, 0xA4};
-        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
+        // guarantees the first 2 characters, when base58 encoded, are "T3"
+        base58Prefixes[SCRIPT_ADDRESS] = {0x0E, 0xA9};
         base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,239);
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
