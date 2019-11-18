@@ -122,13 +122,16 @@ public:
         vSeeds.emplace_back("seed.bitcoin.sprovoost.nl"); // Sjors Provoost
         vSeeds.emplace_back("dnsseed.emzy.de"); // Stephan Oeste
 
-        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,0);
-        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,5);
-        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,128);
+        // guarantees the first 2 characters, when base58 encoded, are "L1"
+        base58Prefixes[PUBKEY_ADDRESS] = {0x0A, 0xB3};
+        // guarantees the first 2 characters, when base58 encoded, are "L3"
+        base58Prefixes[SCRIPT_ADDRESS] = {0x0A, 0xB8};
+        // the first character, when base58 encoded, is "5" or "K" or "L" (as in Bitcoin)
+        base58Prefixes[SECRET_KEY]     = {0x80};
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x88, 0xB2, 0x1E};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x88, 0xAD, 0xE4};
 
-        bech32_hrp = "bc";
+        bech32_hrp = "ltz";
 
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
 
@@ -218,13 +221,16 @@ public:
         vSeeds.emplace_back("seed.testnet.bitcoin.sprovoost.nl");
         vSeeds.emplace_back("testnet-seed.bluematt.me"); // Just a static list of stable node(s), only supports x9
 
-        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111);
-        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
-        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,239);
+        // guarantees the first 2 characters, when base58 encoded, are "T1"
+        base58Prefixes[PUBKEY_ADDRESS] = {0x0E, 0xA4};
+        // guarantees the first 2 characters, when base58 encoded, are "T3"
+        base58Prefixes[SCRIPT_ADDRESS] = {0x0E, 0xA9};
+        // the first character, when base58 encoded, is "9" or "c" (as in Bitcoin)
+        base58Prefixes[SECRET_KEY]     = {0xEF};
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
 
-        bech32_hrp = "tb";
+        bech32_hrp = "tltz";
 
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_test, pnSeed6_test + ARRAYLEN(pnSeed6_test));
 
@@ -316,13 +322,16 @@ public:
             0
         };
 
-        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111);
-        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
-        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,239);
+        // guarantees the first 2 characters, when base58 encoded, are "T1"
+        base58Prefixes[PUBKEY_ADDRESS] = {0x0E, 0xA4};
+        // guarantees the first 2 characters, when base58 encoded, are "T3"
+        base58Prefixes[SCRIPT_ADDRESS] = {0x0E, 0xA9};
+        // the first character, when base58 encoded, is "9" or "c" (as in Bitcoin)
+        base58Prefixes[SECRET_KEY]     = {0xEF};
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
 
-        bech32_hrp = "bcrt";
+        bech32_hrp = "rltz";
     }
 
     /**
