@@ -17,6 +17,8 @@
 #include <algorithm>
 
 #include <QApplication>
+#include <QDir>
+#include <QFileDialog>
 #include <QMessageBox>
 #include <QMutexLocker>
 #include <QThread>
@@ -86,6 +88,25 @@ void WalletController::closeWallet(WalletModel* wallet_model, QWidget* parent)
     wallet_model->wallet().remove();
     // Now release the model.
     removeAndDeleteWallet(wallet_model);
+}
+
+void WalletController::closeAllWallets(QWidget* parent)
+{
+    QMessageBox box(parent);
+    box.setWindowTitle(tr("Close all wallets"));
+    box.setText(tr("Are you sure you wish to close all wallets?"));
+    box.setInformativeText(tr("Closing all wallets for too long can result in having to resync the entire chain if pruning is enabled."));
+    box.setStandardButtons(QMessageBox::Yes|QMessageBox::Cancel);
+    box.setDefaultButton(QMessageBox::Yes);
+    if (box.exec() != QMessageBox::Yes) return;
+
+    QMutexLocker locker(&m_mutex);
+    for (WalletModel* wallet_model : m_wallets) {
+        wallet_model->wallet().remove();
+        Q_EMIT walletRemoved(wallet_model);
+        delete wallet_model;
+    }
+    m_wallets.clear();
 }
 
 WalletModel* WalletController::getOrCreateWallet(std::unique_ptr<interfaces::Wallet> wallet)
@@ -272,9 +293,9 @@ void OpenWalletActivity::finish()
     m_progress_dialog->hide();
 
     if (!m_error_message.empty()) {
-        QMessageBox::critical(m_parent_widget, tr("Open wallet failed"), QString::fromStdString(m_error_message));
+        QMessageBox::critical(m_parent_widget, tr("Open Wallet"), QString::fromStdString(m_error_message));
     } else if (!m_warning_message.empty()) {
-        QMessageBox::warning(m_parent_widget, tr("Open wallet warning"), QString::fromStdString(Join(m_warning_message, "\n")));
+        QMessageBox::warning(m_parent_widget, tr("Open Wallet"), QString::fromStdString(Join(m_warning_message, "\n")));
     }
 
     if (m_wallet_model) Q_EMIT opened(m_wallet_model);
@@ -289,10 +310,66 @@ void OpenWalletActivity::open(const std::string& path)
     showProgressDialog(tr("Opening Wallet <b>%1</b>...").arg(name.toHtmlEscaped()));
 
     QTimer::singleShot(0, worker(), [this, path] {
-        std::unique_ptr<interfaces::Wallet> wallet = node().loadWallet(path, m_error_message, m_warning_message);
+        bool exists;
+        std::unique_ptr<interfaces::Wallet> wallet = node().loadWallet(path, exists, m_error_message, m_warning_message);
 
         if (wallet) m_wallet_model = m_wallet_controller->getOrCreateWallet(std::move(wallet));
 
         QTimer::singleShot(0, this, &OpenWalletActivity::finish);
     });
+}
+
+OpenExternalWalletActivity::OpenExternalWalletActivity(WalletController* wallet_controller, QWidget* parent_widget)
+    : WalletControllerActivity(wallet_controller, parent_widget)
+{
+}
+
+OpenExternalWalletActivity::~OpenExternalWalletActivity()
+{
+    delete m_file_dialog;
+}
+
+void OpenExternalWalletActivity::finish()
+{
+    m_progress_dialog->hide();
+
+    if (!m_exists || !m_error_message.empty()) {
+        QMessageBox::critical(m_parent_widget, tr("Open Wallet"), QString::fromStdString(m_error_message));
+    } else if (!m_warning_message.empty()) {
+        QMessageBox::warning(m_parent_widget, tr("Open Wallet"), QString::fromStdString(Join(m_warning_message, "\n")));
+    }
+
+    if (m_wallet_model) Q_EMIT opened(m_wallet_model);
+
+    Q_EMIT finished();
+}
+
+void OpenExternalWalletActivity::open()
+{
+    Q_ASSERT(!m_file_dialog);
+
+    m_file_dialog = new QFileDialog(m_parent_widget, tr("Open Wallet"), QDir::homePath());
+    m_file_dialog->setFileMode(QFileDialog::Directory);
+    m_file_dialog->setOption(QFileDialog::ShowDirsOnly);
+
+    connect(m_file_dialog, &QObject::destroyed, [this] {
+        m_file_dialog = nullptr;
+    });
+
+    connect(m_file_dialog, &QFileDialog::fileSelected, [this](const QString& path) {
+        if (path.isEmpty()) return;
+
+        showProgressDialog(tr("Opening Wallet <b>%1</b>...").arg(path.toHtmlEscaped()));
+
+        QTimer::singleShot(0, worker(), [this, path] {
+            std::unique_ptr<interfaces::Wallet> wallet = node().loadWallet(path.toStdString(), m_exists, m_error_message, m_warning_message);
+
+            if (wallet) m_wallet_model = m_wallet_controller->getOrCreateWallet(std::move(wallet));
+
+            QTimer::singleShot(0, this, &OpenExternalWalletActivity::finish);
+        });
+    });
+    connect(m_file_dialog, &QFileDialog::rejected, this, &OpenExternalWalletActivity::finished);
+
+    m_file_dialog->open();
 }

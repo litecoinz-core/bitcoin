@@ -8,6 +8,7 @@
 #include <qt/guiutil.h>
 
 #include <chainparams.h>
+#include <net_processing.h>
 
 #include <QResizeEvent>
 #include <QPropertyAnimation>
@@ -18,10 +19,12 @@ ui(new Ui::ModalOverlay),
 bestHeaderHeight(0),
 bestHeaderDate(QDateTime()),
 layerIsVisible(false),
-userClosed(false)
+userClosed(false),
+verificationPauseActive(false)
 {
     ui->setupUi(this);
     connect(ui->closeButton, &QPushButton::clicked, this, &ModalOverlay::closeClicked);
+    connect(ui->pauseResumeVerification, &QPushButton::clicked, this, &ModalOverlay::pauseClicked);
     if (parent) {
         parent->installEventFilter(this);
         raise();
@@ -76,6 +79,7 @@ void ModalOverlay::setKnownBestHeight(int count, const QDateTime& blockDate)
         bestHeaderHeight = count;
         bestHeaderDate = blockDate;
         UpdateHeaderSyncLabel();
+        eventuallyShowHeaderSyncing(count);
     }
 }
 
@@ -132,15 +136,30 @@ void ModalOverlay::tipUpdate(int count, const QDateTime& blockDate, double nVeri
         // not syncing
         return;
 
+    // show remaining number of blocks
+    ui->numberOfBlocksLeft->setText(QString::number(bestHeaderHeight - count));
+
+    // show already requested blocks (in total)
+    ui->numberBlocksRequested->setText(QString::number(getAmountOfBlocksInFlight()));
+    eventuallyShowHeaderSyncing(count);
+    updatePauseState(verificationPauseActive);
+
+    // disable pause button when we can fetch directly
+    // avoid using the core-layer's existing CanFetchDirectly()
+    bool canFetchDirectly = (blockDate.toTime_t() > GetAdjustedTime() - Params().GetConsensus().nPowTargetSpacing * 20);
+    ui->pauseResumeVerification->setEnabled(!canFetchDirectly);
+    ui->infoLabel->setVisible(!canFetchDirectly);
+}
+
+void ModalOverlay::eventuallyShowHeaderSyncing(int count)
+{
     // estimate the number of headers left based on nPowTargetSpacing
     // and check if the gui is not aware of the best header (happens rarely)
-    int estimateNumHeadersLeft = bestHeaderDate.secsTo(currentDate) / Params().GetConsensus().nPowTargetSpacing;
+    int estimateNumHeadersLeft = bestHeaderDate.secsTo(QDateTime::currentDateTime()) / Params().GetConsensus().nPowTargetSpacing;
     bool hasBestHeader = bestHeaderHeight >= count;
 
-    // show remaining number of blocks
-    if (estimateNumHeadersLeft < HEADER_HEIGHT_DELTA_SYNC && hasBestHeader) {
-        ui->numberOfBlocksLeft->setText(QString::number(bestHeaderHeight - count));
-    } else {
+    // show headers-syncing progress if we still sync headers
+    if (estimateNumHeadersLeft >= HEADER_HEIGHT_DELTA_SYNC || !hasBestHeader) {
         UpdateHeaderSyncLabel();
         ui->expectedTimeLeft->setText(tr("Unknown..."));
     }
@@ -181,4 +200,22 @@ void ModalOverlay::closeClicked()
 {
     showHide(true);
     userClosed = true;
+}
+
+void ModalOverlay::pauseClicked()
+{
+    Q_EMIT requestVerificationPauseOrResume();
+}
+
+void ModalOverlay::setPauseResumeState(bool pauseActive)
+{
+    verificationPauseActive = pauseActive;
+    updatePauseState(pauseActive);
+}
+
+void ModalOverlay::updatePauseState(bool pauseActive)
+{
+    ui->labelNumberBlocksRequested->setText((pauseActive ? "Finish downloading blocks" : "Blocks requested from peers"));
+    ui->pauseResumeVerification->setText((pauseActive ? "Resume downloading blocks " : "Pause downloading blocks"));
+    ui->infoLabel->setText((pauseActive && getAmountOfBlocksInFlight() > 0 ? "Wait to finish current downloads..." : ""));
 }

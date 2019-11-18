@@ -77,6 +77,10 @@ public:
     mutable std::atomic<int> cachedBestHeaderHeight;
     mutable std::atomic<int64_t> cachedBestHeaderTime;
 
+    // get/set state about autorequesting-blocks during IBD
+    bool isAutoRequestingBlocks() const;
+    void setAutoRequestBlocks(bool state);
+
 private:
     interfaces::Node& m_node;
     std::unique_ptr<interfaces::Handler> m_handler_show_progress;
@@ -110,11 +114,14 @@ Q_SIGNALS:
     // Show progress dialog e.g. for verifychain
     void showProgress(const QString &title, int nProgress);
 
+    void verificationProgressPauseStateHasChanged(bool pauseActive);
+
 public Q_SLOTS:
     void updateNumConnections(int numConnections);
     void updateNetworkActive(bool networkActive);
     void updateAlert();
     void updateBanlist();
+    void toggleAutoRequestBlocks();
 };
 
 #endif // BITCOIN_QT_CLIENTMODEL_H

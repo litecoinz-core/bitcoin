@@ -211,6 +211,8 @@ BitcoinGUI::BitcoinGUI(interfaces::Node& node, const PlatformStyle *_platformSty
 #ifdef Q_OS_MAC
     m_app_nap_inhibitor = new CAppNapInhibitor;
 #endif
+
+    GUIUtil::handleCloseWindowShortcut(this);
 }
 
 BitcoinGUI::~BitcoinGUI()
@@ -318,8 +320,8 @@ void BitcoinGUI::createActions()
     verifyMessageAction = new QAction(tr("&Verify message..."), this);
     verifyMessageAction->setStatusTip(tr("Verify messages to ensure they were signed with specified Bitcoin addresses"));
 
-    openRPCConsoleAction = new QAction(tr("&Debug window"), this);
-    openRPCConsoleAction->setStatusTip(tr("Open debugging and diagnostic console"));
+    openRPCConsoleAction = new QAction(tr("&Node window"), this);
+    openRPCConsoleAction->setStatusTip(tr("Open node debugging and diagnostic console"));
     // initially disable the debug window menu item
     openRPCConsoleAction->setEnabled(false);
     openRPCConsoleAction->setObjectName("openRPCConsoleAction");
@@ -337,8 +339,14 @@ void BitcoinGUI::createActions()
     m_open_wallet_action->setStatusTip(tr("Open a wallet"));
     m_open_wallet_menu = new QMenu(this);
 
+    m_open_external_wallet_action = new QAction(tr("Other..."), this);
+    m_open_external_wallet_action->setStatusTip(tr("Open a wallet in an external directory"));
+
     m_close_wallet_action = new QAction(tr("Close Wallet..."), this);
     m_close_wallet_action->setStatusTip(tr("Close wallet"));
+
+    m_close_all_wallets_action = new QAction(tr("Close All Wallets..."), this);
+    m_close_all_wallets_action->setStatusTip(tr("Close all wallets"));
 
     m_create_wallet_action = new QAction(tr("Create Wallet..."), this);
     m_create_wallet_action->setStatusTip(tr("Create a new wallet"));
@@ -398,15 +406,26 @@ void BitcoinGUI::createActions()
                 QAction* action = m_open_wallet_menu->addAction(tr("No wallets available"));
                 action->setEnabled(false);
             }
+            m_open_wallet_menu->addSeparator();
+            m_open_wallet_menu->addAction(m_open_external_wallet_action);
         });
         connect(m_close_wallet_action, &QAction::triggered, [this] {
             m_wallet_controller->closeWallet(walletFrame->currentWalletModel(), this);
+        });
+        connect(m_close_all_wallets_action, &QAction::triggered, [this] {
+            m_wallet_controller->closeAllWallets(this);
         });
         connect(m_create_wallet_action, &QAction::triggered, [this] {
             auto activity = new CreateWalletActivity(m_wallet_controller, this);
             connect(activity, &CreateWalletActivity::created, this, &BitcoinGUI::setCurrentWallet);
             connect(activity, &CreateWalletActivity::finished, activity, &QObject::deleteLater);
             activity->create();
+        });
+        connect(m_open_external_wallet_action, &QAction::triggered, [this] {
+            auto activity = new OpenExternalWalletActivity(m_wallet_controller, this);
+            connect(activity, &OpenExternalWalletActivity::opened, this, &BitcoinGUI::setCurrentWallet);
+            connect(activity, &OpenExternalWalletActivity::finished, activity, &QObject::deleteLater);
+            activity->open();
         });
     }
 #endif // ENABLE_WALLET
@@ -432,6 +451,7 @@ void BitcoinGUI::createMenuBar()
         file->addAction(m_create_wallet_action);
         file->addAction(m_open_wallet_action);
         file->addAction(m_close_wallet_action);
+        file->addAction(m_close_all_wallets_action);
         file->addSeparator();
         file->addAction(openAction);
         file->addAction(backupWalletAction);
@@ -559,6 +579,10 @@ void BitcoinGUI::setClientModel(ClientModel *_clientModel)
         connect(_clientModel, &ClientModel::networkActiveChanged, this, &BitcoinGUI::setNetworkActive);
 
         modalOverlay->setKnownBestHeight(_clientModel->getHeaderTipHeight(), QDateTime::fromTime_t(_clientModel->getHeaderTipTime()));
+        modalOverlay->setPauseResumeState(!_clientModel->isAutoRequestingBlocks());
+        connect(modalOverlay, &ModalOverlay::requestVerificationPauseOrResume, _clientModel, &ClientModel::toggleAutoRequestBlocks);
+        connect(_clientModel, &ClientModel::verificationProgressPauseStateHasChanged, modalOverlay, &ModalOverlay::setPauseResumeState);
+
         setNumBlocks(m_node.getNumBlocks(), QDateTime::fromTime_t(m_node.getLastBlockTime()), m_node.getVerificationProgress(), false);
         connect(_clientModel, &ClientModel::numBlocksChanged, this, &BitcoinGUI::setNumBlocks);
 
@@ -704,6 +728,7 @@ void BitcoinGUI::setWalletActionsEnabled(bool enabled)
     usedReceivingAddressesAction->setEnabled(enabled);
     openAction->setEnabled(enabled);
     m_close_wallet_action->setEnabled(enabled);
+    m_close_all_wallets_action->setEnabled(enabled);
 }
 
 void BitcoinGUI::createTrayIcon()

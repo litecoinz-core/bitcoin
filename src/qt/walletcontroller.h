@@ -14,12 +14,13 @@
 #include <string>
 #include <vector>
 
+#include <QFileDialog>
 #include <QMessageBox>
 #include <QMutex>
 #include <QProgressDialog>
+#include <QString>
 #include <QThread>
 #include <QTimer>
-#include <QString>
 
 class OptionsModel;
 class PlatformStyle;
@@ -58,6 +59,7 @@ public:
     std::map<std::string, bool> listWalletDir() const;
 
     void closeWallet(WalletModel* wallet_model, QWidget* parent = nullptr);
+    void closeAllWallets(QWidget* parent = nullptr);
 
 Q_SIGNALS:
     void walletAdded(WalletModel* wallet_model);
@@ -141,6 +143,26 @@ Q_SIGNALS:
 
 private:
     void finish();
+};
+
+class OpenExternalWalletActivity : public WalletControllerActivity
+{
+    Q_OBJECT
+
+public:
+    OpenExternalWalletActivity(WalletController* wallet_controller, QWidget* parent_widget);
+    virtual ~OpenExternalWalletActivity();
+
+    void open();
+
+Q_SIGNALS:
+    void opened(WalletModel* wallet_model);
+
+private:
+    void finish();
+
+    QFileDialog* m_file_dialog{nullptr};
+    bool m_exists{false};
 };
 
 #endif // BITCOIN_QT_WALLETCONTROLLER_H

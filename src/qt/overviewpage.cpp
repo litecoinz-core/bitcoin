@@ -17,6 +17,7 @@
 
 #include <QAbstractItemDelegate>
 #include <QPainter>
+#include <QStatusTipEvent>
 
 #define DECORATION_SIZE 54
 #define NUM_ITEMS 5
@@ -139,6 +140,35 @@ OverviewPage::OverviewPage(const PlatformStyle *platformStyle, QWidget *parent) 
     showOutOfSyncWarning(true);
     connect(ui->labelWalletStatus, &QPushButton::clicked, this, &OverviewPage::handleOutOfSyncWarningClicks);
     connect(ui->labelTransactionsStatus, &QPushButton::clicked, this, &OverviewPage::handleOutOfSyncWarningClicks);
+
+    connect(ui->labelBalance, &BitcoinAmountLabel::aboutToTogglePrivacy, this, &OverviewPage::aboutToTogglePrivacy);
+    connect(ui->labelUnconfirmed, &BitcoinAmountLabel::aboutToTogglePrivacy, this, &OverviewPage::aboutToTogglePrivacy);
+    connect(ui->labelImmature, &BitcoinAmountLabel::aboutToTogglePrivacy, this, &OverviewPage::aboutToTogglePrivacy);
+    connect(ui->labelTotal, &BitcoinAmountLabel::aboutToTogglePrivacy, this, &OverviewPage::aboutToTogglePrivacy);
+    connect(ui->labelWatchAvailable, &BitcoinAmountLabel::aboutToTogglePrivacy, this, &OverviewPage::aboutToTogglePrivacy);
+    connect(ui->labelWatchPending, &BitcoinAmountLabel::aboutToTogglePrivacy, this, &OverviewPage::aboutToTogglePrivacy);
+    connect(ui->labelWatchImmature, &BitcoinAmountLabel::aboutToTogglePrivacy, this, &OverviewPage::aboutToTogglePrivacy);
+    connect(ui->labelWatchTotal, &BitcoinAmountLabel::aboutToTogglePrivacy, this, &OverviewPage::aboutToTogglePrivacy);
+
+    connect(this, &OverviewPage::aboutToTogglePrivacy, [this] {
+        m_privacy = !m_privacy;
+        Q_EMIT changePrivacyMode(m_privacy);
+        ui->listTransactions->setVisible(!m_privacy);
+
+        const QString status_tip = m_privacy ? tr("PRIVACY mode is activated. To reveal cloaked fields click any of them") : "";
+        setStatusTip(status_tip);
+        QStatusTipEvent event(status_tip);
+        QCoreApplication::sendEvent(this, &event);
+    });
+
+    connect(this, &OverviewPage::changePrivacyMode, ui->labelBalance, &BitcoinAmountLabel::changePrivacyMode);
+    connect(this, &OverviewPage::changePrivacyMode, ui->labelUnconfirmed, &BitcoinAmountLabel::changePrivacyMode);
+    connect(this, &OverviewPage::changePrivacyMode, ui->labelImmature, &BitcoinAmountLabel::changePrivacyMode);
+    connect(this, &OverviewPage::changePrivacyMode, ui->labelTotal, &BitcoinAmountLabel::changePrivacyMode);
+    connect(this, &OverviewPage::changePrivacyMode, ui->labelWatchAvailable, &BitcoinAmountLabel::changePrivacyMode);
+    connect(this, &OverviewPage::changePrivacyMode, ui->labelWatchPending, &BitcoinAmountLabel::changePrivacyMode);
+    connect(this, &OverviewPage::changePrivacyMode, ui->labelWatchImmature, &BitcoinAmountLabel::changePrivacyMode);
+    connect(this, &OverviewPage::changePrivacyMode, ui->labelWatchTotal, &BitcoinAmountLabel::changePrivacyMode);
 }
 
 void OverviewPage::handleTransactionClicked(const QModelIndex &index)

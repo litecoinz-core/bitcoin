@@ -50,10 +50,10 @@ public:
     static bool showIfNeeded(interfaces::Node& node, bool& did_show_intro, bool& prune);
 
 Q_SIGNALS:
-    void requestCheck();
+    void requestCheck(bool keep_prune);
 
 public Q_SLOTS:
-    void setStatus(int status, const QString &message, quint64 bytesAvailable);
+    void setStatus(int status, const QString& message, quint64 bytesAvailable, bool keep_prune);
 
 private Q_SLOTS:
     void on_dataDirectory_textChanged(const QString &arg1);
@@ -69,10 +69,14 @@ private:
     QString pathToCheck;
     uint64_t m_blockchain_size;
     uint64_t m_chain_state_size;
+    //! Total required space (in GB) depending on user choice (prune, not prune).
+    int64_t m_required_space_gb;
+    int64_t m_prune_target_gb;
 
     void startThread();
     void checkPath(const QString &dataDir);
     QString getPathToCheck();
+    void UpdatePruneLabels(bool prune_checked);
 
     friend class FreespaceChecker;
 };

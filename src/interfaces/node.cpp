@@ -43,7 +43,7 @@ class CWallet;
 fs::path GetWalletDir();
 std::vector<fs::path> ListWalletDir();
 std::vector<std::shared_ptr<CWallet>> GetWallets();
-std::shared_ptr<CWallet> LoadWallet(interfaces::Chain& chain, const std::string& name, std::string& error, std::vector<std::string>& warnings);
+std::shared_ptr<CWallet> LoadExistingWallet(interfaces::Chain& chain, const std::string& name,  bool& exists, std::string& error, std::vector<std::string>& warnings);
 WalletCreationStatus CreateWallet(interfaces::Chain& chain, const SecureString& passphrase, uint64_t wallet_creation_flags, const std::string& name, std::string& error, std::vector<std::string>& warnings, std::shared_ptr<CWallet>& result);
 
 namespace interfaces {
@@ -256,9 +256,9 @@ public:
         }
         return wallets;
     }
-    std::unique_ptr<Wallet> loadWallet(const std::string& name, std::string& error, std::vector<std::string>& warnings) override
+    std::unique_ptr<Wallet> loadWallet(const std::string& name, bool& exists, std::string& error, std::vector<std::string>& warnings) override
     {
-        return MakeWallet(LoadWallet(*m_interfaces.chain, name, error, warnings));
+        return MakeWallet(LoadExistingWallet(*m_interfaces.chain, name, exists, error, warnings));
     }
     WalletCreationStatus createWallet(const SecureString& passphrase, uint64_t wallet_creation_flags, const std::string& name, std::string& error, std::vector<std::string>& warnings, std::unique_ptr<Wallet>& result) override
     {
@@ -267,6 +267,10 @@ public:
         result = MakeWallet(wallet);
         return status;
     }
+
+    bool isAutorequestBlocks() override { return ::isAutoRequestingBlocks(); }
+    void setAutorequestBlocks(bool state) override { ::setAutoRequestBlocks(state); }
+
     std::unique_ptr<Handler> handleInitMessage(InitMessageFn fn) override
     {
         return MakeHandler(::uiInterface.InitMessage_connect(fn));

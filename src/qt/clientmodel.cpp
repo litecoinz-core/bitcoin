@@ -182,6 +182,22 @@ QString ClientModel::blocksDir() const
     return GUIUtil::boostPathToQString(GetBlocksDir());
 }
 
+bool ClientModel::isAutoRequestingBlocks() const
+{
+    return m_node.isAutorequestBlocks();
+}
+
+void ClientModel::setAutoRequestBlocks(bool state)
+{
+    m_node.setAutorequestBlocks(state);
+    Q_EMIT verificationProgressPauseStateHasChanged(!m_node.isAutorequestBlocks());
+}
+
+void ClientModel::toggleAutoRequestBlocks()
+{
+    setAutoRequestBlocks(!m_node.isAutorequestBlocks());
+}
+
 void ClientModel::updateBanlist()
 {
     banTableModel->refresh();
