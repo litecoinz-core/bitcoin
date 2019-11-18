@@ -126,7 +126,8 @@ public:
         base58Prefixes[PUBKEY_ADDRESS] = {0x0A, 0xB3};
         // guarantees the first 2 characters, when base58 encoded, are "L3"
         base58Prefixes[SCRIPT_ADDRESS] = {0x0A, 0xB8};
-        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,128);
+        // the first character, when base58 encoded, is "5" or "K" or "L" (as in Bitcoin)
+        base58Prefixes[SECRET_KEY]     = {0x80};
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x88, 0xB2, 0x1E};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x88, 0xAD, 0xE4};
 
@@ -224,7 +225,8 @@ public:
         base58Prefixes[PUBKEY_ADDRESS] = {0x0E, 0xA4};
         // guarantees the first 2 characters, when base58 encoded, are "T3"
         base58Prefixes[SCRIPT_ADDRESS] = {0x0E, 0xA9};
-        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,239);
+        // the first character, when base58 encoded, is "9" or "c" (as in Bitcoin)
+        base58Prefixes[SECRET_KEY]     = {0xEF};
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
 
@@ -324,7 +326,8 @@ public:
         base58Prefixes[PUBKEY_ADDRESS] = {0x0E, 0xA4};
         // guarantees the first 2 characters, when base58 encoded, are "T3"
         base58Prefixes[SCRIPT_ADDRESS] = {0x0E, 0xA9};
-        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,239);
+        // the first character, when base58 encoded, is "9" or "c" (as in Bitcoin)
+        base58Prefixes[SECRET_KEY]     = {0xEF};
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
 
