@@ -2,14 +2,14 @@
 
 *.exe
 *.pdb
-src/bitcoin
-src/bitcoind
-src/bitcoin-cli
-src/bitcoin-tx
-src/bitcoin-wallet
-src/test/test_bitcoin
-src/test/test_bitcoin_fuzzy
-src/qt/test/test_bitcoin-qt
+src/litecoinz
+src/litecoinzd
+src/litecoinz-cli
+src/litecoinz-tx
+src/litecoinz-wallet
+src/test/test_litecoinz
+src/test/test_litecoinz_fuzzy
+src/qt/test/test_litecoinz-qt
 
 # autoreconf
 Makefile.in
@@ -47,11 +47,11 @@ src/qt/forms/ui_*.h
 
 src/qt/test/moc*.cpp
 
-src/qt/bitcoin-qt.config
-src/qt/bitcoin-qt.creator
-src/qt/bitcoin-qt.creator.user
-src/qt/bitcoin-qt.files
-src/qt/bitcoin-qt.includes
+src/qt/litecoinz-qt.config
+src/qt/litecoinz-qt.creator
+src/qt/litecoinz-qt.creator.user
+src/qt/litecoinz-qt.files
+src/qt/litecoinz-qt.includes
 
 .deps
 .dirstamp
@@ -88,7 +88,7 @@ src/qt/bitcoin-qt.includes
 *.qm
 Makefile
 !depends/Makefile
-bitcoin-qt
+litecoinz-qt
 Bitcoin-Qt.app
 background.tiff*
 
@@ -97,7 +97,7 @@ Makefile.am.user
 
 # Unit-tests
 Makefile.test
-bitcoin-qt_test
+litecoinz-qt_test
 
 # Resources cpp
 qrc_*.cpp
@@ -110,7 +110,7 @@ build
 *.gcno
 *.gcda
 /*.info
-test_bitcoin.coverage/
+test_litecoinz.coverage/
 total.coverage/
 coverage_percent.txt
 
