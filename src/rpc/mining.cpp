@@ -10,6 +10,7 @@
 #include <consensus/params.h>
 #include <consensus/validation.h>
 #include <core_io.h>
+#include <crypto/equihash.h>
 #include <key_io.h>
 #include <miner.h>
 #include <net.h>
@@ -48,7 +49,7 @@ static UniValue GetNetworkHashPS(int lookup, int height) {
     if (pb == nullptr || !pb->nHeight)
         return 0;
 
-    // If lookup is -1, then use blocks since last difficulty change.
+    // If lookup is -1, then use difficulty averaging window.
     if (lookup <= 0)
         lookup = Params().GetConsensus().nPowAveragingWindow;
 
@@ -101,6 +102,9 @@ static UniValue getnetworkhashps(const JSONRPCRequest& request)
 
 static UniValue generateBlocks(const CScript& coinbase_script, int nGenerate, uint64_t nMaxTries)
 {
+    static const int nInnerLoopCount = 0xFFFF;
+    static const int nInnerLoopMask = 0xFFFF;
+
     int nHeightEnd = 0;
     int nHeight = 0;
 
@@ -111,8 +115,14 @@ static UniValue generateBlocks(const CScript& coinbase_script, int nGenerate, ui
     }
     unsigned int nExtraNonce = 0;
     UniValue blockHashes(UniValue::VARR);
+    unsigned int n;
+    unsigned int k;
+
     while (nHeight < nHeightEnd && !ShutdownRequested())
     {
+        n = Params().EquihashN(nHeight + 1);
+        k = Params().EquihashK(nHeight + 1);
+
         std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbase_script));
         if (!pblocktemplate.get())
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Couldn't create new block");
@@ -121,14 +131,45 @@ static UniValue generateBlocks(const CScript& coinbase_script, int nGenerate, ui
             LOCK(cs_main);
             IncrementExtraNonce(pblock, ::ChainActive().Tip(), nExtraNonce);
         }
-        while (nMaxTries > 0 && pblock->nNonce < std::numeric_limits<uint256>::max() && !CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus()) && !ShutdownRequested()) {
+
+        crypto_generichash_blake2b_state eh_state;
+        EhInitialiseState(n, k, eh_state);
+
+        // I = the block header minus nonce and solution.
+        CEquihashInput I{*pblock};
+        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+        ss << I;
+
+        // H(I||...
+        crypto_generichash_blake2b_update(&eh_state, (unsigned char*)&ss[0], ss.size());
+
+        while (nMaxTries > 0 &&
+               ((int)pblock->nNonce.GetUint64(0) & nInnerLoopMask) < nInnerLoopCount) {
+            // Yes, there is a chance every nonce could fail to satisfy the -regtest
+            // target -- 1 in 2^(2^256). That ain't gonna happen
             pblock->nNonce = ArithToUint256(UintToArith256(pblock->nNonce) + 1);
+
+            // H(I||V||...
+            crypto_generichash_blake2b_state curr_state;
+            curr_state = eh_state;
+            crypto_generichash_blake2b_update(&curr_state, pblock->nNonce.begin(), pblock->nNonce.size());
+
+            // (x_1, x_2, ...) = A(I, V, n, k)
+            std::function<bool(std::vector<unsigned char>)> validBlock =
+                    [&pblock](std::vector<unsigned char> soln) {
+                pblock->nSolution = soln;
+                return CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus());
+            };
+            bool found = EhBasicSolveUncancellable(n, k, curr_state, validBlock);
             --nMaxTries;
+            if (found) {
+                break;
+            }
         }
         if (nMaxTries == 0 || ShutdownRequested()) {
             break;
         }
-        if (pblock->nNonce == std::numeric_limits<uint256>::max()) {
+        if (((int)pblock->nNonce.GetUint64(0) & nInnerLoopMask) == nInnerLoopCount) {
             continue;
         }
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
@@ -349,6 +390,8 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
             "  \"curtime\" : ttt,                  (numeric) current timestamp in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"bits\" : \"xxxxxxxx\",              (string) compressed target of next block\n"
             "  \"height\" : n                      (numeric) The height of the next block\n"
+            "  \"equihashn\" : n                   (numeric) Equihash N\n"
+            "  \"equihashk\" : n                   (numeric) Equihash K\n"
             "}\n"
                 },
                 RPCExamples{
@@ -654,7 +697,10 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     }
     result.pushKV("curtime", pblock->GetBlockTime());
     result.pushKV("bits", strprintf("%08x", pblock->nBits));
-    result.pushKV("height", (int64_t)(pindexPrev->nHeight+1));
+    int height = pindexPrev->nHeight + 1;
+    result.pushKV("height", (int64_t)height);
+    result.pushKV("equihashn", (int64_t)(Params().EquihashN(height)));
+    result.pushKV("equihashk", (int64_t)(Params().EquihashK(height)));
 
     if (!pblocktemplate->vchCoinbaseCommitment.empty()) {
         result.pushKV("default_witness_commitment", HexStr(pblocktemplate->vchCoinbaseCommitment.begin(), pblocktemplate->vchCoinbaseCommitment.end()));
