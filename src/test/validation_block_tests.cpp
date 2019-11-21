@@ -94,7 +94,7 @@ std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock)
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
 
     while (!CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus())) {
-        ++(pblock->nNonce);
+        pblock->nNonce = ArithToUint256(UintToArith256(pblock->nNonce) + 1);
     }
 
     return pblock;

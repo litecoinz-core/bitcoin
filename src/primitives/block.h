@@ -26,7 +26,7 @@ public:
     uint256 hashMerkleRoot;
     uint32_t nTime;
     uint32_t nBits;
-    uint32_t nNonce;
+    uint256 nNonce;
 
     CBlockHeader()
     {
@@ -52,7 +52,7 @@ public:
         hashMerkleRoot.SetNull();
         nTime = 0;
         nBits = 0;
-        nNonce = 0;
+        nNonce.SetNull();
     }
 
     bool IsNull() const
