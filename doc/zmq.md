@@ -79,7 +79,7 @@ The high water mark value must be an integer greater than or equal to 0.
 For instance:
 
     $ litecoinzd -zmqpubhashtx=tcp://127.0.0.1:28332 \
-                 -zmqpubrawtx=ipc:///tmp/bitcoind.tx.raw \
+                 -zmqpubrawtx=ipc:///tmp/litecoinzd.tx.raw \
                  -zmqpubhashtxhwm=10000
 
 Each PUB notification has a topic and body, where the header

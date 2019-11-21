@@ -89,7 +89,7 @@ src/qt/litecoinz-qt.includes
 Makefile
 !depends/Makefile
 litecoinz-qt
-Bitcoin-Qt.app
+Litecoinz-Qt.app
 background.tiff*
 
 # Qt Creator
