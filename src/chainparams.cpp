@@ -94,6 +94,14 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 1199145601; // January 1, 2008
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = 1230767999; // December 31, 2008
+        const size_t N1 = 200, K1 = 9;
+        const size_t N2 = 144, K2 = 5;
+        BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N1, K1));
+        BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N2, K2));
+        consensus.nEquihashN1 = N1;
+        consensus.nEquihashK1 = K1;
+        consensus.nEquihashN2 = N2;
+        consensus.nEquihashK2 = K2;
 
         consensus.nEquihashForkHeight = 95000;
 
@@ -116,15 +124,6 @@ public:
         nPruneAfterHeight = 100000;
         m_assumed_blockchain_size = 280;
         m_assumed_chain_state_size = 4;
-
-        const size_t N = 200, K = 9;
-        const size_t N2 = 144, K2 = 5;
-        BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N, K));
-        BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N2, K2));
-        nEquihashN = N;
-        nEquihashK = K;
-        nEquihashN2 = N2;
-        nEquihashK2 = K2;
 
         genesis = CreateGenesisBlock(
             1512832667,
@@ -224,6 +223,14 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 1199145601; // January 1, 2008
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = 1230767999; // December 31, 2008
+        const size_t N1 = 200, K1 = 9;
+        const size_t N2 = 144, K2 = 5;
+        BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N1, K1));
+        BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N2, K2));
+        consensus.nEquihashN1 = N1;
+        consensus.nEquihashK1 = K1;
+        consensus.nEquihashN2 = N2;
+        consensus.nEquihashK2 = K2;
 
         consensus.nEquihashForkHeight = 435;
 
@@ -241,15 +248,6 @@ public:
         nPruneAfterHeight = 1000;
         m_assumed_blockchain_size = 30;
         m_assumed_chain_state_size = 2;
-
-        const size_t N = 200, K = 9;
-        const size_t N2 = 144, K2 = 5;
-        BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N, K));
-        BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N2, K2));
-        nEquihashN = N;
-        nEquihashK = K;
-        nEquihashN2 = N2;
-        nEquihashK2 = K2;
 
         genesis = CreateGenesisBlock(
             1511954736,
@@ -332,6 +330,14 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 0;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+        const size_t N1 = 48, K1 = 5;
+        const size_t N2 = 96, K2 = 5;
+        BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N1, K1));
+        BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N2, K2));
+        consensus.nEquihashN1 = N1;
+        consensus.nEquihashK1 = K1;
+        consensus.nEquihashN2 = N2;
+        consensus.nEquihashK2 = K2;
 
         consensus.nEquihashForkHeight = 100;
 
@@ -351,15 +357,6 @@ public:
         m_assumed_chain_state_size = 0;
 
         UpdateActivationParametersFromArgs(args);
-
-        const size_t N = 48, K = 5;
-        const size_t N2 = 96, K2 = 5;
-        BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N, K));
-        BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N2, K2));
-        nEquihashN = N;
-        nEquihashK = K;
-        nEquihashN2 = N2;
-        nEquihashK2 = K2;
 
         genesis = CreateGenesisBlock(
             1511954736,
@@ -415,7 +412,7 @@ public:
 
 unsigned int CChainParams::EquihashSolutionWidth(int height) const
 {
-    return EhSolutionWidth(EquihashN(height), EquihashK(height));
+    return EhSolutionWidth(consensus.EquihashN(height), consensus.EquihashK(height));
 }
 
 void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)

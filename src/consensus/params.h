@@ -76,6 +76,26 @@ struct Params {
     /** Block height where Equihash<144,5> becomes active */
     int nEquihashForkHeight;
     /** Proof of work parameters */
+    unsigned int nEquihashN1 = 0;
+    unsigned int nEquihashK1 = 0;
+    unsigned int nEquihashN2 = 0;
+    unsigned int nEquihashK2 = 0;
+    unsigned int EquihashN(int height = 0) const
+    {
+        if(height < nEquihashForkHeight) {
+            return nEquihashN1;
+        } else {
+            return nEquihashN2;
+        }
+    }
+    unsigned int EquihashK(int height = 0) const
+    {
+        if(height < nEquihashForkHeight) {
+            return nEquihashK1;
+        } else {
+            return nEquihashK2;
+        }
+    }
     uint256 powLimit;
     bool fPowAllowMinDifficultyBlocks;
     bool fPowNoRetargeting;

@@ -120,8 +120,8 @@ static UniValue generateBlocks(const CScript& coinbase_script, int nGenerate, ui
 
     while (nHeight < nHeightEnd && !ShutdownRequested())
     {
-        n = Params().EquihashN(nHeight + 1);
-        k = Params().EquihashK(nHeight + 1);
+        n = Params().GetConsensus().EquihashN(nHeight + 1);
+        k = Params().GetConsensus().EquihashK(nHeight + 1);
 
         std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbase_script));
         if (!pblocktemplate.get())
@@ -699,8 +699,8 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     result.pushKV("bits", strprintf("%08x", pblock->nBits));
     int height = pindexPrev->nHeight + 1;
     result.pushKV("height", (int64_t)height);
-    result.pushKV("equihashn", (int64_t)(Params().EquihashN(height)));
-    result.pushKV("equihashk", (int64_t)(Params().EquihashK(height)));
+    result.pushKV("equihashn", (int64_t)(Params().GetConsensus().EquihashN(height)));
+    result.pushKV("equihashk", (int64_t)(Params().GetConsensus().EquihashK(height)));
 
     if (!pblocktemplate->vchCoinbaseCommitment.empty()) {
         result.pushKV("default_witness_commitment", HexStr(pblocktemplate->vchCoinbaseCommitment.begin(), pblocktemplate->vchCoinbaseCommitment.end()));
