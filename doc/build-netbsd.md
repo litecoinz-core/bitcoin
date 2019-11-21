@@ -21,6 +21,7 @@ libevent
 libtool
 pkg-config
 python37
+libsodium
 
 git clone https://github.com/litecoinz-core/litecoinz.git
 ```
