@@ -70,6 +70,25 @@ public:
     /** If this chain is exclusively used for testing */
     bool IsTestChain() const { return m_is_test_chain; }
     uint64_t PruneAfterHeight() const { return nPruneAfterHeight; }
+
+    unsigned int EquihashN(int height = 0) const
+    {
+        if(height < consensus.nEquihashForkHeight) {
+            return nEquihashN;
+        } else {
+            return nEquihashN2;
+        }
+    }
+    unsigned int EquihashK(int height = 0) const
+    {
+        if(height < consensus.nEquihashForkHeight) {
+            return nEquihashK;
+        } else {
+            return nEquihashK2;
+        }
+    }
+    unsigned int EquihashSolutionWidth(int height) const;
+
     /** Minimum free space (in GB) needed for data directory */
     uint64_t AssumedBlockchainSize() const { return m_assumed_blockchain_size; }
     /** Minimum free space (in GB) needed for data directory when pruned; Does not include prune target*/
@@ -85,6 +104,8 @@ public:
     const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
     const CCheckpointData& Checkpoints() const { return checkpointData; }
     const ChainTxData& TxData() const { return chainTxData; }
+
+    uint64_t EquihashForkHeight() const { return consensus.nEquihashForkHeight; };
 protected:
     CChainParams() {}
 
@@ -92,6 +113,10 @@ protected:
     CMessageHeader::MessageStartChars pchMessageStart;
     int nDefaultPort;
     uint64_t nPruneAfterHeight;
+    unsigned int nEquihashN;
+    unsigned int nEquihashK;
+    unsigned int nEquihashN2;
+    unsigned int nEquihashK2;
     uint64_t m_assumed_blockchain_size;
     uint64_t m_assumed_chain_state_size;
     std::vector<std::string> vSeeds;

@@ -123,3 +123,55 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params&
 
     return true;
 }
+
+bool CheckEquihashSolution(const CBlockHeader *pblock)
+{
+    // Derive n, k from the solution size as the block header does not specify parameters used.
+    // In the future, we could pass in the block height and call EquihashN() and EquihashK()
+    // to perform a contextual check against the parameters in use at a given block height.
+    unsigned int n, k;
+    size_t nSolSize = pblock->nSolution.size();
+
+    // Equihash solution size = (pow(2, k) * ((n/(k+1))+1)) / 8
+    if (nSolSize == 1344) { // mainnet and testnet genesis
+        n = 200;
+        k = 9;
+    } else if (nSolSize == 36) { // regtest genesis
+        n = 48;
+        k = 5;
+    } else if (nSolSize == 400) {
+        n = 192;
+        k = 7;
+    } else if (nSolSize == 100) {
+        n = 144;
+        k = 5;
+    } else if (nSolSize == 68) {
+        n = 96;
+        k = 5;
+    } else {
+        return error("CheckEquihashSolution: Unsupported solution size of %d", nSolSize);
+    }
+
+    LogPrint(BCLog::POW, "CheckEquihashSolution: selected n, k : %d, %d \n", n, k);
+
+    // Hash state
+    crypto_generichash_blake2b_state state;
+    EhInitialiseState(n, k, state);
+
+    // I = the block header minus nonce and solution.
+    CEquihashInput I{*pblock};
+    // I||V
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss << I;
+    ss << pblock->nNonce;
+
+    // H(I||V||...
+    crypto_generichash_blake2b_update(&state, (unsigned char*)&ss[0], ss.size());
+
+    bool isValid;
+    EhIsValidSolution(n, k, state, pblock->nSolution, isValid);
+    if (!isValid)
+        return error("CheckEquihashSolution(): invalid solution n=%s,k=%s", n, k);
+
+    return true;
+}

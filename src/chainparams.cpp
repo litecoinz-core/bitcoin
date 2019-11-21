@@ -6,6 +6,7 @@
 #include <chainparams.h>
 
 #include <chainparamsseeds.h>
+#include <crypto/equihash.h>
 #include <consensus/merkle.h>
 #include <tinyformat.h>
 #include <util/system.h>
@@ -364,6 +365,11 @@ public:
     }
     void UpdateActivationParametersFromArgs(const ArgsManager& args);
 };
+
+unsigned int CChainParams::EquihashSolutionWidth(int height) const
+{
+    return EhSolutionWidth(EquihashN(height), EquihashK(height));
+}
 
 void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
 {
