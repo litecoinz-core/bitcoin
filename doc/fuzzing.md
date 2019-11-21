@@ -1,5 +1,5 @@
-Fuzz-testing Bitcoin Core
-==========================
+Fuzz-testing Litecoinz Core
+===========================
 
 A special test harness in `src/test/fuzz/` is provided for each fuzz target to
 provide an easy entry point for fuzzers and the like. In this document we'll
@@ -17,7 +17,7 @@ Extract the example seeds (or other starting inputs) into the inputs
 directory before starting fuzzing.
 
 ```
-git clone https://github.com/bitcoin-core/qa-assets
+git clone https://github.com/litecoinz-core/qa-assets
 export DIR_FUZZ_IN=$PWD/qa-assets/fuzz_seed_corpus
 ```
 
@@ -43,7 +43,7 @@ export AFLPATH=$PWD
 
 ### Instrumentation
 
-To build Bitcoin Core using AFL instrumentation (this assumes that the
+To build Litecoinz Core using AFL instrumentation (this assumes that the
 `AFLPATH` was set as above):
 ```
 ./configure --disable-ccache --disable-shared --enable-tests --enable-fuzz CC=${AFLPATH}/afl-gcc CXX=${AFLPATH}/afl-g++

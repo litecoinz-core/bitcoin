@@ -34,7 +34,7 @@ verificationPauseActive(false)
     setVisible(false);
     if (!enable_wallet) {
         ui->infoText->setVisible(false);
-        ui->infoTextStrong->setText(tr("Bitcoin Core is currently syncing.  It will download headers and blocks from peers and validate them until reaching the tip of the block chain."));
+        ui->infoTextStrong->setText(tr("Litecoinz Core is currently syncing.  It will download headers and blocks from peers and validate them until reaching the tip of the block chain."));
     }
 }
 

@@ -61,10 +61,10 @@ If you're using the automated script (found in [contrib/gitian-build.py](/contri
 Check out the source code in the following directory hierarchy.
 
     cd /path/to/your/toplevel/build
-    git clone https://github.com/bitcoin-core/gitian.sigs.git
-    git clone https://github.com/bitcoin-core/bitcoin-detached-sigs.git
+    git clone https://github.com/litecoinz-core/gitian.sigs.git
+    git clone https://github.com/litecoinz-core/bitcoin-detached-sigs.git
     git clone https://github.com/devrandom/gitian-builder.git
-    git clone https://github.com/bitcoin/bitcoin.git
+    git clone https://github.com/litecoinz-core/litecoinz.git
 
 ### Write the release notes
 
@@ -93,7 +93,7 @@ If you're using the automated script (found in [contrib/gitian-build.py](/contri
 
 Setup Gitian descriptors:
 
-    pushd ./bitcoin
+    pushd ./litecoinz
     export SIGNER="(your Gitian key, ie bluematt, sipa, etc)"
     export VERSION=(new version, e.g. 0.20.0)
     git fetch
@@ -128,10 +128,10 @@ Create the macOS SDK tarball, see the [macOS build instructions](build-osx.md#de
 
 NOTE: Gitian is sometimes unable to download files. If you have errors, try the step below.
 
-By default, Gitian will fetch source files as needed. To cache them ahead of time, make sure you have checked out the tag you want to build in bitcoin, then:
+By default, Gitian will fetch source files as needed. To cache them ahead of time, make sure you have checked out the tag you want to build in litecoinz, then:
 
     pushd ./gitian-builder
-    make -C ../bitcoin/depends download SOURCES_PATH=`pwd`/cache/common
+    make -C ../litecoinz/depends download SOURCES_PATH=`pwd`/cache/common
     popd
 
 Only missing files will be fetched, so this is safe to re-run for each build.
@@ -139,47 +139,47 @@ Only missing files will be fetched, so this is safe to re-run for each build.
 NOTE: Offline builds must use the --url flag to ensure Gitian fetches only from local URLs. For example:
 
     pushd ./gitian-builder
-    ./bin/gbuild --url bitcoin=/path/to/bitcoin,signature=/path/to/sigs {rest of arguments}
+    ./bin/gbuild --url litecoinz=/path/to/litecoinz,signature=/path/to/sigs {rest of arguments}
     popd
 
 The gbuild invocations below <b>DO NOT DO THIS</b> by default.
 
-### Build and sign Bitcoin Core for Linux, Windows, and macOS:
+### Build and sign Litecoinz Core for Linux, Windows, and macOS:
 
     pushd ./gitian-builder
-    ./bin/gbuild --num-make 2 --memory 3000 --commit bitcoin=v${VERSION} ../bitcoin/contrib/gitian-descriptors/gitian-linux.yml
-    ./bin/gsign --signer "$SIGNER" --release ${VERSION}-linux --destination ../gitian.sigs/ ../bitcoin/contrib/gitian-descriptors/gitian-linux.yml
-    mv build/out/bitcoin-*.tar.gz build/out/src/bitcoin-*.tar.gz ../
+    ./bin/gbuild --num-make 2 --memory 3000 --commit litecoinz=v${VERSION} ../litecoinz/contrib/gitian-descriptors/gitian-linux.yml
+    ./bin/gsign --signer "$SIGNER" --release ${VERSION}-linux --destination ../gitian.sigs/ ../litecoinz/contrib/gitian-descriptors/gitian-linux.yml
+    mv build/out/litecoinz-*.tar.gz build/out/src/litecoinz-*.tar.gz ../
 
-    ./bin/gbuild --num-make 2 --memory 3000 --commit bitcoin=v${VERSION} ../bitcoin/contrib/gitian-descriptors/gitian-win.yml
-    ./bin/gsign --signer "$SIGNER" --release ${VERSION}-win-unsigned --destination ../gitian.sigs/ ../bitcoin/contrib/gitian-descriptors/gitian-win.yml
-    mv build/out/bitcoin-*-win-unsigned.tar.gz inputs/bitcoin-win-unsigned.tar.gz
-    mv build/out/bitcoin-*.zip build/out/bitcoin-*.exe ../
+    ./bin/gbuild --num-make 2 --memory 3000 --commit litecoinz=v${VERSION} ../litecoinz/contrib/gitian-descriptors/gitian-win.yml
+    ./bin/gsign --signer "$SIGNER" --release ${VERSION}-win-unsigned --destination ../gitian.sigs/ ../litecoinz/contrib/gitian-descriptors/gitian-win.yml
+    mv build/out/litecoinz-*-win-unsigned.tar.gz inputs/litecoinz-win-unsigned.tar.gz
+    mv build/out/litecoinz-*.zip build/out/litecoinz-*.exe ../
 
-    ./bin/gbuild --num-make 2 --memory 3000 --commit bitcoin=v${VERSION} ../bitcoin/contrib/gitian-descriptors/gitian-osx.yml
-    ./bin/gsign --signer "$SIGNER" --release ${VERSION}-osx-unsigned --destination ../gitian.sigs/ ../bitcoin/contrib/gitian-descriptors/gitian-osx.yml
-    mv build/out/bitcoin-*-osx-unsigned.tar.gz inputs/bitcoin-osx-unsigned.tar.gz
-    mv build/out/bitcoin-*.tar.gz build/out/bitcoin-*.dmg ../
+    ./bin/gbuild --num-make 2 --memory 3000 --commit litecoinz=v${VERSION} ../litecoinz/contrib/gitian-descriptors/gitian-osx.yml
+    ./bin/gsign --signer "$SIGNER" --release ${VERSION}-osx-unsigned --destination ../gitian.sigs/ ../litecoinz/contrib/gitian-descriptors/gitian-osx.yml
+    mv build/out/litecoinz-*-osx-unsigned.tar.gz inputs/litecoinz-osx-unsigned.tar.gz
+    mv build/out/litecoinz-*.tar.gz build/out/litecoinz-*.dmg ../
     popd
 
 Build output expected:
 
-  1. source tarball (`bitcoin-${VERSION}.tar.gz`)
-  2. linux 32-bit and 64-bit dist tarballs (`bitcoin-${VERSION}-linux[32|64].tar.gz`)
-  3. windows 32-bit and 64-bit unsigned installers and dist zips (`bitcoin-${VERSION}-win[32|64]-setup-unsigned.exe`, `bitcoin-${VERSION}-win[32|64].zip`)
-  4. macOS unsigned installer and dist tarball (`bitcoin-${VERSION}-osx-unsigned.dmg`, `bitcoin-${VERSION}-osx64.tar.gz`)
+  1. source tarball (`litecoinz-${VERSION}.tar.gz`)
+  2. linux 32-bit and 64-bit dist tarballs (`litecoinz-${VERSION}-linux[32|64].tar.gz`)
+  3. windows 32-bit and 64-bit unsigned installers and dist zips (`litecoinz-${VERSION}-win[32|64]-setup-unsigned.exe`, `litecoinz-${VERSION}-win[32|64].zip`)
+  4. macOS unsigned installer and dist tarball (`litecoinz-${VERSION}-osx-unsigned.dmg`, `litecoinz-${VERSION}-osx64.tar.gz`)
   5. Gitian signatures (in `gitian.sigs/${VERSION}-<linux|{win,osx}-unsigned>/(your Gitian key)/`)
 
 ### Verify other gitian builders signatures to your own. (Optional)
 
-Add other gitian builders keys to your gpg keyring, and/or refresh keys: See `../bitcoin/contrib/gitian-keys/README.md`.
+Add other gitian builders keys to your gpg keyring, and/or refresh keys: See `../litecoinz/contrib/gitian-keys/README.md`.
 
 Verify the signatures
 
     pushd ./gitian-builder
-    ./bin/gverify -v -d ../gitian.sigs/ -r ${VERSION}-linux ../bitcoin/contrib/gitian-descriptors/gitian-linux.yml
-    ./bin/gverify -v -d ../gitian.sigs/ -r ${VERSION}-win-unsigned ../bitcoin/contrib/gitian-descriptors/gitian-win.yml
-    ./bin/gverify -v -d ../gitian.sigs/ -r ${VERSION}-osx-unsigned ../bitcoin/contrib/gitian-descriptors/gitian-osx.yml
+    ./bin/gverify -v -d ../gitian.sigs/ -r ${VERSION}-linux ../litecoinz/contrib/gitian-descriptors/gitian-linux.yml
+    ./bin/gverify -v -d ../gitian.sigs/ -r ${VERSION}-win-unsigned ../litecoinz/contrib/gitian-descriptors/gitian-win.yml
+    ./bin/gverify -v -d ../gitian.sigs/ -r ${VERSION}-osx-unsigned ../litecoinz/contrib/gitian-descriptors/gitian-osx.yml
     popd
 
 ### Next steps:
@@ -200,22 +200,22 @@ Codesigner only: Create Windows/macOS detached signatures:
 
 Codesigner only: Sign the macOS binary:
 
-    transfer bitcoin-osx-unsigned.tar.gz to macOS for signing
-    tar xf bitcoin-osx-unsigned.tar.gz
+    transfer litecoinz-osx-unsigned.tar.gz to macOS for signing
+    tar xf litecoinz-osx-unsigned.tar.gz
     ./detached-sig-create.sh -s "Key ID"
     Enter the keychain password and authorize the signature
     Move signature-osx.tar.gz back to the gitian host
 
 Codesigner only: Sign the windows binaries:
 
-    tar xf bitcoin-win-unsigned.tar.gz
+    tar xf litecoinz-win-unsigned.tar.gz
     ./detached-sig-create.sh -key /path/to/codesign.key
     Enter the passphrase for the key when prompted
     signature-win.tar.gz will be created
 
 Codesigner only: Commit the detached codesign payloads:
 
-    cd ~/bitcoin-detached-sigs
+    cd ~/litecoinz-detached-sigs
     checkout the appropriate branch for this release series
     rm -rf *
     tar xf signature-osx.tar.gz
@@ -228,24 +228,24 @@ Codesigner only: Commit the detached codesign payloads:
 Non-codesigners: wait for Windows/macOS detached signatures:
 
 - Once the Windows/macOS builds each have 3 matching signatures, they will be signed with their respective release keys.
-- Detached signatures will then be committed to the [bitcoin-detached-sigs](https://github.com/bitcoin-core/bitcoin-detached-sigs) repository, which can be combined with the unsigned apps to create signed binaries.
+- Detached signatures will then be committed to the [litecoinz-detached-sigs](https://github.com/litecoinz-core/litecoinz-detached-sigs) repository, which can be combined with the unsigned apps to create signed binaries.
 
 Create (and optionally verify) the signed macOS binary:
 
     pushd ./gitian-builder
-    ./bin/gbuild -i --commit signature=v${VERSION} ../bitcoin/contrib/gitian-descriptors/gitian-osx-signer.yml
-    ./bin/gsign --signer "$SIGNER" --release ${VERSION}-osx-signed --destination ../gitian.sigs/ ../bitcoin/contrib/gitian-descriptors/gitian-osx-signer.yml
-    ./bin/gverify -v -d ../gitian.sigs/ -r ${VERSION}-osx-signed ../bitcoin/contrib/gitian-descriptors/gitian-osx-signer.yml
-    mv build/out/bitcoin-osx-signed.dmg ../bitcoin-${VERSION}-osx.dmg
+    ./bin/gbuild -i --commit signature=v${VERSION} ../litecoinz/contrib/gitian-descriptors/gitian-osx-signer.yml
+    ./bin/gsign --signer "$SIGNER" --release ${VERSION}-osx-signed --destination ../gitian.sigs/ ../litecoinz/contrib/gitian-descriptors/gitian-osx-signer.yml
+    ./bin/gverify -v -d ../gitian.sigs/ -r ${VERSION}-osx-signed ../litecoinz/contrib/gitian-descriptors/gitian-osx-signer.yml
+    mv build/out/litecoinz-osx-signed.dmg ../litecoinz-${VERSION}-osx.dmg
     popd
 
 Create (and optionally verify) the signed Windows binaries:
 
     pushd ./gitian-builder
-    ./bin/gbuild -i --commit signature=v${VERSION} ../bitcoin/contrib/gitian-descriptors/gitian-win-signer.yml
-    ./bin/gsign --signer "$SIGNER" --release ${VERSION}-win-signed --destination ../gitian.sigs/ ../bitcoin/contrib/gitian-descriptors/gitian-win-signer.yml
-    ./bin/gverify -v -d ../gitian.sigs/ -r ${VERSION}-win-signed ../bitcoin/contrib/gitian-descriptors/gitian-win-signer.yml
-    mv build/out/bitcoin-*win64-setup.exe ../bitcoin-${VERSION}-win64-setup.exe
+    ./bin/gbuild -i --commit signature=v${VERSION} ../litecoinz/contrib/gitian-descriptors/gitian-win-signer.yml
+    ./bin/gsign --signer "$SIGNER" --release ${VERSION}-win-signed --destination ../gitian.sigs/ ../litecoinz/contrib/gitian-descriptors/gitian-win-signer.yml
+    ./bin/gverify -v -d ../gitian.sigs/ -r ${VERSION}-win-signed ../litecoinz/contrib/gitian-descriptors/gitian-win-signer.yml
+    mv build/out/litecoinz-*win64-setup.exe ../litecoinz-${VERSION}-win64-setup.exe
     popd
 
 Commit your signature for the signed macOS/Windows binaries:
@@ -267,22 +267,22 @@ sha256sum * > SHA256SUMS
 
 The list of files should be:
 ```
-bitcoin-${VERSION}-aarch64-linux-gnu.tar.gz
-bitcoin-${VERSION}-arm-linux-gnueabihf.tar.gz
-bitcoin-${VERSION}-i686-pc-linux-gnu.tar.gz
-bitcoin-${VERSION}-riscv64-linux-gnu.tar.gz
-bitcoin-${VERSION}-x86_64-linux-gnu.tar.gz
-bitcoin-${VERSION}-osx64.tar.gz
-bitcoin-${VERSION}-osx.dmg
-bitcoin-${VERSION}.tar.gz
-bitcoin-${VERSION}-win64-setup.exe
-bitcoin-${VERSION}-win64.zip
+litecoinz-${VERSION}-aarch64-linux-gnu.tar.gz
+litecoinz-${VERSION}-arm-linux-gnueabihf.tar.gz
+litecoinz-${VERSION}-i686-pc-linux-gnu.tar.gz
+litecoinz-${VERSION}-riscv64-linux-gnu.tar.gz
+litecoinz-${VERSION}-x86_64-linux-gnu.tar.gz
+litecoinz-${VERSION}-osx64.tar.gz
+litecoinz-${VERSION}-osx.dmg
+litecoinz-${VERSION}.tar.gz
+litecoinz-${VERSION}-win64-setup.exe
+litecoinz-${VERSION}-win64.zip
 ```
 The `*-debug*` files generated by the gitian build contain debug symbols
 for troubleshooting by developers. It is assumed that anyone that is interested
 in debugging can run gitian to generate the files for themselves. To avoid
 end-user confusion about which file to pick, as well as save storage
-space *do not upload these to the bitcoin.org server, nor put them in the torrent*.
+space *do not upload these to the litecoinz.org server, nor put them in the torrent*.
 
 - GPG-sign it, delete the unsigned file:
 ```
@@ -292,41 +292,41 @@ rm SHA256SUMS
 (the digest algorithm is forced to sha256 to avoid confusion of the `Hash:` header that GPG adds with the SHA256 used for the files)
 Note: check that SHA256SUMS itself doesn't end up in SHA256SUMS, which is a spurious/nonsensical entry.
 
-- Upload zips and installers, as well as `SHA256SUMS.asc` from last step, to the bitcoin.org server
-  into `/var/www/bin/bitcoin-core-${VERSION}`
+- Upload zips and installers, as well as `SHA256SUMS.asc` from last step, to the litecoinz.org server
+  into `/var/www/bin/litecoinz-core-${VERSION}`
 
 - A `.torrent` will appear in the directory after a few minutes. Optionally help seed this torrent. To get the `magnet:` URI use:
 ```bash
 transmission-show -m <torrent file>
 ```
 Insert the magnet URI into the announcement sent to mailing lists. This permits
-people without access to `bitcoin.org` to download the binary distribution.
+people without access to `litecoinz.org` to download the binary distribution.
 Also put it into the `optional_magnetlink:` slot in the YAML file for
-bitcoin.org (see below for bitcoin.org update instructions).
+litecoinz.org (see below for litecoinz.org update instructions).
 
-- Update bitcoin.org version
+- Update litecoinz.org version
 
-  - First, check to see if the Bitcoin.org maintainers have prepared a
-    release: https://github.com/bitcoin-dot-org/bitcoin.org/labels/Core
+  - First, check to see if the Litecoinz.org maintainers have prepared a
+    release: https://github.com/litecoinz-core/litecoinz.org/labels/Core
 
       - If they have, it will have previously failed their Travis CI
         checks because the final release files weren't uploaded.
         Trigger a Travis CI rebuild---if it passes, merge.
 
-  - If they have not prepared a release, follow the Bitcoin.org release
-    instructions: https://github.com/bitcoin-dot-org/bitcoin.org/blob/master/docs/adding-events-release-notes-and-alerts.md#release-notes
+  - If they have not prepared a release, follow the Litecoinz.org release
+    instructions: https://github.com/litecoinz-core/litecoinz.org/blob/master/docs/adding-events-release-notes-and-alerts.md#release-notes
 
   - After the pull request is merged, the website will automatically show the newest version within 15 minutes, as well
     as update the OS download links. Ping @saivann/@harding (saivann/harding on Freenode) in case anything goes wrong
 
 - Update other repositories and websites for new version
 
-  - bitcoincore.org blog post
+  - litecoinz.org blog post
 
   - bitcoincore.org maintained versions update:
     [table](https://github.com/bitcoin-core/bitcoincore.org/commits/master/_includes/posts/maintenance-table.md)
 
-  - bitcoincore.org RPC documentation update
+  - litecoinz.org RPC documentation update
 
   - Update packaging repo
 
@@ -354,7 +354,7 @@ bitcoin.org (see below for bitcoin.org update instructions).
 
       - Archive the release notes for the new version to `doc/release-notes/` (branch `master` and branch of the release)
 
-      - Create a [new GitHub release](https://github.com/bitcoin/bitcoin/releases/new) with a link to the archived release notes
+      - Create a [new GitHub release](https://github.com/litecoinz-core/litecoinz/releases/new) with a link to the archived release notes
 
       - Create a pinned meta-issue for testing the release candidate (see [this issue](https://github.com/bitcoin/bitcoin/issues/15555) for an example) and provide a link to it in the release announcements where useful
 
@@ -366,7 +366,7 @@ bitcoin.org (see below for bitcoin.org update instructions).
 
   - Update title of #bitcoin on Freenode IRC
 
-  - Optionally twitter, reddit /r/Bitcoin, ... but this will usually sort out itself
+  - Optionally twitter, reddit /r/Litecoinz, ... but this will usually sort out itself
 
   - Celebrate
 
