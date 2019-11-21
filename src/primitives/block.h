@@ -20,13 +20,16 @@
 class CBlockHeader
 {
 public:
+    static const size_t HEADER_SIZE=4+32+32+32+4+4+32; // excluding Equihash solution
     // header
     int32_t nVersion;
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
+    uint256 hashReserved;
     uint32_t nTime;
     uint32_t nBits;
     uint256 nNonce;
+    std::vector<unsigned char> nSolution;
 
     CBlockHeader()
     {
@@ -40,9 +43,11 @@ public:
         READWRITE(this->nVersion);
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
+        READWRITE(hashReserved);
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
+        READWRITE(nSolution);
     }
 
     void SetNull()
@@ -50,9 +55,11 @@ public:
         nVersion = 0;
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
+        hashReserved.SetNull();
         nTime = 0;
         nBits = 0;
         nNonce.SetNull();
+        nSolution.clear();
     }
 
     bool IsNull() const
@@ -110,9 +117,11 @@ public:
         block.nVersion       = nVersion;
         block.hashPrevBlock  = hashPrevBlock;
         block.hashMerkleRoot = hashMerkleRoot;
+        block.hashReserved   = hashReserved;
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
+        block.nSolution      = nSolution;
         return block;
     }
 
