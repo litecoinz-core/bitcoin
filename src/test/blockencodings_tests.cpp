@@ -6,8 +6,11 @@
 #include <blockencodings.h>
 #include <consensus/merkle.h>
 #include <chainparams.h>
+#include <crypto/equihash.h>
+#include <miner.h>
 #include <pow.h>
 #include <streams.h>
+#include <validation.h>
 
 #include <test/setup_common.h>
 
@@ -31,9 +34,9 @@ static CBlock BuildBlockTestCase() {
 
     block.vtx.resize(3);
     block.vtx[0] = MakeTransactionRef(tx);
-    block.nVersion = 42;
+    block.nVersion = 4;
     block.hashPrevBlock = InsecureRand256();
-    block.nBits = 0x207fffff;
+    block.nBits = 0x200f0f0f;
 
     tx.vin[0].prevout.hash = InsecureRand256();
     tx.vin[0].prevout.n = 0;
@@ -49,8 +52,53 @@ static CBlock BuildBlockTestCase() {
     bool mutated;
     block.hashMerkleRoot = BlockMerkleRoot(block, &mutated);
     assert(!mutated);
-    while (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus())) {
+
+    static const int nInnerLoopCount = 0xFFFF;
+    static const int nInnerLoopMask = 0xFFFF;
+    uint64_t nMaxTries = 1000000;
+
+    unsigned n = Params().GetConsensus().EquihashN(::ChainActive().Tip()->nHeight + 1);
+    unsigned k = Params().GetConsensus().EquihashK(::ChainActive().Tip()->nHeight + 1);
+
+    // IncrementExtraNonce creates a valid coinbase and merkleRoot
+    {
+        LOCK(cs_main);
+        unsigned int extraNonce = 0;
+        IncrementExtraNonce(&block, ::ChainActive().Tip(), extraNonce);
+    }
+
+    crypto_generichash_blake2b_state eh_state;
+    EhInitialiseState(n, k, eh_state);
+
+    // I = the block header minus nonce and solution.
+    CEquihashInput I{block};
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss << I;
+
+    // H(I||...
+    crypto_generichash_blake2b_update(&eh_state, (unsigned char*)&ss[0], ss.size());
+
+    while (nMaxTries > 0 && ((int)block.nNonce.GetUint64(0) & nInnerLoopMask) < nInnerLoopCount) {
+        // Yes, there is a chance every nonce could fail to satisfy the -regtest
+        // target -- 1 in 2^(2^256). That ain't gonna happen
         block.nNonce = ArithToUint256(UintToArith256(block.nNonce) + 1);
+
+        // H(I||V||...
+        crypto_generichash_blake2b_state curr_state;
+        curr_state = eh_state;
+        crypto_generichash_blake2b_update(&curr_state, block.nNonce.begin(), block.nNonce.size());
+
+        // (x_1, x_2, ...) = A(I, V, n, k)
+        std::function<bool(std::vector<unsigned char>)> validBlock =
+                [&block](std::vector<unsigned char> soln) {
+            block.nSolution = soln;
+            return CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus());
+        };
+        bool found = EhBasicSolveUncancellable(n, k, curr_state, validBlock);
+        --nMaxTries;
+        if (found) {
+            break;
+        }
     }
     return block;
 }
@@ -292,15 +340,60 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
     CBlock block;
     block.vtx.resize(1);
     block.vtx[0] = MakeTransactionRef(std::move(coinbase));
-    block.nVersion = 42;
+    block.nVersion = 4;
     block.hashPrevBlock = InsecureRand256();
-    block.nBits = 0x207fffff;
+    block.nBits = 0x200f0f0f;
 
     bool mutated;
     block.hashMerkleRoot = BlockMerkleRoot(block, &mutated);
     assert(!mutated);
-    while (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus())) {
+
+    static const int nInnerLoopCount = 0xFFFF;
+    static const int nInnerLoopMask = 0xFFFF;
+    uint64_t nMaxTries = 1000000;
+
+    unsigned n = Params().GetConsensus().EquihashN(::ChainActive().Tip()->nHeight + 1);
+    unsigned k = Params().GetConsensus().EquihashK(::ChainActive().Tip()->nHeight + 1);
+
+    // IncrementExtraNonce creates a valid coinbase and merkleRoot
+    {
+        LOCK(cs_main);
+        unsigned int extraNonce = 0;
+        IncrementExtraNonce(&block, ::ChainActive().Tip(), extraNonce);
+    }
+
+    crypto_generichash_blake2b_state eh_state;
+    EhInitialiseState(n, k, eh_state);
+
+    // I = the block header minus nonce and solution.
+    CEquihashInput I{block};
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss << I;
+
+    // H(I||...
+    crypto_generichash_blake2b_update(&eh_state, (unsigned char*)&ss[0], ss.size());
+
+    while (nMaxTries > 0 && ((int)block.nNonce.GetUint64(0) & nInnerLoopMask) < nInnerLoopCount) {
+        // Yes, there is a chance every nonce could fail to satisfy the -regtest
+        // target -- 1 in 2^(2^256). That ain't gonna happen
         block.nNonce = ArithToUint256(UintToArith256(block.nNonce) + 1);
+
+        // H(I||V||...
+        crypto_generichash_blake2b_state curr_state;
+        curr_state = eh_state;
+        crypto_generichash_blake2b_update(&curr_state, block.nNonce.begin(), block.nNonce.size());
+
+        // (x_1, x_2, ...) = A(I, V, n, k)
+        std::function<bool(std::vector<unsigned char>)> validBlock =
+                [&block](std::vector<unsigned char> soln) {
+            block.nSolution = soln;
+            return CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus());
+        };
+        bool found = EhBasicSolveUncancellable(n, k, curr_state, validBlock);
+        --nMaxTries;
+        if (found) {
+            break;
+        }
     }
 
     // Test simple header round-trip with only coinbase

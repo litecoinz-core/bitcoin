@@ -55,18 +55,18 @@ BOOST_AUTO_TEST_CASE(util_criticalsection)
 }
 
 static const unsigned char ParseHex_expected[65] = {
-    0x04, 0x67, 0x8a, 0xfd, 0xb0, 0xfe, 0x55, 0x48, 0x27, 0x19, 0x67, 0xf1, 0xa6, 0x71, 0x30, 0xb7,
-    0x10, 0x5c, 0xd6, 0xa8, 0x28, 0xe0, 0x39, 0x09, 0xa6, 0x79, 0x62, 0xe0, 0xea, 0x1f, 0x61, 0xde,
-    0xb6, 0x49, 0xf6, 0xbc, 0x3f, 0x4c, 0xef, 0x38, 0xc4, 0xf3, 0x55, 0x04, 0xe5, 0x1e, 0xc1, 0x12,
-    0xde, 0x5c, 0x38, 0x4d, 0xf7, 0xba, 0x0b, 0x8d, 0x57, 0x8a, 0x4c, 0x70, 0x2b, 0x6b, 0xf1, 0x1d,
-    0x5f
+    0x04, 0xaa, 0xa0, 0x49, 0xf7, 0x60, 0x9d, 0x4b, 0x17, 0xac, 0x73, 0x3a, 0x67, 0xdd, 0x8a, 0xbd,
+    0x10, 0xc0, 0xb5, 0xb4, 0x10, 0xf0, 0xb3, 0x68, 0x1b, 0x36, 0xdf, 0xb8, 0x5f, 0xdc, 0x15, 0x7f,
+    0xa2, 0x22, 0x57, 0x89, 0x57, 0x85, 0xbf, 0xc0, 0xc8, 0x74, 0x1a, 0x9f, 0xf8, 0x7d, 0x98, 0xd8,
+    0xa9, 0xa5, 0x33, 0x0a, 0x87, 0x90, 0xaa, 0xdd, 0x2f, 0x70, 0x95, 0x76, 0xf6, 0x5b, 0x37, 0xdb,
+    0x89
 };
 BOOST_AUTO_TEST_CASE(util_ParseHex)
 {
     std::vector<unsigned char> result;
     std::vector<unsigned char> expected(ParseHex_expected, ParseHex_expected + sizeof(ParseHex_expected));
     // Basic test vector
-    result = ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f");
+    result = ParseHex("04aaa049f7609d4b17ac733a67dd8abd10c0b5b410f0b3681b36dfb85fdc157fa22257895785bfc0c8741a9ff87d98d8a9a5330a8790aadd2f709576f65b37db89");
     BOOST_CHECK_EQUAL_COLLECTIONS(result.begin(), result.end(), expected.begin(), expected.end());
 
     // Spaces between bytes must be supported
@@ -86,7 +86,7 @@ BOOST_AUTO_TEST_CASE(util_HexStr)
 {
     BOOST_CHECK_EQUAL(
         HexStr(ParseHex_expected, ParseHex_expected + sizeof(ParseHex_expected)),
-        "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f");
+        "04aaa049f7609d4b17ac733a67dd8abd10c0b5b410f0b3681b36dfb85fdc157fa22257895785bfc0c8741a9ff87d98d8a9a5330a8790aadd2f709576f65b37db89");
 
     BOOST_CHECK_EQUAL(
         HexStr(ParseHex_expected + sizeof(ParseHex_expected),
@@ -101,7 +101,7 @@ BOOST_AUTO_TEST_CASE(util_HexStr)
 
     BOOST_CHECK_EQUAL(
         HexStr(ParseHex_vec.rbegin(), ParseHex_vec.rend()),
-        "b0fd8a6704"
+        "f749a0aa04"
     );
 
     BOOST_CHECK_EQUAL(
@@ -119,13 +119,13 @@ BOOST_AUTO_TEST_CASE(util_HexStr)
     BOOST_CHECK_EQUAL(
         HexStr(std::reverse_iterator<const uint8_t *>(ParseHex_expected + 5),
                std::reverse_iterator<const uint8_t *>(ParseHex_expected)),
-        "b0fd8a6704"
+        "f749a0aa04"
     );
 
     BOOST_CHECK_EQUAL(
         HexStr(std::reverse_iterator<const uint8_t *>(ParseHex_expected + 65),
                std::reverse_iterator<const uint8_t *>(ParseHex_expected)),
-        "5f1df16b2b704c8a578d0bbaf74d385cde12c11ee50455f3c438ef4c3fbcf649b6de611feae06279a60939e028a8d65c10b73071a6f16719274855feb0fd8a6704"
+        "89db375bf67695702fddaa90870a33a5a9d8987df89f1a74c8c0bf8557895722a27f15dc5fb8df361b68b3f010b4b5c010bd8add673a73ac174b9d60f749a0aa04"
     );
 }
 
