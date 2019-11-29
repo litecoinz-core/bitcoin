@@ -1513,7 +1513,7 @@ BOOST_AUTO_TEST_CASE(script_can_append_self)
     BOOST_CHECK(s == d);
 
     // check doubling a script that's large enough to require reallocation
-    static const char hex[] = "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f";
+    static const char hex[] = "04aaa049f7609d4b17ac733a67dd8abd10c0b5b410f0b3681b36dfb85fdc157fa22257895785bfc0c8741a9ff87d98d8a9a5330a8790aadd2f709576f65b37db89";
     s = CScript() << ParseHex(hex) << OP_CHECKSIG;
     d = CScript() << ParseHex(hex) << OP_CHECKSIG << ParseHex(hex) << OP_CHECKSIG;
     s += s;

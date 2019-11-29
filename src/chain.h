@@ -178,9 +178,11 @@ public:
     //! block header
     int32_t nVersion;
     uint256 hashMerkleRoot;
+    uint256 hashReserved;
     uint32_t nTime;
     uint32_t nBits;
-    uint32_t nNonce;
+    uint256 nNonce;
+    std::vector<unsigned char> nSolution;
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     int32_t nSequenceId;
@@ -206,9 +208,11 @@ public:
 
         nVersion       = 0;
         hashMerkleRoot = uint256();
+        hashReserved   = uint256();
         nTime          = 0;
         nBits          = 0;
-        nNonce         = 0;
+        nNonce         = uint256();
+        nSolution.clear();
     }
 
     CBlockIndex()
@@ -222,9 +226,11 @@ public:
 
         nVersion       = block.nVersion;
         hashMerkleRoot = block.hashMerkleRoot;
+        hashReserved   = block.hashReserved;
         nTime          = block.nTime;
         nBits          = block.nBits;
         nNonce         = block.nNonce;
+        nSolution      = block.nSolution;
     }
 
     FlatFilePos GetBlockPos() const {
@@ -252,9 +258,11 @@ public:
         if (pprev)
             block.hashPrevBlock = pprev->GetBlockHash();
         block.hashMerkleRoot = hashMerkleRoot;
+        block.hashReserved   = hashReserved;
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
+        block.nSolution      = nSolution;
         return block;
     }
 
@@ -380,9 +388,11 @@ public:
         READWRITE(this->nVersion);
         READWRITE(hashPrev);
         READWRITE(hashMerkleRoot);
+        READWRITE(hashReserved);
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
+        READWRITE(nSolution);
     }
 
     uint256 GetBlockHash() const
@@ -391,9 +401,11 @@ public:
         block.nVersion        = nVersion;
         block.hashPrevBlock   = hashPrev;
         block.hashMerkleRoot  = hashMerkleRoot;
+        block.hashReserved    = hashReserved;
         block.nTime           = nTime;
         block.nBits           = nBits;
         block.nNonce          = nNonce;
+        block.nSolution       = nSolution;
         return block.GetHash();
     }
 

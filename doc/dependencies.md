@@ -16,6 +16,7 @@ These are the dependencies currently used by Litecoinz Core. You can find instru
 | libevent | [2.1.8-stable](https://github.com/libevent/libevent/releases) | 2.0.22 | No |  |  |
 | libpng |  |  |  |  | [Yes](https://github.com/bitcoin/bitcoin/blob/master/depends/packages/qt.mk) |
 | librsvg | |  |  |  |  |
+| libsodium | [1.0.17](https://download.libsodium.org/libsodium/releases/) |  |  |  |  |
 | MiniUPnPc | [2.0.20180203](http://miniupnp.free.fr/files) |  | No |  |  |
 | OpenSSL | [1.0.1k](https://www.openssl.org/source) |  | Yes |  |  |
 | PCRE |  |  |  |  | [Yes](https://github.com/bitcoin/bitcoin/blob/master/depends/packages/qt.mk) |

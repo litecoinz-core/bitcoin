@@ -6,6 +6,7 @@
 #ifndef BITCOIN_CHAINPARAMS_H
 #define BITCOIN_CHAINPARAMS_H
 
+#include <arith_uint256.h>
 #include <chainparamsbase.h>
 #include <consensus/params.h>
 #include <primitives/block.h>
@@ -69,6 +70,9 @@ public:
     /** If this chain is exclusively used for testing */
     bool IsTestChain() const { return m_is_test_chain; }
     uint64_t PruneAfterHeight() const { return nPruneAfterHeight; }
+
+    unsigned int EquihashSolutionWidth(int height) const;
+
     /** Minimum free space (in GB) needed for data directory */
     uint64_t AssumedBlockchainSize() const { return m_assumed_blockchain_size; }
     /** Minimum free space (in GB) needed for data directory when pruned; Does not include prune target*/
@@ -84,6 +88,8 @@ public:
     const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
     const CCheckpointData& Checkpoints() const { return checkpointData; }
     const ChainTxData& TxData() const { return chainTxData; }
+
+    uint64_t EquihashForkHeight() const { return consensus.nEquihashForkHeight; };
 protected:
     CChainParams() {}
 

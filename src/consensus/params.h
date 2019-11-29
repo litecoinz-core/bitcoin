@@ -73,15 +73,42 @@ struct Params {
     uint32_t nRuleChangeActivationThreshold;
     uint32_t nMinerConfirmationWindow;
     BIP9Deployment vDeployments[MAX_VERSION_BITS_DEPLOYMENTS];
+    /** Block height where Equihash<144,5> becomes active */
+    int nEquihashForkHeight;
     /** Proof of work parameters */
+    unsigned int nEquihashN1 = 0;
+    unsigned int nEquihashK1 = 0;
+    unsigned int nEquihashN2 = 0;
+    unsigned int nEquihashK2 = 0;
+    unsigned int EquihashN(int height = 0) const
+    {
+        if(height < nEquihashForkHeight) {
+            return nEquihashN1;
+        } else {
+            return nEquihashN2;
+        }
+    }
+    unsigned int EquihashK(int height = 0) const
+    {
+        if(height < nEquihashForkHeight) {
+            return nEquihashK1;
+        } else {
+            return nEquihashK2;
+        }
+    }
     uint256 powLimit;
     bool fPowAllowMinDifficultyBlocks;
     bool fPowNoRetargeting;
+    int64_t nPowAveragingWindow;
+    int64_t nPowMaxAdjustDown;
+    int64_t nPowMaxAdjustUp;
     int64_t nPowTargetSpacing;
     int64_t nPowTargetTimespan;
-    int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
     uint256 nMinimumChainWork;
     uint256 defaultAssumeValid;
+    int64_t AveragingWindowTimespan() const { return nPowAveragingWindow * nPowTargetSpacing; }
+    int64_t MinActualTimespan() const { return (AveragingWindowTimespan() * (100 - nPowMaxAdjustUp  )) / 100; }
+    int64_t MaxActualTimespan() const { return (AveragingWindowTimespan() * (100 + nPowMaxAdjustDown)) / 100; }
 };
 } // namespace Consensus
 

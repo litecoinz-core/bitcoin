@@ -1166,6 +1166,10 @@ bool ReadBlockFromDisk(CBlock& block, const FlatFilePos& pos, const Consensus::P
     if (!CheckProofOfWork(block.GetHash(), block.nBits, consensusParams))
         return error("ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
 
+    // Check Equihash solution
+    if (!CheckEquihashSolution(&block))
+        return error("ReadBlockFromDisk: Errors in block header at %s (bad Equihash solution)", pos.ToString());
+
     return true;
 }
 
@@ -3254,6 +3258,27 @@ static bool FindUndoPos(CValidationState &state, int nFile, FlatFilePos &pos, un
 
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true)
 {
+    // Check block version
+    if (block.nVersion < MIN_BLOCK_VERSION)
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, error("CheckBlockHeader(): block version too low"),
+                         REJECT_INVALID, "version-too-low");
+
+    // Check Equihash solution is valid
+    if (fCheckPOW) {
+        const CChainParams& chainparams = Params();
+        size_t oldSize = chainparams.EquihashSolutionWidth(chainparams.EquihashForkHeight());
+        size_t newSize = chainparams.EquihashSolutionWidth(chainparams.EquihashForkHeight() - 1);
+
+        if ((block.nSolution.size() != oldSize) && (block.nSolution.size() != newSize))
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("CheckBlockHeader(): Equihash solution has invalid size have %d need [%d, %d]",
+                                        block.nSolution.size(), oldSize, newSize),
+                             REJECT_INVALID, "invalid-solution-size");
+
+        if (!CheckEquihashSolution(&block))
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("CheckBlockHeader(): Equihash solution invalid"),
+                             REJECT_INVALID, "invalid-solution");
+    }
+
     // Check proof of work matches claimed amount
     if (fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams))
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "high-hash", "proof of work failed");
