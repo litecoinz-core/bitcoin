@@ -1,6 +1,6 @@
-Bitcoin Core version 0.19.0 is now available from:
+Bitcoin Core version 0.19.0.1 is now available from:
 
-  <https://bitcoincore.org/bin/bitcoin-core-0.19.0/>
+  <https://bitcoincore.org/bin/bitcoin-core-0.19.0.1/>
 
 This release includes new features, various bug fixes and performance
 improvements, as well as updated translations.
@@ -549,6 +549,7 @@ Build system changes
 - #16817 Fix casing in getblockchaininfo to be inline with other fields (dangershony)
 - #17131 fix -rpcclienttimeout 0 option (fjahr)
 - #17249 Add missing deque include to fix build (jbeich)
+- #17368 cli: fix -getinfo output when compiled with no wallet (fanquake)
 
 ### GUI
 - #15464 Drop unused return values in WalletFrame (promag)
@@ -858,6 +859,7 @@ Build system changes
 - #17095 util: Filter control characters out of log messages (laanwj)
 - #17085 init: Change fallback locale to C.UTF-8 (laanwj)
 - #16957 9% less memory: make SaltedOutpointHasher noexcept (martinus)
+- #17449 fix uninitialized variable nMinerConfirmationWindow (bitcoinVBR)
 
 ### Documentation
 - #15514 Update Transifex links (fanquake)
@@ -1054,6 +1056,7 @@ Thanks to everyone who directly contributed to this release:
 - nicolas.dorier
 - Nils Loewen
 - nkostoulas
+- NullFunctor
 - orient
 - Patrick Strateman
 - Peter Bushnell
