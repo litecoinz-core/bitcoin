@@ -15,12 +15,13 @@
 
 #include <consensus/consensus.h>
 #include <interfaces/node.h>
+#include <interfaces/wallet.h>
 #include <key_io.h>
-#include <validation.h>
+#include <policy/policy.h>
 #include <script/script.h>
 #include <timedata.h>
 #include <util/system.h>
-#include <policy/policy.h>
+#include <validation.h>
 #include <wallet/ismine.h>
 
 #include <stdint.h>
