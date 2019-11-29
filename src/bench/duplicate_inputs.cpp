@@ -30,6 +30,7 @@ static void DuplicateInputs(benchmark::State& state)
     assert(pindexPrev != nullptr);
     block.nBits = GetNextWorkRequired(pindexPrev, &block, chainparams.GetConsensus());
     block.nNonce = uint256();
+    block.nVersion = 4;
     auto nHeight = pindexPrev->nHeight + 1;
 
     // Make a coinbase TX
