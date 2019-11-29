@@ -26,6 +26,7 @@
 #include <txmempool.h>
 #include <policy/fees.h>
 #include <wallet/fees.h>
+#include <wallet/wallet.h>
 
 #include <QFontMetrics>
 #include <QScrollBar>

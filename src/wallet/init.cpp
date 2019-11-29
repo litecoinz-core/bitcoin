@@ -7,9 +7,11 @@
 #include <interfaces/chain.h>
 #include <net.h>
 #include <outputtype.h>
+#include <ui_interface.h>
 #include <util/moneystr.h>
 #include <util/system.h>
 #include <util/translation.h>
+#include <wallet/coincontrol.h>
 #include <wallet/wallet.h>
 #include <wallet/walletutil.h>
 #include <walletinitinterface.h>
