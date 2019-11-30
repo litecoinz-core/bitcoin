@@ -85,7 +85,7 @@ public:
         assert(maxUint/UintToArith256(consensus.powLimit) >= consensus.nPowAveragingWindow);
         consensus.nPowMaxAdjustDown = 32; // 32% adjustment down
         consensus.nPowMaxAdjustUp = 16; // 16% adjustment up
-        consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
+        consensus.nPowTargetTimespan = 3.5 * 24 * 60 * 60; // 3.5 days
         consensus.nPowTargetSpacing = 2.5 * 60;
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
@@ -106,20 +106,20 @@ public:
         consensus.nEquihashForkHeight = 95000;
 
         // The best chain should have at least this much work.
-        consensus.nMinimumChainWork = uint256S("0x000000000000000000000000000000000000000008ea3cf107ae0dec57f03fe8");
+        consensus.nMinimumChainWork = uint256S("0x000000000000000000000000000000000000000000000000000003cbab61c14c");
 
         // By default assume that the signatures in ancestors of this block are valid.
-        consensus.defaultAssumeValid = uint256S("0x00000000000000000005f8920febd3925f8272a6a71237563d78c2edfdd09ddf"); // 597379
+        consensus.defaultAssumeValid = uint256S("0x00000c6a745906efa830d5946f68518dcb32dca077cdc49b757613bf956229d2"); // 382610
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 32-bit integer with any alignment.
          */
-        pchMessageStart[0] = 0xf9;
-        pchMessageStart[1] = 0xbe;
-        pchMessageStart[2] = 0xb4;
-        pchMessageStart[3] = 0xd9;
+        pchMessageStart[0] = 0xd8;
+        pchMessageStart[1] = 0xcf;
+        pchMessageStart[2] = 0xcd;
+        pchMessageStart[3] = 0x93;
         nDefaultPort = 29333;
         nPruneAfterHeight = 100000;
         m_assumed_blockchain_size = 280;
@@ -140,14 +140,8 @@ public:
         // This is fine at runtime as we'll fall back to using them as a oneshot if they don't support the
         // service bits we want, but we should get them updated to support all service bits wanted by any
         // release ASAP to avoid it where possible.
-        vSeeds.emplace_back("seed.bitcoin.sipa.be"); // Pieter Wuille, only supports x1, x5, x9, and xd
-        vSeeds.emplace_back("dnsseed.bluematt.me"); // Matt Corallo, only supports x9
-        vSeeds.emplace_back("dnsseed.bitcoin.dashjr.org"); // Luke Dashjr
-        vSeeds.emplace_back("seed.bitcoinstats.com"); // Christian Decker, supports x1 - xf
-        vSeeds.emplace_back("seed.bitcoin.jonasschnelli.ch"); // Jonas Schnelli, only supports x1, x5, x9, and xd
-        vSeeds.emplace_back("seed.btc.petertodd.org"); // Peter Todd, only supports x1, x5, x9, and xd
-        vSeeds.emplace_back("seed.bitcoin.sprovoost.nl"); // Sjors Provoost
-        vSeeds.emplace_back("dnsseed.emzy.de"); // Stephan Oeste
+        vSeeds.emplace_back("dnsseed.litecoinz.info");
+        vSeeds.emplace_back("dnsseed.litecoinz.org");
 
         // guarantees the first 2 characters, when base58 encoded, are "L1"
         base58Prefixes[PUBKEY_ADDRESS] = {0x0A, 0xB3};
@@ -168,27 +162,29 @@ public:
 
         checkpointData = {
             {
-                { 11111, uint256S("0x0000000069e244f73d78e8fd29ba2fd2ed618bd6fa2ee92559f542fdb26e7c1d")},
-                { 33333, uint256S("0x000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")},
-                { 74000, uint256S("0x0000000000573993a3c9e41ce34471c079dcf5f52a0e824a81e7f953b8661a20")},
-                {105000, uint256S("0x00000000000291ce28027faea320c8d2b054b2e0fe44a773f3eefb151d6bdc97")},
-                {134444, uint256S("0x00000000000005b12ffd4cd315cd34ffd4a594f430ac814c91184a0d42d2b0fe")},
-                {168000, uint256S("0x000000000000099e61ea72015e79632f216fe6cb33d7899acb35b75c8303b763")},
-                {193000, uint256S("0x000000000000059f452a5f7340de6682a977387c17010ff6e6c3bd83ca8b1317")},
-                {210000, uint256S("0x000000000000048b95347e83192f69cf0366076336c639f9b7228e9ba171342e")},
-                {216116, uint256S("0x00000000000001b4f4b433e81ee46494af945cf96014816a4e2370f11b23df4e")},
-                {225430, uint256S("0x00000000000001c108384350f74090433e7fcf79a606b8e797f065b130575932")},
-                {250000, uint256S("0x000000000000003887df1f29024b06fc2200b55f8af8f35453d7be294df2d214")},
-                {279000, uint256S("0x0000000000000001ae8c72a0b0c301f67e3afca10e819efa9041e458e9bd7e40")},
-                {295000, uint256S("0x00000000000000004d9b4ef50f0f9d686fd69db2e03af35a100370c64632a983")},
+                {   293, uint256S("0x000094343dc23483c26239f71603980a5c56062c061b81a6b6f30a77e6717d41")},
+                {   586, uint256S("0x000015256f276b0bb1d8e3b601ac37644e76cf860d8bc565aa1ff82fc0a6ef3f")},
+                {   879, uint256S("0x000083828428d8d2f5245d9d4ada17df9418ae1c320268f477a853f800df3365")},
+                {  1330, uint256S("0x0000c242f621ac3a22e6cd230b25fc27800082072724cab678f5e32c12f8d1f8")},
+                {  2659, uint256S("0x00004c165c02803abd5cbb066a7b70328efa8e0345fa7658701af96c53458da8")},
+                {  5317, uint256S("0x0000486d6d3e2587fe0c3f48fd74ed21676202bf1867648dbf4c1a52f3659d4e")},
+                { 10633, uint256S("0x0000005f809e79671f57d4dbb0ad8777d1e4a2f07d72e146316271567e6987b0")},
+                { 21266, uint256S("0x000000126cfdf6cb5279df2a53e79ab30ea0f7336c794120c3197b9373908dd6")},
+                { 31901, uint256S("0x00000088282df4c26a47bea22cb313a29ffe9ac8f30aa7de0129ca2c3a770f9a")},
+                { 50000, uint256S("0x0000003f6762c60d9699a212e819a7d6630c6ea602a475908bfefe962f0803bb")},
+                { 60000, uint256S("0x0000001334ddb7af2a2c17fd6dc0f7d0c0f6ba077403a0aed763b304001b7402")},
+                { 70000, uint256S("0x000000094161a482b4d2f6dd2a261bcd6962a2c00a5e6ba94002d0633ce8912e")},
+                { 80000, uint256S("0x000000157847bab44d199ad34954da98910c726575716270771ee7e32ceba1d6")},
+                { 90000, uint256S("0x0000002564e3694cd1240d570fdcf9cf36791b2e2c462040fb78af34959dd02e")},
+                { 93096, uint256S("0x00000038101895ae9add3b5d288db258b053c4bdc39642aeb6be44f7f53bc929")},
             }
         };
 
         chainTxData = ChainTxData{
             // Data from RPC: getchaintxstats 4096 00000000000000000005f8920febd3925f8272a6a71237563d78c2edfdd09ddf
-            /* nTime    */ 1569926786,
-            /* nTxCount */ 460596047,
-            /* dTxRate  */ 3.77848885073875,
+            /* nTime    */ 1529323588,
+            /* nTxCount */ 95703,
+            /* dTxRate  */ 1600,
         };
     }
 };
@@ -214,7 +210,7 @@ public:
         assert(maxUint/UintToArith256(consensus.powLimit) >= consensus.nPowAveragingWindow);
         consensus.nPowMaxAdjustDown = 32; // 32% adjustment down
         consensus.nPowMaxAdjustUp = 16; // 16% adjustment up
-        consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
+        consensus.nPowTargetTimespan = 3.5 * 24 * 60 * 60; // 3.5 days
         consensus.nPowTargetSpacing = 2.5 * 60;
         consensus.fPowAllowMinDifficultyBlocks = true;
         consensus.fPowNoRetargeting = false;
@@ -235,15 +231,15 @@ public:
         consensus.nEquihashForkHeight = 435;
 
         // The best chain should have at least this much work.
-        consensus.nMinimumChainWork = uint256S("0x00000000000000000000000000000000000000000000012b2a3a62424f21c918");
+        consensus.nMinimumChainWork = uint256S("0x0000000000000000000000000000000000000000000000000000000000f1eb9b");
 
         // By default assume that the signatures in ancestors of this block are valid.
         consensus.defaultAssumeValid = uint256S("0x00000000000000b7ab6ce61eb6d571003fbe5fe892da4c9b740c49a07542462d"); // 1580000
 
-        pchMessageStart[0] = 0x0b;
-        pchMessageStart[1] = 0x11;
-        pchMessageStart[2] = 0x09;
-        pchMessageStart[3] = 0x07;
+        pchMessageStart[0] = 0xfe;
+        pchMessageStart[1] = 0x90;
+        pchMessageStart[2] = 0x86;
+        pchMessageStart[3] = 0x5d;
         nDefaultPort = 39333;
         nPruneAfterHeight = 1000;
         m_assumed_blockchain_size = 30;
@@ -262,10 +258,8 @@ public:
         vFixedSeeds.clear();
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
-        vSeeds.emplace_back("testnet-seed.bitcoin.jonasschnelli.ch");
-        vSeeds.emplace_back("seed.tbtc.petertodd.org");
-        vSeeds.emplace_back("seed.testnet.bitcoin.sprovoost.nl");
-        vSeeds.emplace_back("testnet-seed.bluematt.me"); // Just a static list of stable node(s), only supports x9
+        vSeeds.emplace_back("dnsseed-testnet.litecoinz.info");
+        vSeeds.emplace_back("dnsseed-testnet.litecoinz.org");
 
         // guarantees the first 2 characters, when base58 encoded, are "T1"
         base58Prefixes[PUBKEY_ADDRESS] = {0x0E, 0xA4};
@@ -287,14 +281,14 @@ public:
 
         checkpointData = {
             {
-                {546, uint256S("000000002a936ca763904c3c35fce2f3556c559c0214345d31b1bcebf76acb70")},
+                {0, uint256S("0x000777e63f7c2efb3c554405a07a4f3dd1def8ea5cef4fda65b2c57247171141")},
             }
         };
 
         chainTxData = ChainTxData{
             // Data from RPC: getchaintxstats 4096 00000000000000b7ab6ce61eb6d571003fbe5fe892da4c9b740c49a07542462d
-            /* nTime    */ 1569741320,
-            /* nTxCount */ 52318009,
+            /* nTime    */ 1511954736,
+            /* nTxCount */ 1,
             /* dTxRate  */ 0.1517002392872353,
         };
     }
@@ -321,7 +315,7 @@ public:
         assert(maxUint/UintToArith256(consensus.powLimit) >= consensus.nPowAveragingWindow);
         consensus.nPowMaxAdjustDown = 0; // Turn off adjustment down
         consensus.nPowMaxAdjustUp = 0; // Turn off adjustment up
-        consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
+        consensus.nPowTargetTimespan = 3.5 * 24 * 60 * 60; // 3.5 days
         consensus.nPowTargetSpacing = 2.5 * 60;
         consensus.fPowAllowMinDifficultyBlocks = true;
         consensus.fPowNoRetargeting = true;
@@ -377,7 +371,7 @@ public:
 
         checkpointData = {
             {
-                {0, uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206")},
+                {0, uint256S("0x010539fc03180019d4de063a7fc0089e5e7d500ed5e943936ea7ea0e7aacd54a")},
             }
         };
 
