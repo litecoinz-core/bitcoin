@@ -23,6 +23,7 @@ BITCOIN_INCLUDES=-I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFL
 
 BITCOIN_INCLUDES += -I$(srcdir)/secp256k1/include
 BITCOIN_INCLUDES += $(UNIVALUE_CFLAGS)
+BITCOIN_INCLUDES += $(LIBSNARK_CFLAGS)
 
 LIBBITCOIN_SERVER=libbitcoin_server.a
 LIBBITCOIN_COMMON=libbitcoin_common.a
@@ -560,7 +561,7 @@ litecoinzd_LDADD = \
   $(LIBSECP256K1)
 
 litecoinzd_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
-litecoinzd_LDADD += $(SODIUM_LIBS)
+litecoinzd_LDADD += $(SODIUM_LIBS) $(LIBSNARK)
 
 # litecoinz-cli binary #
 litecoinz_cli_SOURCES = bitcoin-cli.cpp
@@ -579,7 +580,7 @@ litecoinz_cli_LDADD = \
   $(LIBBITCOIN_CRYPTO)
 
 litecoinz_cli_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
-litecoinz_cli_LDADD += $(SODIUM_LIBS)
+litecoinz_cli_LDADD += $(SODIUM_LIBS) $(LIBSNARK)
 #
 
 # litecoinz-tx binary #
@@ -601,7 +602,7 @@ litecoinz_tx_LDADD = \
   $(LIBSECP256K1)
 
 litecoinz_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
-litecoinz_tx_LDADD += $(SODIUM_LIBS)
+litecoinz_tx_LDADD += $(SODIUM_LIBS) $(LIBSNARK)
 #
 
 # litecoinz-wallet binary #
@@ -629,7 +630,7 @@ litecoinz_wallet_LDADD = \
   $(LIBUNIVALUE)
 
 litecoinz_wallet_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(CRYPTO_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(MINIUPNPC_LIBS) $(ZMQ_LIBS)
-litecoinz_wallet_LDADD += $(SODIUM_LIBS)
+litecoinz_wallet_LDADD += $(SODIUM_LIBS) $(LIBSNARK)
 #
 
 # bitcoinconsensus library #
@@ -685,6 +686,7 @@ $(top_srcdir)/$(subdir)/config/bitcoin-config.h.in:  $(am__configure_deps)
 clean-local:
 	-$(MAKE) -C secp256k1 clean
 	-$(MAKE) -C univalue clean
+	-$(MAKE) -C snark clean
 	-rm -f leveldb/*/*.gcda leveldb/*/*.gcno leveldb/helpers/memenv/*.gcda leveldb/helpers/memenv/*.gcno
 	-rm -f config.h
 	-rm -rf test/__pycache__
@@ -705,6 +707,8 @@ if HARDEN
 	@echo "Checking binary security..."
 	$(AM_V_at) READELF=$(READELF) OBJDUMP=$(OBJDUMP) $(PYTHON) $(top_srcdir)/contrib/devtools/security-check.py < $(bin_PROGRAMS)
 endif
+
+include Makefile.snark.include
 
 if EMBEDDED_LEVELDB
 include Makefile.leveldb.include
