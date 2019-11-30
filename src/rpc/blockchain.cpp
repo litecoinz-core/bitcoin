@@ -1275,7 +1275,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     UniValue softforks(UniValue::VOBJ);
     BuriedForkDescPushBack(softforks, "bip34", consensusParams.BIP34Enabled ? 0 : std::numeric_limits<int>::max());
     BuriedForkDescPushBack(softforks, "bip66", consensusParams.BIP66Height);
-    BuriedForkDescPushBack(softforks, "bip65", consensusParams.BIP65Height);
+    BuriedForkDescPushBack(softforks, "bip65", consensusParams.BIP65Enabled ? 0 : std::numeric_limits<int>::max());
     BuriedForkDescPushBack(softforks, "csv", consensusParams.CSVHeight);
     BuriedForkDescPushBack(softforks, "segwit", consensusParams.SegwitHeight);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);

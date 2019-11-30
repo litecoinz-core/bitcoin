@@ -51,8 +51,8 @@ struct Params {
     bool BIP16Enabled;
     /* BIP34 rule */
     bool BIP34Enabled;
-    /** Block height at which BIP65 becomes active */
-    int BIP65Height;
+    /* BIP65 rule */
+    bool BIP65Enabled;
     /** Block height at which BIP66 becomes active */
     int BIP66Height;
     /** Block height at which CSV (BIP68, BIP112 and BIP113) becomes active */
