@@ -1862,7 +1862,7 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consens
     }
 
     // Start enforcing the DERSIG (BIP66) rule
-    if (pindex->nHeight >= consensusparams.BIP66Height) {
+    if (consensusparams.BIP66Enabled) {
         flags |= SCRIPT_VERIFY_DERSIG;
     }
 
