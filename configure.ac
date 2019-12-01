@@ -473,6 +473,26 @@ AC_ARG_WITH([daemon],
   [build_bitcoind=$withval],
   [build_bitcoind=yes])
 
+AC_PATH_PROG(CARGO,cargo,none)
+if test x$CARGO = xnone; then
+  AC_MSG_ERROR("cargo required to enable rust support.")
+fi
+
+dnl Find the additional lib (if any) responsible for handling
+dnl dlopen/dlsym/etc.
+TEMP_LIBS="$LIBS"
+LIBS=
+AC_SEARCH_LIBS([dlsym],[dl])
+DL_LIBS="$LIBS"
+LIBS="$TEMP_LIBS"
+
+case $host in
+  ${host_cpu}-w64-mingw*) CARGO_FLAGS="$CARGO_FLAGS --verbose --release" CARGO_TARGET=${host_cpu}-pc-windows-gnu ;;
+  ${host_cpu}-pc-linux*) CARGO_FLAGS="$CARGO_FLAGS --verbose --release" CARGO_TARGET=${host_cpu}-unknown-${host_os} ;;
+  ${host_cpu}-apple-darwin*) CARGO_FLAGS="$CARGO_FLAGS --verbose --release" CARGO_TARGET=${host_cpu}-apple-darwin ;;
+  *) CARGO_FLAGS="$CARGO_FLAGS --verbose --release" CARGO_TARGET=${host} ;;
+esac
+
 use_pkgconfig=yes
 case $host in
   *mingw*)
@@ -1623,6 +1643,9 @@ AC_SUBST(EVENT_LIBS)
 AC_SUBST(EVENT_PTHREADS_LIBS)
 AC_SUBST(ZMQ_LIBS)
 AC_SUBST(QR_LIBS)
+AC_SUBST(DL_LIBS)
+AC_SUBST(CARGO_FLAGS)
+AC_SUBST(CARGO_TARGET)
 AC_CONFIG_FILES([Makefile src/Makefile doc/man/Makefile share/setup.nsi share/qt/Info.plist test/config.ini])
 AC_CONFIG_FILES([contrib/devtools/split-debug.sh],[chmod +x contrib/devtools/split-debug.sh])
 AM_COND_IF([HAVE_DOXYGEN], [AC_CONFIG_FILES([doc/Doxyfile])])
