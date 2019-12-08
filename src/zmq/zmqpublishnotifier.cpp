@@ -16,6 +16,7 @@ static const char *MSG_HASHBLOCK = "hashblock";
 static const char *MSG_HASHTX    = "hashtx";
 static const char *MSG_RAWBLOCK  = "rawblock";
 static const char *MSG_RAWTX     = "rawtx";
+static const char *MSG_CHECKEDBLOCK = "checkedblock";
 
 // Internal function to send multipart message
 static int zmq_send_multipart(void *sock, const void* data, size_t size, ...)
@@ -165,6 +166,16 @@ bool CZMQPublishHashBlockNotifier::NotifyBlock(const CBlockIndex *pindex)
     for (unsigned int i = 0; i < 32; i++)
         data[31 - i] = hash.begin()[i];
     return SendMessage(MSG_HASHBLOCK, data, 32);
+}
+
+bool CZMQPublishCheckedBlockNotifier::NotifyBlock(const CBlock& block)
+{
+    uint256 hash = block.GetHash();
+    LogPrint(BCLog::ZMQ, "zmq: Publish checkedblock %s\n", hash.GetHex());
+    char data[32];
+    for (unsigned int i = 0; i < 32; i++)
+        data[31 - i] = hash.begin()[i];
+    return SendMessage(MSG_CHECKEDBLOCK, data, 32);
 }
 
 bool CZMQPublishHashTransactionNotifier::NotifyTransaction(const CTransaction &transaction)
