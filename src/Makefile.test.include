@@ -77,8 +77,10 @@ FUZZ_SUITE_LD_COMMON = \
  $(CRYPTO_LIBS) \
  $(EVENT_PTHREADS_LIBS) \
  $(SODIUM_LIBS) \
+ $(LIBZCASH) \
  $(LIBRUSTZCASH) \
- $(LIBSNARK)
+ $(LIBSNARK) \
+ $(LIBZCASH_LIBS)
 
 # test_litecoinz binary #
 BITCOIN_TESTS =\
@@ -198,7 +200,7 @@ if ENABLE_ZMQ
 test_test_litecoinz_LDADD += $(LIBBITCOIN_ZMQ) $(ZMQ_LIBS)
 endif
 
-test_test_litecoinz_LDADD += $(SODIUM_LIBS) $(LIBRUSTZCASH) $(LIBSNARK)
+test_test_litecoinz_LDADD += $(SODIUM_LIBS) $(LIBZCASH) $(LIBRUSTZCASH) $(LIBSNARK) $(LIBZCASH_LIBS)
 
 if ENABLE_FUZZ
 test_fuzz_block_deserialize_SOURCES = $(FUZZ_SUITE) test/fuzz/deserialize.cpp

@@ -1,0 +1,22 @@
+// Copyright (c) 2016-2019 The Zcash developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#include <zcash/Proof.hpp>
+
+#include <crypto/common.h>
+
+#include <boost/static_assert.hpp>
+#include <mutex>
+
+namespace libzcash {
+
+ProofVerifier ProofVerifier::Strict() {
+    return ProofVerifier(true);
+}
+
+ProofVerifier ProofVerifier::Disabled() {
+    return ProofVerifier(false);
+}
+
+}
