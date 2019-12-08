@@ -1,4 +1,4 @@
-packages:=boost openssl libevent libgmp libsodium
+packages:=boost openssl libevent libgmp libsodium curl
 
 qt_packages = qrencode zlib
 

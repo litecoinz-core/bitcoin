@@ -503,7 +503,15 @@ int GuiMain(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    /// 7. Determine network (and switch to network specific options)
+    /// 7. Determine availability of LitecoinZ circuit parameters
+    if (!fs::is_directory(GetParamsDir()))
+    {
+        QMessageBox::critical(nullptr, QObject::tr(PACKAGE_NAME),
+            QObject::tr("Error: Specified circuit parameters directory \"%1\" does not exist.").arg(QString::fromStdString(gArgs.GetArg("-paransdir", ""))));
+        return EXIT_FAILURE;
+    }
+
+    /// 8. Determine network (and switch to network specific options)
     // - Do not call Params() before this step
     // - Do this after parsing the configuration file, as the network can be switched there
     // - QSettings() will use the new application name after this, resulting in network-specific settings
@@ -530,7 +538,7 @@ int GuiMain(int argc, char* argv[])
     initTranslations(qtTranslatorBase, qtTranslator, translatorBase, translator);
 
 #ifdef ENABLE_WALLET
-    /// 8. URI IPC sending
+    /// 9. URI IPC sending
     // - Do this early as we don't want to bother initializing if we are just calling IPC
     // - Do this *after* setting up the data directory, as the data directory hash is used in the name
     // of the server.
@@ -546,7 +554,7 @@ int GuiMain(int argc, char* argv[])
     }
 #endif // ENABLE_WALLET
 
-    /// 9. Main GUI initialization
+    /// 10. Main GUI initialization
     // Install global event filter that makes sure that long tooltips can be word-wrapped
     app.installEventFilter(new GUIUtil::ToolTipToRichTextFilter(TOOLTIP_WRAP_THRESHOLD, &app));
 #if defined(Q_OS_WIN)

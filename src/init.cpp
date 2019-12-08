@@ -18,6 +18,7 @@
 #include <compat/sanity.h>
 #include <consensus/validation.h>
 #include <fs.h>
+#include <fetchparams.h>
 #include <httprpc.h>
 #include <httpserver.h>
 #include <index/blockfilterindex.h>
@@ -54,6 +55,7 @@
 #include <validation.h>
 #include <validationinterface.h>
 #include <walletinitinterface.h>
+#include <zcashparams.h>
 
 #include <stdint.h>
 #include <stdio.h>
@@ -75,6 +77,9 @@
 #include <zmq/zmqnotificationinterface.h>
 #include <zmq/zmqrpc.h>
 #endif
+
+#include <libsnark/common/profiling.hpp>
+#include <librustzcash.h>
 
 static bool fFeeEstimatesInitialized = false;
 static const bool DEFAULT_PROXYRANDOMIZE = true;
@@ -284,6 +289,8 @@ void Shutdown(InitInterfaces& interfaces)
     UnregisterAllValidationInterfaces();
     GetMainSignals().UnregisterBackgroundSignalScheduler();
     GetMainSignals().UnregisterWithMempoolSignals(mempool);
+    delete pzcashParams;
+    pzcashParams = nullptr;
     globalVerifyHandle.reset();
     ECC_Stop();
     LogPrintf("%s: done\n", __func__);
@@ -379,6 +386,7 @@ void SetupServerArgs()
     gArgs.AddArg("-maxorphantx=<n>", strprintf("Keep at most <n> unconnectable transactions in memory (default: %u)", DEFAULT_MAX_ORPHAN_TRANSACTIONS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-mempoolexpiry=<n>", strprintf("Do not keep transactions in the mempool longer than <n> hours (default: %u)", DEFAULT_MEMPOOL_EXPIRY), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-minimumchainwork=<hex>", strprintf("Minimum work assumed to exist on a valid chain in hex (default: %s, testnet: %s)", defaultChainParams->GetConsensus().nMinimumChainWork.GetHex(), testnetChainParams->GetConsensus().nMinimumChainWork.GetHex()), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-paramsdir=<dir>", "Specify LitecoinZ circuit parameters directory", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-par=<n>", strprintf("Set the number of script verification threads (%u to %d, 0 = auto, <0 = leave that many cores free, default: %d)",
         -GetNumCores(), MAX_SCRIPTCHECK_THREADS, DEFAULT_SCRIPTCHECK_THREADS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-persistmempool", strprintf("Whether to save the mempool on shutdown and load on restart (default: %u)", DEFAULT_PERSIST_MEMPOOL), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -750,6 +758,79 @@ static bool InitSanityCheck()
         InitError("OS cryptographic RNG sanity check failure. Aborting.");
         return false;
     }
+
+    return true;
+}
+
+static bool LoadParams()
+{
+    struct timeval tv_start, tv_end;
+    float elapsed;
+
+    boost::filesystem::path sapling_spend = GetParamsDir() / "sapling-spend.params";
+    boost::filesystem::path sapling_output = GetParamsDir() / "sapling-output.params";
+    boost::filesystem::path sprout_groth16 = GetParamsDir() / "sprout-groth16.params";
+
+    if(!(boost::filesystem::exists(sapling_spend))) {
+        // Download the 'sapling-spend.params' file
+        if (!FetchParams("https://z.cash/downloads/sapling-spend.params", sapling_spend.string()))
+            return false;
+    }
+
+    // Verify the 'sapling-spend.params' file
+    if (!(VerifyParams(sapling_spend.string(), "8e48ffd23abb3a5fd9c5589204f32d9c31285a04b78096ba40a79b75677efc13"))) {
+        return false;
+    }
+
+    if(!(boost::filesystem::exists(sapling_output))) {
+        // Download the 'sapling-output.params' file
+        if (!FetchParams("https://z.cash/downloads/sapling-output.params", sapling_output.string()))
+            return false;
+    }
+
+    // Verify the 'sapling-output.params' file
+    if (!(VerifyParams(sapling_output.string(), "2f0ebbcbb9bb0bcffe95a397e7eba89c29eb4dde6191c339db88570e3f3fb0e4"))) {
+        return false;
+    }
+
+    if(!(boost::filesystem::exists(sprout_groth16))) {
+        // Download the 'sprout-groth16.params' file
+        if (!FetchParams("https://z.cash/downloads/sprout-groth16.params", sprout_groth16.string()))
+            return false;
+    }
+
+    // Verify the 'sprout-groth16.params' file
+    if (!(VerifyParams(sprout_groth16.string(), "b685d700c60328498fbde589c8c7c484c722b788b265b72af448a5bf0ee55b50"))) {
+        return false;
+    }
+
+    pzcashParams = ZCJoinSplit::Prepared();
+    static_assert(sizeof(boost::filesystem::path::value_type) == sizeof(codeunit), "librustzcash not configured correctly");
+
+    auto sapling_spend_str = sapling_spend.native();
+    auto sapling_output_str = sapling_output.native();
+    auto sprout_groth16_str = sprout_groth16.native();
+
+    LogPrintf("Loading Sapling (Spend) parameters from %s\n", sapling_spend.string().c_str());
+    LogPrintf("Loading Sapling (Output) parameters from %s\n", sapling_output.string().c_str());
+    LogPrintf("Loading Sapling (Sprout Groth16) parameters from %s\n", sprout_groth16.string().c_str());
+    gettimeofday(&tv_start, 0);
+
+    librustzcash_init_zksnark_params(
+        reinterpret_cast<const codeunit*>(sapling_spend_str.c_str()),
+        sapling_spend_str.length(),
+        "8270785a1a0d0bc77196f000ee6d221c9c9894f55307bd9357c3f0105d31ca63991ab91324160d8f53e2bbd3c2633a6eb8bdf5205d822e7f3f73edac51b2b70c",
+        reinterpret_cast<const codeunit*>(sapling_output_str.c_str()),
+        sapling_output_str.length(),
+        "657e3d38dbb5cb5e7dd2970e8b03d69b4787dd907285b5a7f0790dcc8072f60bf593b32cc2d1c030e00ff5ae64bf84c5c3beb84ddc841d48264b4a171744d028",
+        reinterpret_cast<const codeunit*>(sprout_groth16_str.c_str()),
+        sprout_groth16_str.length(),
+        "e9b238411bd6c0ec4791e9d04245ec350c9c5744f5610dfcce4365d5ca49dfefd5054e371842b3f88fa1b9d7e8e075249b3ebabd167fa8b0f3161292d36c180a"
+    );
+
+    gettimeofday(&tv_end, 0);
+    elapsed = float(tv_end.tv_sec-tv_start.tv_sec) + (tv_end.tv_usec-tv_start.tv_usec)/float(1000000);
+    LogPrintf("Loaded verifying key in %fs seconds.\n", elapsed);
 
     return true;
 }
@@ -1256,6 +1337,14 @@ bool AppInitMain(InitInterfaces& interfaces)
             gArgs.GetArg("-datadir", ""), fs::current_path().string());
     }
 
+    // Warn about relative -paramsdir path.
+    if (gArgs.IsArgSet("-paramsdir") && !fs::path(gArgs.GetArg("-paramsdir", "")).is_absolute()) {
+        LogPrintf("Warning: relative paramsdir option '%s' specified, which will be interpreted relative to the " /* Continued */
+                  "current working directory '%s'. This is fragile, because if litecoinz is started in the future "
+                  "from a different location, it will be unable to locate the current circuit parameters files.\n",
+            gArgs.GetArg("-paramsdir", ""), fs::current_path().string());
+    }
+
     InitSignatureCache();
     InitScriptExecutionCache();
 
@@ -1289,6 +1378,15 @@ bool AppInitMain(InitInterfaces& interfaces)
 #if ENABLE_ZMQ
     RegisterZMQRPCCommands(tableRPC);
 #endif
+
+    // These must be disabled for now, they are buggy and we probably don't
+    // want any of libsnark's profiling in production anyway.
+    libsnark::inhibit_profiling_info = true;
+    libsnark::inhibit_profiling_counters = true;
+
+    // Initialize LitecoinZ circuit parameters
+    if (!(LoadParams()))
+        return InitError(_("Error downloading or verifying LitecoinZ circuit parameters.").translated);
 
     /* Start the RPC server already.  It will be started in "warmup" mode
      * and not really process calls already (but it will signify connections

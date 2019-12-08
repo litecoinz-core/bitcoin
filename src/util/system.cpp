@@ -718,8 +718,35 @@ fs::path GetDefaultDataDir()
 #endif
 }
 
+fs::path GetDefaultParamsDir()
+{
+    // Windows < Vista: C:\Documents and Settings\Username\Application Data\LitecoinzParams
+    // Windows >= Vista: C:\Users\Username\AppData\Roaming\LitecoinzParams
+    // Mac: ~/Library/Application Support/LitecoinzParams
+    // Unix: ~/.litecoinz-params
+#ifdef WIN32
+    // Windows
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "LitecoinzParams";
+#else
+    fs::path pathRet;
+    char* pszHome = getenv("HOME");
+    if (pszHome == nullptr || strlen(pszHome) == 0)
+        pathRet = fs::path("/");
+    else
+        pathRet = fs::path(pszHome);
+#ifdef MAC_OSX
+    // Mac
+    return pathRet / "Library/Application Support/LitecoinzParams";
+#else
+    // Unix
+    return pathRet / ".litecoinz-params";
+#endif
+#endif
+}
+
 static fs::path g_blocks_path_cache_net_specific;
 static fs::path pathCached;
+static fs::path paramsPathCached;
 static fs::path pathCachedNetSpecific;
 static RecursiveMutex csPathCached;
 
@@ -774,6 +801,31 @@ const fs::path &GetDataDir(bool fNetSpecific)
         // This is the first run, create wallets subdirectory too
         fs::create_directories(path / "wallets");
     }
+
+    return path;
+}
+
+const fs::path &GetParamsDir()
+{
+    LOCK(csPathCached);
+    fs::path &path = paramsPathCached;
+
+    // Cache the path to avoid calling fs::create_directories on every call of
+    // this function
+    if (!path.empty()) return path;
+
+    std::string paramsdir = gArgs.GetArg("-paramsdir", "");
+    if (!paramsdir.empty()) {
+        path = fs::system_complete(paramsdir);
+        if (!fs::is_directory(path)) {
+            path = "";
+            return path;
+        }
+    } else {
+        path = GetDefaultParamsDir();
+    }
+
+    fs::create_directories(path);
 
     return path;
 }

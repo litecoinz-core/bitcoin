@@ -573,6 +573,7 @@ case $host in
          openssl_prefix=`$BREW --prefix openssl 2>/dev/null`
          bdb_prefix=`$BREW --prefix berkeley-db4 2>/dev/null`
          qt5_prefix=`$BREW --prefix qt5 2>/dev/null`
+         curl_prefix=`$BREW --prefix curl 2>/dev/null`
          if test x$openssl_prefix != x; then
            PKG_CONFIG_PATH="$openssl_prefix/lib/pkgconfig:$PKG_CONFIG_PATH"
            export PKG_CONFIG_PATH
@@ -584,6 +585,9 @@ case $host in
          if test x$qt5_prefix != x; then
            PKG_CONFIG_PATH="$qt5_prefix/lib/pkgconfig:$PKG_CONFIG_PATH"
            export PKG_CONFIG_PATH
+         fi
+         if test x$curl_prefix != x; then
+           PKG_CONFIG_PATH="$curl_prefix/lib/pkgconfig:$PKG_CONFIG_PATH"
          fi
        fi
      else
@@ -1272,6 +1276,7 @@ if test x$use_pkgconfig = xyes; then
   m4_ifdef(
     [PKG_CHECK_MODULES],
     [
+      PKG_CHECK_MODULES([CURL], [libcurl],,[AC_MSG_ERROR(libcurl not found.)])
       PKG_CHECK_MODULES([CRYPTO], [libcrypto],,[AC_MSG_ERROR(libcrypto not found.)])
       PKG_CHECK_MODULES([SODIUM], [libsodium],,[AC_MSG_ERROR(libsodium not found.)])
       if test x$use_qr != xno; then
@@ -1409,6 +1414,9 @@ AC_CHECK_LIB([gmp],[[__gmpn_sub_n]],GMP_LIBS=-lgmp, [AC_MSG_ERROR(libgmp missing
 
 AC_CHECK_HEADER([gmpxx.h],,AC_MSG_ERROR(libgmpxx headers missing))
 AC_CHECK_LIB([gmpxx],[main],GMPXX_LIBS=-lgmpxx, [AC_MSG_ERROR(libgmpxx missing)])
+
+AC_CHECK_HEADER([curl/curl.h],,AC_MSG_ERROR(libcurl headers missing))
+AC_CHECK_LIB([curl], [main],CURL_LIBS=-lcurl, AC_MSG_ERROR(libcurl missing))
 
 dnl Check for OpenMP support
 AX_OPENMP(
@@ -1646,6 +1654,7 @@ AC_SUBST(QR_LIBS)
 AC_SUBST(DL_LIBS)
 AC_SUBST(GMP_LIBS)
 AC_SUBST(GMPXX_LIBS)
+AC_SUBST(CURL_LIBS)
 AC_SUBST(CARGO_FLAGS)
 AC_SUBST(CARGO_TARGET)
 AC_CONFIG_FILES([Makefile src/Makefile doc/man/Makefile share/setup.nsi share/qt/Info.plist test/config.ini])
