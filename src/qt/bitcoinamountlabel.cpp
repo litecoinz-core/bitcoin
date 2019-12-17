@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QString>
 #include <QStringList>
+#include <QWidget>
 
 #include <cassert>
 
@@ -44,7 +45,7 @@ void BitcoinAmountLabel::setText(const QString& newText)
     }
 }
 
-void BitcoinAmountLabel::changePrivacyMode(bool privacy)
+void BitcoinAmountLabel::setPrivacyMode(bool privacy)
 {
     if (privacy && cache.isEmpty()) {
         cache = text();
@@ -53,10 +54,4 @@ void BitcoinAmountLabel::changePrivacyMode(bool privacy)
         QLabel::setText(cache);
         cache.clear();
     }
-}
-
-void BitcoinAmountLabel::mousePressEvent(QMouseEvent* ev)
-{
-    Q_EMIT aboutToTogglePrivacy();
-    QLabel::mousePressEvent(ev);
 }

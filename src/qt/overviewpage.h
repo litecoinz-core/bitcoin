@@ -39,12 +39,12 @@ public:
 
 public Q_SLOTS:
     void setBalance(const interfaces::WalletBalances& balances);
+    void aboutToTogglePrivacy(bool privacy);
 
 Q_SIGNALS:
     void transactionClicked(const QModelIndex &index);
     void outOfSyncWarningClicked();
-    void aboutToTogglePrivacy();
-    void changePrivacyMode(bool privacy);
+    void setPrivacyMode(bool privacy);
 
 private:
     Ui::OverviewPage *ui;

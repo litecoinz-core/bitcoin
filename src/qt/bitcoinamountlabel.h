@@ -6,8 +6,12 @@
 #define BITCOIN_QT_BITCOINAMOUNTLABEL_H
 
 #include <QLabel>
+#include <QObject>
 #include <QString>
-#include <QWidget>
+
+QT_BEGIN_NAMESPACE
+class QWidget;
+QT_END_NAMESPACE
 
 /**
  * Widget for displaying bitcoin amounts.
@@ -20,14 +24,8 @@ public:
     explicit BitcoinAmountLabel(QWidget* parent = nullptr);
     void setText(const QString& newText);
 
-Q_SIGNALS:
-    void aboutToTogglePrivacy();
-
 public Q_SLOTS:
-    void changePrivacyMode(bool privacy);
-
-protected:
-    void mousePressEvent(QMouseEvent* ev) override;
+    void setPrivacyMode(bool privacy);
 
 private:
     QString cache{};

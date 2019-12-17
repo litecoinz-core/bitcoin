@@ -63,6 +63,8 @@ void WalletFrame::addWallet(WalletModel *walletModel)
     mapWalletViews[walletModel] = walletView;
 
     connect(walletView, &WalletView::outOfSyncWarningClicked, this, &WalletFrame::outOfSyncWarningClicked);
+
+    connect(this, &WalletFrame::setPrivacyMode, walletView, &WalletView::setPrivacyMode);
 }
 
 void WalletFrame::setCurrentWallet(WalletModel* wallet_model)
