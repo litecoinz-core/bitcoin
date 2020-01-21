@@ -185,14 +185,16 @@ void ModalOverlay::showHide(bool hide, bool userRequested)
     if (!isVisible() && !hide)
         setVisible(true);
 
-    setGeometry(0, hide ? 0 : height(), width(), height());
+    if (isVisible()) {
+      // The QShowEvent guarantees that this ModalOverlay widget is resized properly.
+      QPropertyAnimation* animation = new QPropertyAnimation(this, "pos");
+      animation->setDuration(300);
+      animation->setStartValue(QPoint(0, hide ? 0 : height()));
+      animation->setEndValue(QPoint(0, hide ? height() : 0));
+      animation->setEasingCurve(QEasingCurve::OutQuad);
+      animation->start(QAbstractAnimation::DeleteWhenStopped);
+    }
 
-    QPropertyAnimation* animation = new QPropertyAnimation(this, "pos");
-    animation->setDuration(300);
-    animation->setStartValue(QPoint(0, hide ? 0 : this->height()));
-    animation->setEndValue(QPoint(0, hide ? this->height() : 0));
-    animation->setEasingCurve(QEasingCurve::OutQuad);
-    animation->start(QAbstractAnimation::DeleteWhenStopped);
     layerIsVisible = !hide;
 }
 
