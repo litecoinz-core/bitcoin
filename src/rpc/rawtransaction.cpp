@@ -6,6 +6,7 @@
 #include <chain.h>
 #include <coins.h>
 #include <compat/byteswap.h>
+#include <consensus/upgrades.h>
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <index/txindex.h>
@@ -61,12 +62,16 @@ static void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& 
         CBlockIndex* pindex = LookupBlockIndex(hashBlock);
         if (pindex) {
             if (::ChainActive().Contains(pindex)) {
+                entry.pushKV("height", pindex->nHeight);
                 entry.pushKV("confirmations", 1 + ::ChainActive().Height() - pindex->nHeight);
                 entry.pushKV("time", pindex->GetBlockTime());
                 entry.pushKV("blocktime", pindex->GetBlockTime());
             }
             else
+            {
+                entry.pushKV("height", -1);
                 entry.pushKV("confirmations", 0);
+            }
         }
     }
 }
@@ -102,11 +107,14 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
             "  \"hex\" : \"data\",       (string) The serialized, hex-encoded data for 'txid'\n"
             "  \"txid\" : \"id\",        (string) The transaction id (same as provided)\n"
             "  \"hash\" : \"id\",        (string) The transaction hash (differs from txid for witness transactions)\n"
+            "  \"overwintered\" : true|false, (boolean) The Overwintered flag\n"
+            "  \"version\" : n,          (numeric) The version\n"
+            "  \"versiongroupid\": \"hex\"  (string, optional) The version group id (Overwintered txs)\n"
             "  \"size\" : n,             (numeric) The serialized transaction size\n"
             "  \"vsize\" : n,            (numeric) The virtual transaction size (differs from size for witness transactions)\n"
             "  \"weight\" : n,           (numeric) The transaction's weight (between vsize*4-3 and vsize*4)\n"
-            "  \"version\" : n,          (numeric) The version\n"
             "  \"locktime\" : ttt,       (numeric) The lock time\n"
+            "  \"expiryheight\" : ttt,   (numeric, optional) The block height after which the transaction expires\n"
             "  \"vin\" : [               (array of json objects)\n"
             "     {\n"
             "       \"txid\": \"id\",    (string) The transaction id\n"
@@ -134,6 +142,33 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
             "           ,...\n"
             "         ]\n"
             "       }\n"
+            "     }\n"
+            "     ,...\n"
+            "  ],\n"
+            "  \"vjoinsplit\" : [        (array of json objects, only for version >= 2)\n"
+            "     {\n"
+            "       \"vpub_old\" : x.xxx,         (numeric) public input value in " + CURRENCY_UNIT + "\n"
+            "       \"vpub_new\" : x.xxx,         (numeric) public output value in " + CURRENCY_UNIT + "\n"
+            "       \"anchor\" : \"hex\",         (string) the anchor\n"
+            "       \"nullifiers\" : [            (json array of string)\n"
+            "         \"hex\"                     (string) input note nullifier\n"
+            "         ,...\n"
+            "       ],\n"
+            "       \"commitments\" : [           (json array of string)\n"
+            "         \"hex\"                     (string) output note commitment\n"
+            "         ,...\n"
+            "       ],\n"
+            "       \"onetimePubKey\" : \"hex\",  (string) the onetime public key used to encrypt the ciphertexts\n"
+            "       \"randomSeed\" : \"hex\",     (string) the random seed\n"
+            "       \"macs\" : [                  (json array of string)\n"
+            "         \"hex\"                     (string) input note MAC\n"
+            "         ,...\n"
+            "       ],\n"
+            "       \"proof\" : \"hex\",          (string) the zero-knowledge proof\n"
+            "       \"ciphertexts\" : [           (json array of string)\n"
+            "         \"hex\"                     (string) output note ciphertext\n"
+            "         ,...\n"
+            "       ]\n"
             "     }\n"
             "     ,...\n"
             "  ],\n"
@@ -386,6 +421,7 @@ static UniValue createrawtransaction(const JSONRPCRequest& request)
                         },
                         },
                     {"locktime", RPCArg::Type::NUM, /* default */ "0", "Raw locktime. Non-0 value also locktime-activates inputs"},
+                    {"expiryheight", RPCArg::Type::NUM, /* default */ strprintf("nextblockheight+%d", DEFAULT_TX_EXPIRY_DELTA), "Expiry height of transaction (if Overwinter is active)"},
                     {"replaceable", RPCArg::Type::BOOL, /* default */ "false", "Marks this transaction as BIP125-replaceable.\n"
             "                             Allows this transaction to be replaced by a transaction with higher fees. If provided, it is an error if explicit sequence numbers are incompatible."},
                 },
@@ -404,15 +440,16 @@ static UniValue createrawtransaction(const JSONRPCRequest& request)
         UniValue::VARR,
         UniValueType(), // ARR or OBJ, checked later
         UniValue::VNUM,
+        UniValue::VNUM,
         UniValue::VBOOL
         }, true
     );
 
     bool rbf = false;
-    if (!request.params[3].isNull()) {
-        rbf = request.params[3].isTrue();
+    if (!request.params[4].isNull()) {
+        rbf = request.params[4].isTrue();
     }
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf);
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, request.params[3]);
 
     return EncodeHexTx(CTransaction(rawTx));
 }
@@ -435,11 +472,14 @@ static UniValue decoderawtransaction(const JSONRPCRequest& request)
             "{\n"
             "  \"txid\" : \"id\",        (string) The transaction id\n"
             "  \"hash\" : \"id\",        (string) The transaction hash (differs from txid for witness transactions)\n"
+            "  \"overwintered\" : true|false (boolean) The Overwintered flag\n"
+            "  \"version\" : n,          (numeric) The version\n"
+            "  \"versiongroupid\": \"hex\"   (string, optional) The version group id (Overwintered txs)\n"
             "  \"size\" : n,             (numeric) The transaction size\n"
             "  \"vsize\" : n,            (numeric) The virtual transaction size (differs from size for witness transactions)\n"
             "  \"weight\" : n,           (numeric) The transaction's weight (between vsize*4 - 3 and vsize*4)\n"
-            "  \"version\" : n,          (numeric) The version\n"
             "  \"locktime\" : ttt,       (numeric) The lock time\n"
+            "  \"expiryheight\" : n,     (numeric, optional) Last valid block height for mining transaction (Overwintered txs)\n"
             "  \"vin\" : [               (array of json objects)\n"
             "     {\n"
             "       \"txid\": \"id\",    (string) The transaction id\n"
@@ -463,10 +503,37 @@ static UniValue decoderawtransaction(const JSONRPCRequest& request)
             "         \"reqSigs\" : n,            (numeric) The required sigs\n"
             "         \"type\" : \"pubkeyhash\",  (string) The type, eg 'pubkeyhash'\n"
             "         \"addresses\" : [           (json array of string)\n"
-            "           \"12tvKAXCxZjSmdNbao16dKXC8tRWfcF5oc\"   (string) litecoinz address\n"
+            "           \"t12tvKAXCxZjSmdNbao16dKXC8tRWfcF5oc\"   (string) litecoinz address\n"
             "           ,...\n"
             "         ]\n"
             "       }\n"
+            "     }\n"
+            "     ,...\n"
+            "  ],\n"
+            "  \"vjoinsplit\" : [        (array of json objects, only for version >= 2)\n"
+            "     {\n"
+            "       \"vpub_old\" : x.xxx,         (numeric) public input value in " + CURRENCY_UNIT + "\n"
+            "       \"vpub_new\" : x.xxx,         (numeric) public output value in " + CURRENCY_UNIT + "\n"
+            "       \"anchor\" : \"hex\",         (string) the anchor\n"
+            "       \"nullifiers\" : [            (json array of string)\n"
+            "         \"hex\"                     (string) input note nullifier\n"
+            "         ,...\n"
+            "       ],\n"
+            "       \"commitments\" : [           (json array of string)\n"
+            "         \"hex\"                     (string) output note commitment\n"
+            "         ,...\n"
+            "       ],\n"
+            "       \"onetimePubKey\" : \"hex\",  (string) the onetime public key used to encrypt the ciphertexts\n"
+            "       \"randomSeed\" : \"hex\",     (string) the random seed\n"
+            "       \"macs\" : [                  (json array of string)\n"
+            "         \"hex\"                     (string) input note MAC\n"
+            "         ,...\n"
+            "       ],\n"
+            "       \"proof\" : \"hex\",          (string) the zero-knowledge proof\n"
+            "       \"ciphertexts\" : [           (json array of string)\n"
+            "         \"hex\"                     (string) output note ciphertext\n"
+            "         ,...\n"
+            "       ]\n"
             "     }\n"
             "     ,...\n"
             "  ],\n"
@@ -649,6 +716,9 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
         view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
     }
 
+    // Grab the current consensus branch ID
+    auto consensusBranchId = CurrentEpochBranchId(::ChainActive().Height() + 1, Params().GetConsensus());
+
     // Use CTransaction for the constant parts of the
     // transaction to avoid rehashing.
     const CTransaction txConst(mergedTx);
@@ -664,10 +734,10 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
         // ... and merge in other signatures:
         for (const CMutableTransaction& txv : txVariants) {
             if (txv.vin.size() > i) {
-                sigdata.MergeSignatureData(DataFromTransaction(txv, i, coin.out));
+                sigdata.MergeSignatureData(DataFromTransaction(txv, i, coin.out, consensusBranchId));
             }
         }
-        ProduceSignature(DUMMY_SIGNING_PROVIDER, MutableTransactionSignatureCreator(&mergedTx, i, coin.out.nValue, 1), coin.out.scriptPubKey, sigdata);
+        ProduceSignature(DUMMY_SIGNING_PROVIDER, MutableTransactionSignatureCreator(&mergedTx, i, coin.out.nValue, 1), coin.out.scriptPubKey, sigdata, consensusBranchId);
 
         UpdateInput(txin, sigdata);
     }
@@ -712,6 +782,7 @@ static UniValue signrawtransactionwithkey(const JSONRPCRequest& request)
             "       \"NONE|ANYONECANPAY\"\n"
             "       \"SINGLE|ANYONECANPAY\"\n"
                     },
+                    {"branchid", RPCArg::Type::STR, /* default */ "0", "The hex representation of the consensus branch id to sign with. This can be used to force signing with consensus rules that are ahead of the node's current height."},
                 },
                 RPCResult{
             "{\n"
@@ -735,7 +806,7 @@ static UniValue signrawtransactionwithkey(const JSONRPCRequest& request)
                 },
             }.Check(request);
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR, UniValue::VARR, UniValue::VSTR}, true);
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR, UniValue::VARR, UniValue::VSTR, UniValue::VSTR}, true);
 
     CMutableTransaction mtx;
     if (!DecodeHexTx(mtx, request.params[0].get_str(), true)) {
@@ -763,7 +834,21 @@ static UniValue signrawtransactionwithkey(const JSONRPCRequest& request)
     // Parse the prevtxs array
     ParsePrevouts(request.params[2], &keystore, coins);
 
-    return SignTransaction(mtx, &keystore, coins, request.params[3]);
+    // Use the approximate release height if it is greater so offline nodes
+    // have a better estimation of the current height and will be more likely to
+    // determine the correct consensus branch ID.
+    const Consensus::Params& consensusParams = Params().GetConsensus();
+    int nextBlockHeight = std::max((::ChainActive().Height() + 1), consensusParams.nApproxReleaseHeight);
+    // Grab the current consensus branch ID
+    auto consensusBranchId = CurrentEpochBranchId(nextBlockHeight, consensusParams);
+    if (!request.params[4].isNull()) {
+        consensusBranchId = ParseHexToUInt32(request.params[4].get_str());
+        if (!IsConsensusBranchId(consensusBranchId)) {
+            throw std::runtime_error(request.params[4].get_str() + " is not a valid consensus branch id");
+        }
+    }
+
+    return SignTransaction(mtx, &keystore, coins, request.params[3], consensusBranchId);
 }
 
 static UniValue sendrawtransaction(const JSONRPCRequest& request)
@@ -805,6 +890,19 @@ static UniValue sendrawtransaction(const JSONRPCRequest& request)
     if (!DecodeHexTx(mtx, request.params[0].get_str()))
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
     CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
+
+    // DoS mitigation: reject transactions expiring soon
+    if (tx->nExpiryHeight > 0) {
+        int nextBlockHeight = ::ChainActive().Height() + 1;
+        if (Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_OVERWINTER)) {
+            if (nextBlockHeight + TX_EXPIRING_SOON_THRESHOLD > tx->nExpiryHeight) {
+                throw JSONRPCError(RPC_TRANSACTION_REJECTED,
+                    strprintf("tx-expiring-soon: expiryheight is %d but should be at least %d to avoid transaction expiring soon",
+                    tx->nExpiryHeight,
+                    nextBlockHeight + TX_EXPIRING_SOON_THRESHOLD));
+            }
+        }
+    }
 
     CFeeRate max_raw_tx_fee_rate = DEFAULT_MAX_RAW_TX_FEE_RATE;
     // TODO: temporary migration code for old clients. Remove in v0.20
@@ -1350,6 +1448,7 @@ UniValue createpsbt(const JSONRPCRequest& request)
                         },
                         },
                     {"locktime", RPCArg::Type::NUM, /* default */ "0", "Raw locktime. Non-0 value also locktime-activates inputs"},
+                    {"expiryheight", RPCArg::Type::NUM, /* default */ strprintf("nextblockheight+%d", DEFAULT_TX_EXPIRY_DELTA), "Expiry height of transaction (if Overwinter is active)"},
                     {"replaceable", RPCArg::Type::BOOL, /* default */ "false", "Marks this transaction as BIP125 replaceable.\n"
                             "                             Allows this transaction to be replaced by a transaction with higher fees. If provided, it is an error if explicit sequence numbers are incompatible."},
                 },
@@ -1366,15 +1465,16 @@ UniValue createpsbt(const JSONRPCRequest& request)
         UniValue::VARR,
         UniValueType(), // ARR or OBJ, checked later
         UniValue::VNUM,
+        UniValue::VNUM,
         UniValue::VBOOL,
         }, true
     );
 
     bool rbf = false;
-    if (!request.params[3].isNull()) {
-        rbf = request.params[3].isTrue();
+    if (!request.params[4].isNull()) {
+        rbf = request.params[4].isTrue();
     }
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf);
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, request.params[3]);
 
     // Make a blank psbt
     PartiallySignedTransaction psbtx;
@@ -1744,17 +1844,17 @@ static const CRPCCommand commands[] =
 { //  category              name                            actor (function)            argNames
   //  --------------------- ------------------------        -----------------------     ----------
     { "rawtransactions",    "getrawtransaction",            &getrawtransaction,         {"txid","verbose","blockhash"} },
-    { "rawtransactions",    "createrawtransaction",         &createrawtransaction,      {"inputs","outputs","locktime","replaceable"} },
+    { "rawtransactions",    "createrawtransaction",         &createrawtransaction,      {"inputs","outputs","locktime","expiryheight","replaceable"} },
     { "rawtransactions",    "decoderawtransaction",         &decoderawtransaction,      {"hexstring","iswitness"} },
     { "rawtransactions",    "decodescript",                 &decodescript,              {"hexstring"} },
     { "rawtransactions",    "sendrawtransaction",           &sendrawtransaction,        {"hexstring","allowhighfees|maxfeerate"} },
     { "rawtransactions",    "combinerawtransaction",        &combinerawtransaction,     {"txs"} },
-    { "rawtransactions",    "signrawtransactionwithkey",    &signrawtransactionwithkey, {"hexstring","privkeys","prevtxs","sighashtype"} },
+    { "rawtransactions",    "signrawtransactionwithkey",    &signrawtransactionwithkey, {"hexstring","privkeys","prevtxs","sighashtype","branchid"} },
     { "rawtransactions",    "testmempoolaccept",            &testmempoolaccept,         {"rawtxs","allowhighfees|maxfeerate"} },
     { "rawtransactions",    "decodepsbt",                   &decodepsbt,                {"psbt"} },
     { "rawtransactions",    "combinepsbt",                  &combinepsbt,               {"txs"} },
     { "rawtransactions",    "finalizepsbt",                 &finalizepsbt,              {"psbt", "extract"} },
-    { "rawtransactions",    "createpsbt",                   &createpsbt,                {"inputs","outputs","locktime","replaceable"} },
+    { "rawtransactions",    "createpsbt",                   &createpsbt,                {"inputs","outputs","locktime","expiryheight","replaceable"} },
     { "rawtransactions",    "converttopsbt",                &converttopsbt,             {"hexstring","permitsigdata","iswitness"} },
     { "rawtransactions",    "utxoupdatepsbt",               &utxoupdatepsbt,            {"psbt", "descriptors"} },
     { "rawtransactions",    "joinpsbts",                    &joinpsbts,                 {"txs"} },

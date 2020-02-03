@@ -12,6 +12,7 @@
 #include <consensus/consensus.h>
 #include <consensus/merkle.h>
 #include <consensus/tx_verify.h>
+#include <consensus/upgrades.h>
 #include <consensus/validation.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
@@ -119,6 +120,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblock->nTime = GetAdjustedTime();
     const int64_t nMedianTimePast = pindexPrev->GetMedianTimePast();
 
+    CCoinsViewCache& view(::ChainstateActive().CoinsTip());
+    assert(view.GetSaplingAnchorAt(view.GetBestAnchor(SAPLING), sapling_tree));
+
     nLockTimeCutoff = (STANDARD_LOCKTIME_VERIFY_FLAGS & LOCKTIME_MEDIAN_TIME_PAST)
                        ? nMedianTimePast
                        : pblock->GetBlockTime();
@@ -144,12 +148,14 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     m_last_block_weight = nBlockWeight;
 
     // Create coinbase transaction.
-    CMutableTransaction coinbaseTx;
+    CMutableTransaction coinbaseTx = CreateNewContextualCMutableTransaction(chainparams.GetConsensus(), nHeight);
     coinbaseTx.vin.resize(1);
     coinbaseTx.vin[0].prevout.SetNull();
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
     coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
+    // Set to 0 so expiry height does not apply to coinbase txs
+    coinbaseTx.nExpiryHeight = 0;
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
@@ -164,11 +170,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     nonce >>= 16;
 
     // Fill in header
-    pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
-    pblock->hashReserved   = uint256();
+    pblock->hashPrevBlock   = pindexPrev->GetBlockHash();
+    pblock->hashSaplingRoot = sapling_tree.root();
     UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
-    pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus());
-    pblock->nNonce         = ArithToUint256(nonce);
+    pblock->nBits           = GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus());
+    pblock->nNonce          = ArithToUint256(nonce);
     pblock->nSolution.clear();
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
 
@@ -318,6 +324,29 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     CTxMemPool::indexed_transaction_set::index<ancestor_score>::type::iterator mi = mempool.mapTx.get<ancestor_score>().begin();
     CTxMemPool::txiter iter;
 
+    // We want to track the value pool, but if the miner gets
+    // invoked on an old block before the hardcoded fallback
+    // is active we don't want to trip up any assertions. So,
+    // we only adhere to the turnstile (as a miner) if we
+    // actually have all of the information necessary to do
+    // so.
+    CAmount sproutValue = 0;
+    CAmount saplingValue = 0;
+    bool monitoring_pool_balances = true;
+    if (chainparams.ZIP209Enabled()) {
+        CBlockIndex* pindexPrev = ::ChainActive().Tip();
+        if (pindexPrev->nChainSproutValue) {
+            sproutValue = *pindexPrev->nChainSproutValue;
+        } else {
+            monitoring_pool_balances = false;
+        }
+        if (pindexPrev->nChainSaplingValue) {
+            saplingValue = *pindexPrev->nChainSaplingValue;
+        } else {
+            monitoring_pool_balances = false;
+        }
+    }
+
     // Limit the number of attempts to add transactions to the block when it is
     // close to full; this is just a simple heuristic to finish quickly if the
     // mempool has a lot of entries.
@@ -413,6 +442,32 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
             continue;
         }
 
+        if (chainparams.ZIP209Enabled() && monitoring_pool_balances) {
+            // Does this transaction lead to a turnstile violation?
+
+            CAmount sproutValueDummy = sproutValue;
+            CAmount saplingValueDummy = saplingValue;
+
+            saplingValueDummy += -(iter->GetTx().valueBalance);
+
+            for (auto js : iter->GetTx().vJoinSplit) {
+                sproutValueDummy += js.vpub_old;
+                sproutValueDummy -= js.vpub_new;
+            }
+
+            if (sproutValueDummy < 0) {
+                LogPrintf("%s: tx %s appears to violate Sprout turnstile\n", __func__, iter->GetTx().GetHash().ToString());
+                continue;
+            }
+            if (saplingValueDummy < 0) {
+                LogPrintf("%s: tx %s appears to violate Sapling turnstile\n", __func__, iter->GetTx().GetHash().ToString());
+                continue;
+            }
+
+            sproutValue = sproutValueDummy;
+            saplingValue = saplingValueDummy;
+        }
+
         // This transaction will make it in; reset the failed counter.
         nConsecutiveFailed = 0;
 
@@ -430,6 +485,10 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
         // Update transactions that depend on each of these
         nDescendantsUpdated += UpdatePackagesForAdded(ancestors, mapModifiedTx);
+
+        for (const OutputDescription &outDescription : iter->GetTx().vShieldedOutput) {
+            sapling_tree.append(outDescription.cm);
+        }
     }
 }
 

@@ -55,12 +55,30 @@ public:
         EXT_PUBLIC_KEY,
         EXT_SECRET_KEY,
 
+        ZCPAYMENT_ADDRESS,
+        ZCSPENDING_KEY,
+        ZCVIEWING_KEY,
+
         MAX_BASE58_TYPES
+    };
+
+    enum Bech32Type {
+        SAPLING_PAYMENT_ADDRESS,
+        SAPLING_FULL_VIEWING_KEY,
+        SAPLING_INCOMING_VIEWING_KEY,
+        SAPLING_EXTENDED_SPEND_KEY,
+
+        MAX_BECH32_TYPES
     };
 
     const Consensus::Params& GetConsensus() const { return consensus; }
     const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
     int GetDefaultPort() const { return nDefaultPort; }
+
+    CAmount SproutValuePoolCheckpointHeight() const { return nSproutValuePoolCheckpointHeight; }
+    CAmount SproutValuePoolCheckpointBalance() const { return nSproutValuePoolCheckpointBalance; }
+    uint256 SproutValuePoolCheckpointBlockHash() const { return hashSproutValuePoolCheckpointBlock; }
+    bool ZIP209Enabled() const { return fZIP209Enabled; }
 
     const CBlock& GenesisBlock() const { return genesis; }
     /** Default value for -checkmempool and -checkblockindex argument */
@@ -70,6 +88,7 @@ public:
     /** If this chain is exclusively used for testing */
     bool IsTestChain() const { return m_is_test_chain; }
     uint64_t PruneAfterHeight() const { return nPruneAfterHeight; }
+    uint32_t BIP44CoinType() const { return bip44CoinType; }
 
     unsigned int EquihashSolutionWidth(int height) const;
 
@@ -84,6 +103,7 @@ public:
     /** Return the list of hostnames to look up for DNS seeds */
     const std::vector<std::string>& DNSSeeds() const { return vSeeds; }
     const std::vector<unsigned char>& Base58Prefix(Base58Type type) const { return base58Prefixes[type]; }
+    const std::string& Bech32HRP(Bech32Type type) const { return bech32HRPs[type]; }
     const std::string& Bech32HRP() const { return bech32_hrp; }
     const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
     const CCheckpointData& Checkpoints() const { return checkpointData; }
@@ -101,8 +121,10 @@ protected:
     uint64_t m_assumed_chain_state_size;
     std::vector<std::string> vSeeds;
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
+    std::string bech32HRPs[MAX_BECH32_TYPES];
     std::string bech32_hrp;
     std::string strNetworkID;
+    uint32_t bip44CoinType;
     CBlock genesis;
     std::vector<SeedSpec6> vFixedSeeds;
     bool fDefaultConsistencyChecks;
@@ -110,6 +132,11 @@ protected:
     bool m_is_test_chain;
     CCheckpointData checkpointData;
     ChainTxData chainTxData;
+
+    CAmount nSproutValuePoolCheckpointHeight = 0;
+    CAmount nSproutValuePoolCheckpointBalance = 0;
+    uint256 hashSproutValuePoolCheckpointBlock;
+    bool fZIP209Enabled = false;
 };
 
 /**

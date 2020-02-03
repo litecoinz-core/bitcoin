@@ -175,6 +175,243 @@ bool FillableSigningProvider::GetCScript(const CScriptID &hash, CScript& redeemS
     return false;
 }
 
+bool FillableSigningProvider::SetZecHDSeed(const HDSeed& seed)
+{
+    LOCK(cs_KeyStore);
+    if (!zecHDSeed.IsNull()) {
+        // Don't allow an existing seed to be changed. We can maybe relax this
+        // restriction later once we have worked out the UX implications.
+        return false;
+    }
+    zecHDSeed = seed;
+    return true;
+}
+
+bool FillableSigningProvider::HaveZecHDSeed() const
+{
+    LOCK(cs_KeyStore);
+    return !zecHDSeed.IsNull();
+}
+
+bool FillableSigningProvider::GetZecHDSeed(HDSeed& seedOut) const
+{
+    LOCK(cs_KeyStore);
+    if (zecHDSeed.IsNull()) {
+        return false;
+    } else {
+        seedOut = zecHDSeed;
+        return true;
+    }
+}
+
+bool FillableSigningProvider::AddSproutSpendingKey(const libzcash::SproutSpendingKey &sk)
+{
+    LOCK(cs_KeyStore);
+    auto address = sk.address();
+    mapSproutSpendingKeys[address] = sk;
+    mapNoteDecryptors.insert(std::make_pair(address, ZCNoteDecryption(sk.receiving_key())));
+    return true;
+}
+
+bool FillableSigningProvider::HaveSproutSpendingKey(const libzcash::SproutPaymentAddress &address) const
+{
+    LOCK(cs_KeyStore);
+    return mapSproutSpendingKeys.count(address) > 0;
+}
+
+bool FillableSigningProvider::GetSproutSpendingKey(const libzcash::SproutPaymentAddress &address, libzcash::SproutSpendingKey& skOut) const
+{
+    {
+        LOCK(cs_KeyStore);
+        SproutSpendingKeyMap::const_iterator mi = mapSproutSpendingKeys.find(address);
+        if (mi != mapSproutSpendingKeys.end())
+        {
+            skOut = mi->second;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool FillableSigningProvider::GetNoteDecryptor(const libzcash::SproutPaymentAddress &address, ZCNoteDecryption &decOut) const
+{
+    {
+        LOCK(cs_KeyStore);
+        NoteDecryptorMap::const_iterator mi = mapNoteDecryptors.find(address);
+        if (mi != mapNoteDecryptors.end())
+        {
+            decOut = mi->second;
+            return true;
+        }
+    }
+    return false;
+}
+
+void FillableSigningProvider::GetSproutPaymentAddresses(std::set<libzcash::SproutPaymentAddress> &setAddress) const
+{
+    setAddress.clear();
+    {
+        LOCK(cs_KeyStore);
+        SproutSpendingKeyMap::const_iterator mi = mapSproutSpendingKeys.begin();
+        while (mi != mapSproutSpendingKeys.end())
+        {
+            setAddress.insert((*mi).first);
+            mi++;
+        }
+        SproutViewingKeyMap::const_iterator mvi = mapSproutViewingKeys.begin();
+        while (mvi != mapSproutViewingKeys.end())
+        {
+            setAddress.insert((*mvi).first);
+            mvi++;
+        }
+    }
+}
+
+bool FillableSigningProvider::AddSaplingSpendingKey(const libzcash::SaplingExtendedSpendingKey &sk, const libzcash::SaplingPaymentAddress &defaultAddr)
+{
+    LOCK(cs_KeyStore);
+    auto fvk = sk.expsk.full_viewing_key();
+
+    // if SaplingFullViewingKey is not in SaplingFullViewingKeyMap, add it
+    if (!AddSaplingFullViewingKey(fvk, defaultAddr)) {
+        return false;
+    }
+
+    mapSaplingSpendingKeys[fvk] = sk;
+
+    return true;
+}
+
+bool FillableSigningProvider::HaveSaplingSpendingKey(const libzcash::SaplingFullViewingKey &fvk) const
+{
+    LOCK(cs_KeyStore);
+    return mapSaplingSpendingKeys.count(fvk) > 0;
+}
+
+bool FillableSigningProvider::GetSaplingSpendingKey(const libzcash::SaplingFullViewingKey &fvk, libzcash::SaplingExtendedSpendingKey& skOut) const
+{
+    {
+        LOCK(cs_KeyStore);
+
+        SaplingSpendingKeyMap::const_iterator mi = mapSaplingSpendingKeys.find(fvk);
+        if (mi != mapSaplingSpendingKeys.end())
+        {
+            skOut = mi->second;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool FillableSigningProvider::AddSaplingFullViewingKey(const libzcash::SaplingFullViewingKey &fvk, const libzcash::SaplingPaymentAddress &defaultAddr)
+{
+    LOCK(cs_KeyStore);
+    auto ivk = fvk.in_viewing_key();
+    mapSaplingFullViewingKeys[ivk] = fvk;
+
+    return FillableSigningProvider::AddSaplingIncomingViewingKey(ivk, defaultAddr);
+}
+
+bool FillableSigningProvider::HaveSaplingFullViewingKey(const libzcash::SaplingIncomingViewingKey &ivk) const
+{
+    LOCK(cs_KeyStore);
+    return mapSaplingFullViewingKeys.count(ivk) > 0;
+}
+
+bool FillableSigningProvider::GetSaplingFullViewingKey(const libzcash::SaplingIncomingViewingKey &ivk, libzcash::SaplingFullViewingKey& fvkOut) const
+{
+    LOCK(cs_KeyStore);
+    SaplingFullViewingKeyMap::const_iterator mi = mapSaplingFullViewingKeys.find(ivk);
+    if (mi != mapSaplingFullViewingKeys.end()) {
+        fvkOut = mi->second;
+        return true;
+    }
+    return false;
+}
+
+bool FillableSigningProvider::AddSaplingIncomingViewingKey(const libzcash::SaplingIncomingViewingKey &ivk, const libzcash::SaplingPaymentAddress &addr)
+{
+    LOCK(cs_KeyStore);
+
+    // Add addr -> SaplingIncomingViewing to SaplingIncomingViewingKeyMap
+    mapSaplingIncomingViewingKeys[addr] = ivk;
+
+    return true;
+}
+
+bool FillableSigningProvider::HaveSaplingIncomingViewingKey(const libzcash::SaplingPaymentAddress &addr) const
+{
+    LOCK(cs_KeyStore);
+    return mapSaplingIncomingViewingKeys.count(addr) > 0;
+}
+
+bool FillableSigningProvider::GetSaplingIncomingViewingKey(const libzcash::SaplingPaymentAddress &addr, libzcash::SaplingIncomingViewingKey& ivkOut) const
+{
+    LOCK(cs_KeyStore);
+    SaplingIncomingViewingKeyMap::const_iterator mi = mapSaplingIncomingViewingKeys.find(addr);
+    if (mi != mapSaplingIncomingViewingKeys.end()) {
+        ivkOut = mi->second;
+        return true;
+    }
+    return false;
+}
+
+bool FillableSigningProvider::GetSaplingExtendedSpendingKey(const libzcash::SaplingPaymentAddress &addr, libzcash::SaplingExtendedSpendingKey &extskOut) const
+{
+    libzcash::SaplingIncomingViewingKey ivk;
+    libzcash::SaplingFullViewingKey fvk;
+
+    LOCK(cs_KeyStore);
+    return GetSaplingIncomingViewingKey(addr, ivk) && GetSaplingFullViewingKey(ivk, fvk) && GetSaplingSpendingKey(fvk, extskOut);
+}
+
+void FillableSigningProvider::GetSaplingPaymentAddresses(std::set<libzcash::SaplingPaymentAddress> &setAddress) const
+{
+    setAddress.clear();
+    {
+        LOCK(cs_KeyStore);
+        auto mi = mapSaplingIncomingViewingKeys.begin();
+        while (mi != mapSaplingIncomingViewingKeys.end())
+        {
+            setAddress.insert((*mi).first);
+            mi++;
+        }
+    }
+}
+
+bool FillableSigningProvider::AddSproutViewingKey(const libzcash::SproutViewingKey &vk)
+{
+    LOCK(cs_KeyStore);
+    auto address = vk.address();
+    mapSproutViewingKeys[address] = vk;
+    mapNoteDecryptors.insert(std::make_pair(address, ZCNoteDecryption(vk.sk_enc)));
+    return true;
+}
+
+bool FillableSigningProvider::RemoveSproutViewingKey(const libzcash::SproutViewingKey &vk)
+{
+    LOCK(cs_KeyStore);
+    mapSproutViewingKeys.erase(vk.address());
+    return true;
+}
+
+bool FillableSigningProvider::HaveSproutViewingKey(const libzcash::SproutPaymentAddress &address) const
+{
+    LOCK(cs_KeyStore);
+    return mapSproutViewingKeys.count(address) > 0;
+}
+
+bool FillableSigningProvider::GetSproutViewingKey(const libzcash::SproutPaymentAddress &address, libzcash::SproutViewingKey& vkOut) const
+{
+    LOCK(cs_KeyStore);
+    SproutViewingKeyMap::const_iterator mi = mapSproutViewingKeys.find(address);
+    if (mi != mapSproutViewingKeys.end()) {
+        vkOut = mi->second;
+        return true;
+    }
+    return false;
+}
+
 CKeyID GetKeyForDestination(const SigningProvider& store, const CTxDestination& dest)
 {
     // Only supports destinations which map to single public keys, i.e. P2PKH,

@@ -80,6 +80,12 @@ public:
     // Get a new address.
     virtual bool getNewDestination(const OutputType type, const std::string label, CTxDestination& dest) = 0;
 
+    // Get a new sprout address.
+    virtual bool getNewSproutDestination(const std::string label, libzcash::PaymentAddress& dest) = 0;
+
+    // Get a new sapling address.
+    virtual bool getNewSaplingDestination(const std::string label, libzcash::PaymentAddress& dest) = 0;
+
     //! Get public key.
     virtual bool getPubKey(const CKeyID& address, CPubKey& pub_key) = 0;
 
@@ -197,11 +203,20 @@ public:
     //! Get balances.
     virtual WalletBalances getBalances() = 0;
 
+    //! Get shielded balance.
+    virtual CAmount getShieldedBalance() = 0;
+
     //! Get balances if possible without blocking.
     virtual bool tryGetBalances(WalletBalances& balances, int& num_blocks) = 0;
 
     //! Get balance.
     virtual CAmount getBalance() = 0;
+
+    //! Get transparent balance.
+    virtual CAmount getBalanceTaddr(std::string address) = 0;
+
+    //! Get shielded balance.
+    virtual CAmount getBalanceZaddr(std::string address) = 0;
 
     //! Get available balance.
     virtual CAmount getAvailableBalance(const CCoinControl& coin_control) = 0;
@@ -221,7 +236,7 @@ public:
     //! Return AvailableCoins + LockedCoins grouped by wallet address.
     //! (put change in one group with wallet address)
     using CoinsList = std::map<CTxDestination, std::vector<std::tuple<COutPoint, WalletTxOut>>>;
-    virtual CoinsList listCoins() = 0;
+    virtual CoinsList listCoins(bool fOnlyCoinbase, bool fIncludeCoinbase) = 0;
 
     //! Return wallet transaction output information.
     virtual std::vector<WalletTxOut> getCoins(const std::vector<COutPoint>& outputs) = 0;
@@ -271,13 +286,27 @@ public:
     using StatusChangedFn = std::function<void()>;
     virtual std::unique_ptr<Handler> handleStatusChanged(StatusChangedFn fn) = 0;
 
-    //! Register handler for address book changed messages.
+    //! Register handler for transparent address book changed messages.
     using AddressBookChangedFn = std::function<void(const CTxDestination& address,
         const std::string& label,
         bool is_mine,
         const std::string& purpose,
         ChangeType status)>;
     virtual std::unique_ptr<Handler> handleAddressBookChanged(AddressBookChangedFn fn) = 0;
+
+    //! Register handler for sprout address book changed messages.
+    using SproutAddressBookChangedFn = std::function<void(const libzcash::PaymentAddress& address,
+        const std::string& label,
+        const std::string& purpose,
+        ChangeType status)>;
+    virtual std::unique_ptr<Handler> handleSproutAddressBookChanged(SproutAddressBookChangedFn fn) = 0;
+
+    //! Register handler for sapling address book changed messages.
+    using SaplingAddressBookChangedFn = std::function<void(const libzcash::PaymentAddress& address,
+        const std::string& label,
+        const std::string& purpose,
+        ChangeType status)>;
+    virtual std::unique_ptr<Handler> handleSaplingAddressBookChanged(SaplingAddressBookChangedFn fn) = 0;
 
     //! Register handler for transaction changed messages.
     using TransactionChangedFn = std::function<void(const uint256& txid, ChangeType status)>;
@@ -310,19 +339,41 @@ struct WalletAddress
 struct WalletBalances
 {
     CAmount balance = 0;
+    CAmount coinbase_balance = 0;
+    CAmount shielded_balance = 0;
     CAmount unconfirmed_balance = 0;
+    CAmount unconfirmed_coinbase_balance = 0;
+    CAmount unconfirmed_shielded_balance = 0;
     CAmount immature_balance = 0;
+    CAmount immature_shielded_balance = 0;
     bool have_watch_only = false;
     CAmount watch_only_balance = 0;
+    CAmount watch_only_coinbase_balance = 0;
+    CAmount watch_only_shielded_balance = 0;
     CAmount unconfirmed_watch_only_balance = 0;
+    CAmount unconfirmed_watch_only_coinbase_balance = 0;
+    CAmount unconfirmed_watch_only_shielded_balance = 0;
     CAmount immature_watch_only_balance = 0;
+    CAmount immature_watch_only_shielded_balance = 0;
 
     bool balanceChanged(const WalletBalances& prev) const
     {
-        return balance != prev.balance || unconfirmed_balance != prev.unconfirmed_balance ||
-               immature_balance != prev.immature_balance || watch_only_balance != prev.watch_only_balance ||
+        return balance != prev.balance ||
+               coinbase_balance != prev.coinbase_balance ||
+               shielded_balance != prev.shielded_balance ||
+               unconfirmed_balance != prev.unconfirmed_balance ||
+               unconfirmed_coinbase_balance != prev.unconfirmed_coinbase_balance ||
+               unconfirmed_shielded_balance != prev.unconfirmed_shielded_balance ||
+               immature_balance != prev.immature_balance ||
+               immature_shielded_balance != prev.immature_shielded_balance ||
+               watch_only_balance != prev.watch_only_balance ||
+               watch_only_coinbase_balance != prev.watch_only_coinbase_balance ||
+               watch_only_shielded_balance != prev.watch_only_shielded_balance ||
                unconfirmed_watch_only_balance != prev.unconfirmed_watch_only_balance ||
-               immature_watch_only_balance != prev.immature_watch_only_balance;
+               unconfirmed_watch_only_coinbase_balance != prev.unconfirmed_watch_only_coinbase_balance ||
+               unconfirmed_watch_only_shielded_balance != prev.unconfirmed_watch_only_shielded_balance ||
+               immature_watch_only_balance != prev.immature_watch_only_balance ||
+               immature_watch_only_shielded_balance != prev.immature_watch_only_shielded_balance;
     }
 };
 

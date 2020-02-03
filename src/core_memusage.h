@@ -37,6 +37,9 @@ static inline size_t RecursiveDynamicUsage(const CTransaction& tx) {
     for (std::vector<CTxOut>::const_iterator it = tx.vout.begin(); it != tx.vout.end(); it++) {
         mem += RecursiveDynamicUsage(*it);
     }
+    mem += memusage::DynamicUsage(tx.vJoinSplit);
+    mem += memusage::DynamicUsage(tx.vShieldedSpend);
+    mem += memusage::DynamicUsage(tx.vShieldedOutput);
     return mem;
 }
 
@@ -48,6 +51,9 @@ static inline size_t RecursiveDynamicUsage(const CMutableTransaction& tx) {
     for (std::vector<CTxOut>::const_iterator it = tx.vout.begin(); it != tx.vout.end(); it++) {
         mem += RecursiveDynamicUsage(*it);
     }
+    mem += memusage::DynamicUsage(tx.vJoinSplit);
+    mem += memusage::DynamicUsage(tx.vShieldedSpend);
+    mem += memusage::DynamicUsage(tx.vShieldedOutput);
     return mem;
 }
 

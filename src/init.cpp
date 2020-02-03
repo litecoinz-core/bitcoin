@@ -78,7 +78,6 @@
 #include <zmq/zmqrpc.h>
 #endif
 
-#include <libsnark/common/profiling.hpp>
 #include <librustzcash.h>
 
 static bool fFeeEstimatesInitialized = false;
@@ -1383,11 +1382,6 @@ bool AppInitMain(InitInterfaces& interfaces)
 #if ENABLE_ZMQ
     RegisterZMQRPCCommands(tableRPC);
 #endif
-
-    // These must be disabled for now, they are buggy and we probably don't
-    // want any of libsnark's profiling in production anyway.
-    libsnark::inhibit_profiling_info = true;
-    libsnark::inhibit_profiling_counters = true;
 
     // Initialize LitecoinZ circuit parameters
     if (!(LoadParams()))

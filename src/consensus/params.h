@@ -117,6 +117,9 @@ struct Params {
     bool NetworkUpgradeActive(int nHeight, Consensus::UpgradeIndex idx) const;
 
     uint256 hashGenesisBlock;
+
+    bool fCoinbaseMustBeShielded;
+
     int nSubsidyHalvingInterval;
     /* BIP16 rule */
     bool BIP16Enabled;
@@ -126,8 +129,14 @@ struct Params {
     bool BIP65Enabled;
     /* BIP66 rule */
     bool BIP66Enabled;
+    /* ZIP209 rule */
+    int ZIP209Enabled;
     /** Block height at which CSV (BIP68, BIP112 and BIP113) becomes active */
     int CSVHeight;
+    /** Block height at which Overwinter (ZIP143, ZIP201 and ZIP202) becomes active */
+    int OverwinterHeight;
+    /** Block height at which Sapling (ZIP205, ZIP210 and ZIP243) becomes active */
+    int SaplingHeight;
     /** Block height at which Segwit (BIP141, BIP143 and BIP147) becomes active.
      * Note that segwit v0 script rules are enforced on all blocks except the
      * BIP 16 exception blocks. */
@@ -181,6 +190,8 @@ struct Params {
     int64_t MaxActualTimespan() const { return (AveragingWindowTimespan() * (100 + nPowMaxAdjustDown)) / 100; }
 
     NetworkUpgrade vUpgrades[MAX_NETWORK_UPGRADES];
+
+    int nApproxReleaseHeight;
 };
 } // namespace Consensus
 

@@ -5,6 +5,7 @@
 
 #include <rpc/server.h>
 
+#include <asyncrpcqueue.h>
 #include <fs.h>
 #include <key_io.h>
 #include <rpc/util.h>
@@ -285,6 +286,21 @@ void StartRPC()
     LogPrint(BCLog::RPC, "Starting RPC\n");
     g_rpc_running = true;
     g_rpcSignals.Started();
+
+    // Launch one async rpc worker.  The ability to launch multiple workers is not recommended at present and thus the option is disabled.
+    getAsyncRPCQueue()->addWorker();
+/*
+    int n = GetArg("-rpcasyncthreads", 1);
+    if (n<1) {
+        LogPrintf("ERROR: Invalid value %d for -rpcasyncthreads.  Must be at least 1.\n", n);
+        strerr = strprintf(_("An error occurred while setting up the Async RPC threads, invalid parameter value of %d (must be at least 1)."), n);
+        uiInterface.ThreadSafeMessageBox(strerr, "", CClientUIInterface::MSG_ERROR);
+        StartShutdown();
+        return;
+    }
+    for (int i = 0; i < n; i++)
+        getAsyncRPCQueue()->addWorker();
+*/
 }
 
 void InterruptRPC()
@@ -300,6 +316,10 @@ void StopRPC()
     deadlineTimers.clear();
     DeleteAuthCookie();
     g_rpcSignals.Stopped();
+
+    // Tells async queue to cancel all operations and shutdown.
+    LogPrintf("%s: waiting for async rpc workers to stop\n", __func__);
+    getAsyncRPCQueue()->closeAndWait();
 }
 
 bool IsRPCRunning()
@@ -499,3 +519,9 @@ int RPCSerializationFlags()
 }
 
 CRPCTable tableRPC;
+
+// Return async rpc queue
+std::shared_ptr<AsyncRPCQueue> getAsyncRPCQueue()
+{
+    return AsyncRPCQueue::sharedInstance();
+}

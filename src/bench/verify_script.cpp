@@ -3,6 +3,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <bench/bench.h>
+#include <chain.h>
+#include <chainparams.h>
+#include <consensus/upgrades.h>
 #include <key.h>
 #if defined(HAVE_CONSENSUS_LIB)
 #include <script/bitcoinconsensus.h>
@@ -55,6 +58,10 @@ static void VerifyScriptBench(benchmark::State& state)
     const int flags = SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_P2SH;
     const int witnessversion = 0;
 
+    // Grab the current consensus branch ID
+    CChain chain;
+    auto consensusBranchId = CurrentEpochBranchId(chain.Height() + 1, Params().GetConsensus());
+
     // Keypair.
     CKey key;
     static const std::array<unsigned char, 32> vchKey = {
@@ -75,7 +82,7 @@ static void VerifyScriptBench(benchmark::State& state)
     CMutableTransaction txSpend = BuildSpendingTransaction(scriptSig, txCredit);
     CScriptWitness& witness = txSpend.vin[0].scriptWitness;
     witness.stack.emplace_back();
-    key.Sign(SignatureHash(witScriptPubkey, txSpend, 0, SIGHASH_ALL, txCredit.vout[0].nValue, SigVersion::WITNESS_V0), witness.stack.back());
+    key.Sign(SignatureHash(witScriptPubkey, txSpend, 0, SIGHASH_ALL, txCredit.vout[0].nValue, SigVersion::SAPLING_V0, 0), witness.stack.back());
     witness.stack.back().push_back(static_cast<unsigned char>(SIGHASH_ALL));
     witness.stack.push_back(ToByteVector(pubkey));
 
@@ -88,6 +95,7 @@ static void VerifyScriptBench(benchmark::State& state)
             &txSpend.vin[0].scriptWitness,
             flags,
             MutableTransactionSignatureChecker(&txSpend, 0, txCredit.vout[0].nValue),
+            consensusBranchId,
             &err);
         assert(err == SCRIPT_ERR_OK);
         assert(success);

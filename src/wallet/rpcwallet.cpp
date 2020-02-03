@@ -4,7 +4,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <amount.h>
+#include <asyncrpcqueue.h>
 #include <core_io.h>
+#include <consensus/tx_check.h>
 #include <init.h>
 #include <interfaces/chain.h>
 #include <key_io.h>
@@ -25,6 +27,11 @@
 #include <util/system.h>
 #include <util/url.h>
 #include <util/validation.h>
+#include <validation.h>
+#include <wallet/asyncrpcoperation_mergetoaddress.h>
+#include <wallet/asyncrpcoperation_saplingmigration.h>
+#include <wallet/asyncrpcoperation_sendmany.h>
+#include <wallet/asyncrpcoperation_shieldcoinbase.h>
 #include <wallet/coincontrol.h>
 #include <wallet/feebumper.h>
 #include <wallet/psbtwallet.h>
@@ -40,6 +47,9 @@
 #include <functional>
 
 static const std::string WALLET_ENDPOINT_BASE = "/wallet/";
+
+const std::string ADDR_TYPE_SPROUT = "sprout";
+const std::string ADDR_TYPE_SAPLING = "sapling";
 
 static inline bool GetAvoidReuseFlag(CWallet * const pwallet, const UniValue& param) {
     bool can_avoid_reuse = pwallet->IsWalletFlagSet(WALLET_FLAG_AVOID_REUSE);
@@ -129,6 +139,8 @@ void EnsureWalletIsUnlocked(const CWallet* pwallet)
 static void WalletTxToJSON(interfaces::Chain& chain, interfaces::Chain::Lock& locked_chain, const CWalletTx& wtx, UniValue& entry)
 {
     int confirms = wtx.GetDepthInMainChain(locked_chain);
+    std::string status = "waiting";
+
     entry.pushKV("confirmations", confirms);
     if (wtx.IsCoinBase())
         entry.pushKV("generated", true);
@@ -140,9 +152,17 @@ static void WalletTxToJSON(interfaces::Chain& chain, interfaces::Chain::Lock& lo
         bool found_block = chain.findBlock(wtx.m_confirm.hashBlock, nullptr /* block */, &block_time);
         assert(found_block);
         entry.pushKV("blocktime", block_time);
+        entry.pushKV("expiryheight", (int64_t)wtx.tx->nExpiryHeight);
+        status = "mined";
     } else {
+        const int height = ::ChainActive().Height();
+        if (!IsExpiredTx(*wtx.tx, height) && IsExpiringSoonTx(*wtx.tx, height + 1))
+            status = "expiringsoon";
+        else if (IsExpiredTx(*wtx.tx, height))
+            status = "expired";
         entry.pushKV("trusted", wtx.IsTrusted(locked_chain));
     }
+    entry.pushKV("status", status);
     uint256 hash = wtx.GetHash();
     entry.pushKV("txid", hash.GetHex());
     UniValue conflicts(UniValue::VARR);
@@ -165,6 +185,8 @@ static void WalletTxToJSON(interfaces::Chain& chain, interfaces::Chain::Lock& lo
 
     for (const std::pair<const std::string, std::string>& item : wtx.mapValue)
         entry.pushKV(item.first, item.second);
+
+    entry.pushKV("vjoinsplit", TxJoinSplitToJSON(*wtx.tx));
 }
 
 static std::string LabelFromValue(const UniValue& value)
@@ -291,8 +313,8 @@ static UniValue setlabel(const JSONRPCRequest& request)
                 },
                 RPCResults{},
                 RPCExamples{
-                    HelpExampleCli("setlabel", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\" \"tabby\"")
-            + HelpExampleRpc("setlabel", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\", \"tabby\"")
+                    HelpExampleCli("setlabel", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\" \"tabby\"")
+            + HelpExampleRpc("setlabel", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\", \"tabby\"")
                 },
             }.Check(request);
 
@@ -381,10 +403,10 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
             "\"txid\"                  (string) The transaction id.\n"
                 },
                 RPCExamples{
-                    HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1")
-            + HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"donation\" \"seans outpost\"")
-            + HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"\" \"\" true")
-            + HelpExampleRpc("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", 0.1, \"donation\", \"seans outpost\"")
+                    HelpExampleCli("sendtoaddress", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1")
+            + HelpExampleCli("sendtoaddress", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"donation\" \"seans outpost\"")
+            + HelpExampleCli("sendtoaddress", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"\" \"\" true")
+            + HelpExampleRpc("sendtoaddress", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", 0.1, \"donation\", \"seans outpost\"")
                 },
             }.Check(request);
 
@@ -526,11 +548,11 @@ static UniValue signmessage(const JSONRPCRequest& request)
             "\nUnlock the wallet for 30 seconds\n"
             + HelpExampleCli("walletpassphrase", "\"mypassphrase\" 30") +
             "\nCreate the signature\n"
-            + HelpExampleCli("signmessage", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\" \"my message\"") +
+            + HelpExampleCli("signmessage", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\" \"my message\"") +
             "\nVerify the signature\n"
-            + HelpExampleCli("verifymessage", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\" \"signature\" \"my message\"") +
+            + HelpExampleCli("verifymessage", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\" \"signature\" \"my message\"") +
             "\nAs a JSON-RPC call\n"
-            + HelpExampleRpc("signmessage", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\", \"my message\"")
+            + HelpExampleRpc("signmessage", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\", \"my message\"")
                 },
             }.Check(request);
 
@@ -589,13 +611,13 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
                 },
                 RPCExamples{
             "\nThe amount from transactions with at least 1 confirmation\n"
-            + HelpExampleCli("getreceivedbyaddress", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\"") +
+            + HelpExampleCli("getreceivedbyaddress", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\"") +
             "\nThe amount including unconfirmed transactions, zero confirmations\n"
-            + HelpExampleCli("getreceivedbyaddress", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\" 0") +
+            + HelpExampleCli("getreceivedbyaddress", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\" 0") +
             "\nThe amount with at least 6 confirmations\n"
-            + HelpExampleCli("getreceivedbyaddress", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\" 6") +
+            + HelpExampleCli("getreceivedbyaddress", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\" 6") +
             "\nAs a JSON-RPC call\n"
-            + HelpExampleRpc("getreceivedbyaddress", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\", 6")
+            + HelpExampleRpc("getreceivedbyaddress", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\", 6")
                 },
             }.Check(request);
 
@@ -834,13 +856,13 @@ static UniValue sendmany(const JSONRPCRequest& request)
                  },
                 RPCExamples{
             "\nSend two amounts to two different addresses:\n"
-            + HelpExampleCli("sendmany", "\"\" \"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01,\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\"") +
+            + HelpExampleCli("sendmany", "\"\" \"{\\\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\\\":0.01,\\\"t1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\"") +
             "\nSend two amounts to two different addresses setting the confirmation and comment:\n"
-            + HelpExampleCli("sendmany", "\"\" \"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01,\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\" 6 \"testing\"") +
+            + HelpExampleCli("sendmany", "\"\" \"{\\\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\\\":0.01,\\\"t1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\" 6 \"testing\"") +
             "\nSend two amounts to two different addresses, subtract fee from amount:\n"
-            + HelpExampleCli("sendmany", "\"\" \"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01,\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\" 1 \"\" \"[\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\",\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\"]\"") +
+            + HelpExampleCli("sendmany", "\"\" \"{\\\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\\\":0.01,\\\"t1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\" 1 \"\" \"[\\\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\\\",\\\"t1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\"]\"") +
             "\nAs a JSON-RPC call\n"
-            + HelpExampleRpc("sendmany", "\"\", {\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\":0.01,\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\":0.02}, 6, \"testing\"")
+            + HelpExampleRpc("sendmany", "\"\", {\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\":0.01,\"t1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\":0.02}, 6, \"testing\"")
                 },
     }.Check(request);
 
@@ -960,9 +982,9 @@ static UniValue addmultisigaddress(const JSONRPCRequest& request)
                 },
                 RPCExamples{
             "\nAdd a multisig address from 2 addresses\n"
-            + HelpExampleCli("addmultisigaddress", "2 \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"") +
+            + HelpExampleCli("addmultisigaddress", "2 \"[\\\"t16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"t171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"") +
             "\nAs a JSON-RPC call\n"
-            + HelpExampleRpc("addmultisigaddress", "2, \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"")
+            + HelpExampleRpc("addmultisigaddress", "2, \"[\\\"t16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"t171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"")
                 },
             }.Check(request);
 
@@ -1198,7 +1220,7 @@ static UniValue listreceivedbyaddress(const JSONRPCRequest& request)
                     HelpExampleCli("listreceivedbyaddress", "")
             + HelpExampleCli("listreceivedbyaddress", "6 true")
             + HelpExampleRpc("listreceivedbyaddress", "6, true, true")
-            + HelpExampleRpc("listreceivedbyaddress", "6, true, true, \"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\"")
+            + HelpExampleRpc("listreceivedbyaddress", "6, true, true, \"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\"")
                 },
             }.Check(request);
 
@@ -1210,6 +1232,109 @@ static UniValue listreceivedbyaddress(const JSONRPCRequest& request)
     LOCK(pwallet->cs_wallet);
 
     return ListReceived(*locked_chain, pwallet, request.params, false);
+}
+
+static UniValue z_listreceivedbyaddress(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+            RPCHelpMan{"z_listreceivedbyaddress",
+                "\nReturn a list of amounts received by a zaddr belonging to the node's wallet.\n",
+                {
+                    {"address", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "If present, only return information on this private address."},
+                    {"minconf", RPCArg::Type::NUM, /* default */ "1", "The minimum number of confirmations before payments are included."},
+                },
+                RPCResult{
+            "{\n"
+            "  \"txid\": \"txid\",           (string) the transaction id\n"
+            "  \"amount\": xxxxx,         (numeric) the amount of value in the note\n"
+            "  \"memo\": xxxxx,           (string) hexadecimal string representation of memo field\n"
+            "  \"jsindex\" (sprout) : n,     (numeric) the joinsplit index\n"
+            "  \"jsoutindex\" (sprout) : n,     (numeric) the output index of the joinsplit\n"
+            "  \"outindex\" (sapling) : n,     (numeric) the output index\n"
+            "  \"change\": true|false,    (boolean) true if the address that received the note is also one of the sending addresses\n"
+            "}\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("z_listreceivedbyaddress", "")
+            + HelpExampleCli("z_listreceivedbyaddress", "\"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\"")
+            + HelpExampleRpc("listreceivedbyaddress", "")
+            + HelpExampleRpc("listreceivedbyaddress", "\"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\"")
+                },
+            }.Check(request);
+
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    int nMinDepth = 1;
+    if (!request.params[1].isNull()) {
+        nMinDepth = request.params[1].get_int();
+    }
+    if (nMinDepth < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Minimum number of confirmations cannot be less than 0");
+    }
+
+    // Check that the from address is valid.
+    auto fromaddress = request.params[0].get_str();
+
+    auto zaddr = DecodePaymentAddress(fromaddress);
+    if (!IsValidPaymentAddress(zaddr)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid zaddr.");
+    }
+
+    // Visitor to support Sprout and Sapling addrs
+    if (!boost::apply_visitor(PaymentAddressBelongsToWallet(pwallet), zaddr)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "From address does not belong to this node, zaddr spending key or viewing key not found.");
+    }
+
+    UniValue result(UniValue::VARR);
+    std::vector<SproutNoteEntry> sproutEntries;
+    std::vector<SaplingNoteEntry> saplingEntries;
+    pwallet->GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, fromaddress, nMinDepth, false, false);
+
+    std::set<std::pair<libzcash::PaymentAddress, uint256>> nullifierSet;
+    auto hasSpendingKey = boost::apply_visitor(HaveSpendingKeyForPaymentAddress(pwallet), zaddr);
+    if (hasSpendingKey) {
+        nullifierSet = pwallet->GetNullifiersForAddresses({zaddr});
+    }
+
+    if (boost::get<libzcash::SproutPaymentAddress>(&zaddr) != nullptr) {
+        for (SproutNoteEntry & entry : sproutEntries) {
+            UniValue obj(UniValue::VOBJ);
+            obj.pushKV("txid", entry.jsop.hash.ToString());
+            obj.pushKV("amount", ValueFromAmount(CAmount(entry.note.value())));
+            std::string data(entry.memo.begin(), entry.memo.end());
+            obj.pushKV("memo", HexStr(data));
+            obj.pushKV("jsindex", entry.jsop.js);
+            obj.pushKV("jsoutindex", entry.jsop.n);
+            if (hasSpendingKey) {
+                obj.pushKV("change", pwallet->IsNoteSproutChange(nullifierSet, entry.address, entry.jsop));
+            }
+            result.push_back(obj);
+        }
+    } else if (boost::get<libzcash::SaplingPaymentAddress>(&zaddr) != nullptr) {
+        for (SaplingNoteEntry & entry : saplingEntries) {
+            UniValue obj(UniValue::VOBJ);
+            obj.pushKV("txid", entry.op.hash.ToString());
+            obj.pushKV("amount", ValueFromAmount(CAmount(entry.note.value())));
+            obj.pushKV("memo", HexStr(entry.memo));
+            obj.pushKV("outindex", (int)entry.op.n);
+            if (hasSpendingKey) {
+                obj.pushKV("change", pwallet->IsNoteSaplingChange(nullifierSet, entry.address, entry.op));
+            }
+            result.push_back(obj);
+        }
+    }
+    return result;
 }
 
 static UniValue listreceivedbylabel(const JSONRPCRequest& request)
@@ -1303,6 +1428,7 @@ static void ListTransactions(interfaces::Chain::Lock& locked_chain, CWallet* con
             entry.pushKV("fee", ValueFromAmount(-nFee));
             if (fLong)
                 WalletTxToJSON(pwallet->chain(), locked_chain, wtx, entry);
+            entry.pushKV("size", (uint64_t)GetSerializeSize(wtx, SER_NETWORK, PROTOCOL_VERSION));
             entry.pushKV("abandoned", wtx.isAbandoned());
             ret.push_back(entry);
         }
@@ -1345,6 +1471,7 @@ static void ListTransactions(interfaces::Chain::Lock& locked_chain, CWallet* con
             entry.pushKV("vout", r.vout);
             if (fLong)
                 WalletTxToJSON(pwallet->chain(), locked_chain, wtx, entry);
+            entry.pushKV("size", (uint64_t)GetSerializeSize(wtx, SER_NETWORK, PROTOCOL_VERSION));
             ret.push_back(entry);
         }
     }
@@ -1359,6 +1486,9 @@ static const std::string TransactionDescriptionString()
            "    \"blockhash\": \"hashvalue\",                  (string) The block hash containing the transaction.\n"
            "    \"blockindex\": n,                           (numeric) The index of the transaction in the block that includes it.\n"
            "    \"blocktime\": xxx,                          (numeric) The block time in seconds since epoch (1 Jan 1970 GMT).\n"
+           "    \"expiryheight\" : ttt,                      (numeric) The block height after which the transaction expires\n"
+           "    \"status\" : \"mined|waiting|expiringsoon|expired\",    (string) The transaction status, can be 'mined', 'waiting', 'expiringsoon' \n"
+           "                                                                    or 'expired'. Available for 'send' and 'receive' category of transactions.\n"
            "    \"txid\": \"transactionid\",                   (string) The transaction id.\n"
            "    \"walletconflicts\": [                       (array) Conflicting transaction ids.\n"
            "      \"txid\",                                  (string) The transaction id.\n"
@@ -1407,6 +1537,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
             "    \"vout\": n,                (numeric) the vout value\n"
             "    \"fee\": x.xxx,             (numeric) The amount of the fee in " + CURRENCY_UNIT + ". This is negative and only available for the \n"
             "                                         'send' category of transactions.\n"
+            "    \"size\": n,                (numeric) Transaction size in bytes\n"
             + TransactionDescriptionString()
             + "    \"abandoned\": xxx          (bool) 'true' if the transaction has been abandoned (inputs are respendable). Only available for the \n"
             "                                         'send' category of transactions.\n"
@@ -1673,6 +1804,17 @@ static UniValue gettransaction(const JSONRPCRequest& request)
             "      }\n"
             "      ,...\n"
             "    ],\n"
+            "  \"vjoinsplit\" : [\n"
+            "    {\n"
+            "      \"anchor\" : \"treestateref\",          (string) Merkle root of note commitment tree\n"
+            "      \"nullifiers\" : [ string, ... ]      (string) Nullifiers of input notes\n"
+            "      \"commitments\" : [ string, ... ]     (string) Note commitments for note outputs\n"
+            "      \"macs\" : [ string, ... ]            (string) Message authentication tags\n"
+            "      \"vpub_old\" : x.xxx                  (numeric) The amount removed from the transparent value pool\n"
+            "      \"vpub_new\" : x.xxx,                 (numeric) The amount added to the transparent value pool\n"
+            "    }\n"
+            "    ,...\n"
+            "  ],\n"
             "    \"hex\" : \"data\"         (string) Raw data for transaction\n"
             "    \"decoded\" : transaction         (json object) Optional, the decoded transaction (only present when `verbose` is passed), equivalent to the\n"
             "                                                  RPC decoderawtransaction method, or the RPC getrawtransaction method when `verbose` is passed.\n"
@@ -1931,6 +2073,8 @@ static UniValue walletpassphrase(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_PASSPHRASE_INCORRECT, "Error: The wallet passphrase entered was incorrect.");
     }
 
+    // No need to check return values, because the wallet was unlocked above
+    pwallet->UpdateNullifierNoteMap();
     pwallet->TopUpKeyPool();
 
     pwallet->nRelockTime = GetTime() + nSleepTime;
@@ -2021,7 +2165,7 @@ static UniValue walletlock(const JSONRPCRequest& request)
             "\nSet the passphrase for 2 minutes to perform a transaction\n"
             + HelpExampleCli("walletpassphrase", "\"my pass phrase\" 120") +
             "\nPerform a send (requires passphrase set)\n"
-            + HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 1.0") +
+            + HelpExampleCli("sendtoaddress", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 1.0") +
             "\nClear the passphrase since we are done before 2 minutes is up\n"
             + HelpExampleCli("walletlock", "") +
             "\nAs a JSON-RPC call\n"
@@ -2342,13 +2486,19 @@ static UniValue getbalances(const JSONRPCRequest& request)
             "{\n"
             "    \"mine\": {                        (object) balances from outputs that the wallet can sign\n"
             "      \"trusted\": xxx                 (numeric) trusted balance (outputs created by the wallet or confirmed outputs)\n"
+            "      \"to_shield\": xxx               (numeric) balance from mature coinbase outputs which must be shielded before use\n"
             "      \"untrusted_pending\": xxx       (numeric) untrusted pending balance (outputs created by others that are in the mempool)\n"
+            "      \"shielded\": xxx                (numeric) shielded balance (outputs created by the wallet or confirmed outputs)\n"
+            "      \"shielded_pending\": xxx        (numeric) shielded pending balance (outputs created by others that are in the mempool)\n"
             "      \"immature\": xxx                (numeric) balance from immature coinbase outputs\n"
             "      \"used\": xxx                    (numeric) (only present if avoid_reuse is set) balance from coins sent to addresses that were previously spent from (potentially privacy violating)\n"
             "    },\n"
             "    \"watchonly\": {                   (object) watchonly balances (not present if wallet does not watch anything)\n"
             "      \"trusted\": xxx                 (numeric) trusted balance (outputs created by the wallet or confirmed outputs)\n"
+            "      \"to_shield\": xxx               (numeric) balance from mature coinbase outputs which must be shielded before use\n"
             "      \"untrusted_pending\": xxx       (numeric) untrusted pending balance (outputs created by others that are in the mempool)\n"
+            "      \"shielded\": xxx                (numeric) shielded balance (outputs created by the wallet or confirmed outputs)\n"
+            "      \"shielded_pending\": xxx        (numeric) shielded pending balance (outputs created by others that are in the mempool)\n"
             "      \"immature\": xxx                (numeric) balance from immature coinbase outputs\n"
             "    },\n"
             "}\n"},
@@ -2367,11 +2517,16 @@ static UniValue getbalances(const JSONRPCRequest& request)
     UniValue obj(UniValue::VOBJ);
 
     const auto bal = wallet.GetBalance();
+    const auto zbal = wallet.GetShieldedBalance();
+
     UniValue balances{UniValue::VOBJ};
     {
         UniValue balances_mine{UniValue::VOBJ};
         balances_mine.pushKV("trusted", ValueFromAmount(bal.m_mine_trusted));
+        balances_mine.pushKV("to_shield", ValueFromAmount(bal.m_mine_coinbase));
         balances_mine.pushKV("untrusted_pending", ValueFromAmount(bal.m_mine_untrusted_pending));
+        balances_mine.pushKV("shielded", ValueFromAmount(zbal.m_mine_shielded));
+        balances_mine.pushKV("shielded_pending", ValueFromAmount(zbal.m_mine_shielded_pending));
         balances_mine.pushKV("immature", ValueFromAmount(bal.m_mine_immature));
         if (wallet.IsWalletFlagSet(WALLET_FLAG_AVOID_REUSE)) {
             // If the AVOID_REUSE flag is set, bal has been set to just the un-reused address balance. Get
@@ -2384,7 +2539,10 @@ static UniValue getbalances(const JSONRPCRequest& request)
     if (wallet.HaveWatchOnly()) {
         UniValue balances_watchonly{UniValue::VOBJ};
         balances_watchonly.pushKV("trusted", ValueFromAmount(bal.m_watchonly_trusted));
+        balances_watchonly.pushKV("to_shield", ValueFromAmount(bal.m_watchonly_coinbase));
         balances_watchonly.pushKV("untrusted_pending", ValueFromAmount(bal.m_watchonly_untrusted_pending));
+        balances_watchonly.pushKV("shielded", ValueFromAmount(zbal.m_watchonly_shielded));
+        balances_watchonly.pushKV("shielded_pending", ValueFromAmount(zbal.m_watchonly_shielded_pending));
         balances_watchonly.pushKV("immature", ValueFromAmount(bal.m_watchonly_immature));
         balances.pushKV("watchonly", balances_watchonly);
     }
@@ -2408,8 +2566,11 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
             "  \"walletname\": xxxxx,               (string) the wallet name\n"
             "  \"walletversion\": xxxxx,            (numeric) the wallet version\n"
             "  \"balance\": xxxxxxx,                (numeric) DEPRECATED. Identical to getbalances().mine.trusted\n"
+            "  \"to_shield\": xxxxxxx,              (numeric) DEPRECATED. Identical to getbalances().mine.to_shield\n"
             "  \"unconfirmed_balance\": xxx,        (numeric) DEPRECATED. Identical to getbalances().mine.untrusted_pending\n"
             "  \"immature_balance\": xxxxxx,        (numeric) DEPRECATED. Identical to getbalances().mine.immature\n"
+            "  \"shielded_balance\": xxxxxx         (numeric) DEPRECATED. Identical to getbalances().mine.shielded\n"
+            "  \"unconfirmed_shielded_balance\": xxx, (numeric) DEPRECATED. Identical to getbalances().mine.shielded_pending\n"
             "  \"txcount\": xxxxxxx,                (numeric) the total number of transactions in the wallet\n"
             "  \"keypoololdest\": xxxxxx,           (numeric) the timestamp (seconds since Unix epoch) of the oldest pre-generated key in the key pool\n"
             "  \"keypoolsize\": xxxx,               (numeric) how many new keys are pre-generated (only counts external keys)\n"
@@ -2417,6 +2578,7 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
             "  \"unlocked_until\": ttt,             (numeric) the timestamp in seconds since epoch (midnight Jan 1 1970 GMT) that the wallet is unlocked for transfers, or 0 if the wallet is locked\n"
             "  \"paytxfee\": x.xxxx,                (numeric) the transaction fee configuration, set in " + CURRENCY_UNIT + "/kB\n"
             "  \"hdseedid\": \"<hash160>\"            (string, optional) the Hash160 of the HD seed (only present when HD is enabled)\n"
+            "  \"seedfp\": \"uint256\",        (string) the BLAKE2b-256 hash of the Zec HD seed\n"
             "  \"private_keys_enabled\": true|false (boolean) false if privatekeys are disabled for this wallet (enforced watch-only wallet)\n"
             "  \"avoid_reuse\": true|false          (boolean) whether this wallet tracks clean/dirty coins in terms of reuse\n"
             "  \"scanning\":                        (json object) current scanning details, or false if no scan is in progress\n"
@@ -2442,12 +2604,18 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
     UniValue obj(UniValue::VOBJ);
 
     size_t kpExternalSize = pwallet->KeypoolCountExternalKeys();
+
     const auto bal = pwallet->GetBalance();
+    const auto zbal = pwallet->GetShieldedBalance();
+
     obj.pushKV("walletname", pwallet->GetName());
     obj.pushKV("walletversion", pwallet->GetVersion());
     obj.pushKV("balance", ValueFromAmount(bal.m_mine_trusted));
+    obj.pushKV("to_shield", ValueFromAmount(bal.m_mine_coinbase));
     obj.pushKV("unconfirmed_balance", ValueFromAmount(bal.m_mine_untrusted_pending));
     obj.pushKV("immature_balance", ValueFromAmount(bal.m_mine_immature));
+    obj.pushKV("shielded_balance", ValueFromAmount(zbal.m_mine_shielded));
+    obj.pushKV("unconfirmed_shielded_balance", ValueFromAmount(zbal.m_mine_shielded_pending));
     obj.pushKV("txcount",       (int)pwallet->mapWallet.size());
     obj.pushKV("keypoololdest", pwallet->GetOldestKeyPoolTime());
     obj.pushKV("keypoolsize", (int64_t)kpExternalSize);
@@ -2462,6 +2630,9 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
     if (!seed_id.IsNull()) {
         obj.pushKV("hdseedid", seed_id.GetHex());
     }
+    uint256 seedFp = pwallet->GetZecHDChain().seedFp;
+    if (!seedFp.IsNull())
+         obj.pushKV("seedfp", seedFp.GetHex());
     obj.pushKV("private_keys_enabled", !pwallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS));
     obj.pushKV("avoid_reuse", pwallet->IsWalletFlagSet(WALLET_FLAG_AVOID_REUSE));
     if (pwallet->IsScanning()) {
@@ -2810,8 +2981,8 @@ static UniValue listunspent(const JSONRPCRequest& request)
                 },
                 RPCExamples{
                     HelpExampleCli("listunspent", "")
-            + HelpExampleCli("listunspent", "6 9999999 \"[\\\"1PGFqEzfmQch1gKD3ra4k18PNj3tTUUSqg\\\",\\\"1LtvqCaApEdUGFkpKMM4MstjcaL4dKg8SP\\\"]\"")
-            + HelpExampleRpc("listunspent", "6, 9999999 \"[\\\"1PGFqEzfmQch1gKD3ra4k18PNj3tTUUSqg\\\",\\\"1LtvqCaApEdUGFkpKMM4MstjcaL4dKg8SP\\\"]\"")
+            + HelpExampleCli("listunspent", "6 9999999 \"[\\\"t1PGFqEzfmQch1gKD3ra4k18PNj3tTUUSqg\\\",\\\"t1LtvqCaApEdUGFkpKMM4MstjcaL4dKg8SP\\\"]\"")
+            + HelpExampleRpc("listunspent", "6, 9999999 \"[\\\"t1PGFqEzfmQch1gKD3ra4k18PNj3tTUUSqg\\\",\\\"t1LtvqCaApEdUGFkpKMM4MstjcaL4dKg8SP\\\"]\"")
             + HelpExampleCli("listunspent", "6 9999999 '[]' true '{ \"minimumAmount\": 0.005 }'")
             + HelpExampleRpc("listunspent", "6, 9999999, [] , true, { \"minimumAmount\": 0.005 } ")
                 },
@@ -2885,7 +3056,8 @@ static UniValue listunspent(const JSONRPCRequest& request)
         cctl.m_max_depth = nMaxDepth;
         auto locked_chain = pwallet->chain().lock();
         LOCK(pwallet->cs_wallet);
-        pwallet->AvailableCoins(*locked_chain, vecOutputs, !include_unsafe, &cctl, nMinimumAmount, nMaximumAmount, nMinimumSumAmount, nMaximumCount);
+        bool fIncludeCoinbase = !Params().GetConsensus().fCoinbaseMustBeShielded;
+        pwallet->AvailableCoins(*locked_chain, false, fIncludeCoinbase, vecOutputs, !include_unsafe, &cctl, nMinimumAmount, nMaximumAmount, nMinimumSumAmount, nMaximumCount);
     }
 
     LOCK(pwallet->cs_wallet);
@@ -2956,6 +3128,182 @@ static UniValue listunspent(const JSONRPCRequest& request)
         if (avoid_reuse) entry.pushKV("reused", reused);
         entry.pushKV("safe", out.fSafe);
         results.push_back(entry);
+    }
+
+    return results;
+}
+
+static UniValue z_listunspent(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    RPCHelpMan{
+                "z_listunspent",
+                "\nReturns array of unspent shielded notes with between minconf and maxconf (inclusive) confirmations\n"
+                "Optionally filter to only include notes sent to specified addresses.\n"
+                "When minconf is 0, unspent notes with zero confirmations are returned, even though they are not immediately spendable.\n"
+                "Results are an array of Objects, each of which has:\n"
+                "{txid, jsindex, jsoutindex, confirmations, address, amount, memo} (Sprout)\n"
+                "{txid, outindex, confirmations, address, amount, memo} (Sapling)\n",
+                {
+                    {"minconf", RPCArg::Type::NUM, /* default */ "1", "The minimum confirmations to filter"},
+                    {"maxconf", RPCArg::Type::NUM, /* default */ "9999999", "The maximum confirmations to filter"},
+                    {"includeWatchonly", RPCArg::Type::BOOL, /* defaut */ "false", "Also include watchonly addresses (see 'z_importviewingkey')"},
+                    {"addresses", RPCArg::Type::ARR, /* default */ "empty array", "A json array of zaddresses to filter",
+                        {
+                            {"address", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "zaddress"},
+                        },
+                    },
+                },
+                RPCResult{
+            "[                   (array of json object)\n"
+            "  {\n"
+            "    \"txid\" : \"txid\",           (string) the transaction id \n"
+            "    \"jsindex\" (sprout) : n,    (numeric) the joinsplit index\n"
+            "    \"jsoutindex\" (sprout) : n, (numeric) the output index of the joinsplit\n"
+            "    \"outindex\" (sapling) : n,  (numeric) the output index\n"
+            "    \"confirmations\" : n,       (numeric) the number of confirmations\n"
+            "    \"spendable\" : true|false,  (boolean) true if note can be spent by wallet, false if address is watchonly\n"
+            "    \"address\" : \"address\",     (string) the shielded address\n"
+            "    \"label\" : \"label\",         (string) The associated label, or \"\" for the default label\n"
+            "    \"amount\": xxxxx,           (numeric) the amount of value in the note\n"
+            "    \"memo\": xxxxx,             (string) hexademical string representation of memo field\n"
+            "    \"change\": true|false,      (boolean) true if the address that received the note is also one of the sending addresses\n"
+            "  }\n"
+            "  ,...\n"
+            "]\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("z_listunspent", "")
+            + HelpExampleCli("z_listunspent", "")
+            + HelpExampleCli("z_listunspent", "6 9999999 false \"[\\\"ztbx5DLDxa5ZLFTchHhoPNkKs57QzSyib6UqXpEdy76T1aUdFxJt1w9318Z8DJ73XzbnWHKEZP9Yjg712N5kMmP4QzS9iC9\\\",\\\"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\\\"]\"")
+            + HelpExampleRpc("z_listunspent", "6 9999999 false \"[\\\"ztbx5DLDxa5ZLFTchHhoPNkKs57QzSyib6UqXpEdy76T1aUdFxJt1w9318Z8DJ73XzbnWHKEZP9Yjg712N5kMmP4QzS9iC9\\\",\\\"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\\\"]\"")
+                },
+            }.Check(request);
+
+    int nMinDepth = 1;
+    if (!request.params[0].isNull()) {
+        RPCTypeCheckArgument(request.params[0], UniValue::VNUM);
+        nMinDepth = request.params[0].get_int();
+    }
+
+    int nMaxDepth = 9999999;
+    if (!request.params[1].isNull()) {
+        RPCTypeCheckArgument(request.params[1], UniValue::VNUM);
+        nMaxDepth = request.params[1].get_int();
+    }
+
+    std::set<libzcash::PaymentAddress> zaddrs = {};
+
+    bool fIncludeWatchonly = false;
+    if (!request.params[2].isNull()) {
+        RPCTypeCheckArgument(request.params[2], UniValue::VBOOL);
+        fIncludeWatchonly = request.params[2].get_bool();
+    }
+
+    // User has supplied zaddrs to filter on
+    std::set<std::string> setAddress;
+    if (!request.params[3].isNull()) {
+        RPCTypeCheckArgument(request.params[3], UniValue::VARR);
+        UniValue inputs = request.params[3].get_array();
+        for (unsigned int idx = 0; idx < inputs.size(); idx++) {
+            const UniValue& input = inputs[idx];
+            std::string address = input.get_str();
+            auto zaddr = DecodePaymentAddress(address);
+            if (!IsValidPaymentAddress(zaddr)) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Litecoinz zaddress: ") + input.get_str());
+            }
+            auto hasSpendingKey = boost::apply_visitor(HaveSpendingKeyForPaymentAddress(pwallet), zaddr);
+            if (!fIncludeWatchonly && !hasSpendingKey) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, spending key for address does not belong to wallet: ") + address);
+            }
+            if (!setAddress.insert(address).second) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ") + input.get_str());
+            }
+            zaddrs.insert(zaddr);
+        }
+    } else {
+        // User did not provide zaddrs, so use default i.e. all addresses
+        std::set<libzcash::SproutPaymentAddress> sproutzaddrs = {};
+        pwallet->GetSproutPaymentAddresses(sproutzaddrs);
+
+        // Sapling support
+        std::set<libzcash::SaplingPaymentAddress> saplingzaddrs = {};
+        pwallet->GetSaplingPaymentAddresses(saplingzaddrs);
+
+        zaddrs.insert(sproutzaddrs.begin(), sproutzaddrs.end());
+        zaddrs.insert(saplingzaddrs.begin(), saplingzaddrs.end());
+    }
+
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    UniValue results(UniValue::VARR);
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    if (zaddrs.size() > 0) {
+        std::vector<SproutNoteEntry> sproutEntries;
+        std::vector<SaplingNoteEntry> saplingEntries;
+        pwallet->GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, zaddrs, nMinDepth, nMaxDepth, true, !fIncludeWatchonly, false);
+        std::set<std::pair<libzcash::PaymentAddress, uint256>> nullifierSet = pwallet->GetNullifiersForAddresses(zaddrs);
+
+        for (auto & entry : sproutEntries) {
+            UniValue obj(UniValue::VOBJ);
+            obj.pushKV("txid", entry.jsop.hash.ToString());
+            obj.pushKV("jsindex", (int)entry.jsop.js );
+            obj.pushKV("jsoutindex", (int)entry.jsop.n);
+            obj.pushKV("confirmations", entry.confirmations);
+            bool hasSproutSpendingKey = pwallet->HaveSproutSpendingKey(boost::get<libzcash::SproutPaymentAddress>(entry.address));
+            obj.pushKV("spendable", hasSproutSpendingKey);
+            obj.pushKV("address", EncodePaymentAddress(entry.address));
+
+            auto i = pwallet->mapSproutAddressBook.find(entry.address);
+            if (i != pwallet->mapSproutAddressBook.end()) {
+                obj.pushKV("label", i->second.name);
+            }
+
+            obj.pushKV("amount", ValueFromAmount(CAmount(entry.note.value())));
+            std::string data(entry.memo.begin(), entry.memo.end());
+            obj.pushKV("memo", HexStr(data));
+            if (hasSproutSpendingKey) {
+                obj.pushKV("change", pwallet->IsNoteSproutChange(nullifierSet, entry.address, entry.jsop));
+            }
+            results.push_back(obj);
+        }
+
+        for (auto & entry : saplingEntries) {
+            UniValue obj(UniValue::VOBJ);
+            obj.pushKV("txid", entry.op.hash.ToString());
+            obj.pushKV("outindex", (int)entry.op.n);
+            obj.pushKV("confirmations", entry.confirmations);
+            libzcash::SaplingIncomingViewingKey ivk;
+            libzcash::SaplingFullViewingKey fvk;
+            pwallet->GetSaplingIncomingViewingKey(boost::get<libzcash::SaplingPaymentAddress>(entry.address), ivk);
+            pwallet->GetSaplingFullViewingKey(ivk, fvk);
+            bool hasSaplingSpendingKey = pwallet->HaveSaplingSpendingKey(fvk);
+            obj.pushKV("spendable", hasSaplingSpendingKey);
+            obj.pushKV("address", EncodePaymentAddress(entry.address));
+
+            auto i = pwallet->mapSaplingAddressBook.find(entry.address);
+            if (i != pwallet->mapSaplingAddressBook.end()) {
+                obj.pushKV("label", i->second.name);
+            }
+
+            obj.pushKV("amount", ValueFromAmount(CAmount(entry.note.value()))); // note.value() is equivalent to plaintext.value()
+            obj.pushKV("memo", HexStr(entry.memo));
+            if (hasSaplingSpendingKey) {
+                obj.pushKV("change", pwallet->IsNoteSaplingChange(nullifierSet, entry.address, entry.op));
+            }
+            results.push_back(obj);
+        }
     }
 
     return results;
@@ -3215,6 +3563,7 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
             "       \"ALL|ANYONECANPAY\"\n"
             "       \"NONE|ANYONECANPAY\"\n"
             "       \"SINGLE|ANYONECANPAY\""},
+                    {"branchid", RPCArg::Type::STR, /* default */ "0", "The hex representation of the consensus branch id to sign with. This can be used to force signing with consensus rules that are ahead of the node's current height."},
                 },
                 RPCResult{
             "{\n"
@@ -3238,7 +3587,7 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
                 },
             }.Check(request);
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR, UniValue::VSTR}, true);
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR, UniValue::VSTR, UniValue::VSTR}, true);
 
     CMutableTransaction mtx;
     if (!DecodeHexTx(mtx, request.params[0].get_str(), true)) {
@@ -3260,7 +3609,20 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
     // Parse the prevtxs array
     ParsePrevouts(request.params[1], nullptr, coins);
 
-    return SignTransaction(mtx, pwallet, coins, request.params[2]);
+    // Use the approximate release height if it is greater so offline nodes
+    // have a better estimation of the current height and will be more likely to
+    // determine the correct consensus branch ID.
+    const Consensus::Params& consensusParams = Params().GetConsensus();
+    int nextBlockHeight = std::max((::ChainActive().Height() + 1), consensusParams.nApproxReleaseHeight);
+    // Grab the current consensus branch ID
+    auto consensusBranchId = CurrentEpochBranchId(nextBlockHeight, consensusParams);
+    if (!request.params[4].isNull()) {
+        consensusBranchId = ParseHexToUInt32(request.params[4].get_str());
+        if (!IsConsensusBranchId(consensusBranchId)) {
+            throw std::runtime_error(request.params[4].get_str() + " is not a valid consensus branch id");
+        }
+    }
+    return SignTransaction(mtx, pwallet, coins, request.params[2], consensusBranchId);
 }
 
 static UniValue bumpfee(const JSONRPCRequest& request)
@@ -3695,8 +4057,8 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
             "}\n"
                 },
                 RPCExamples{
-                    HelpExampleCli("getaddressinfo", "\"1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc\"")
-            + HelpExampleRpc("getaddressinfo", "\"1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc\"")
+                    HelpExampleCli("getaddressinfo", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\"")
+            + HelpExampleRpc("getaddressinfo", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\"")
                 },
             }.Check(request);
 
@@ -4063,6 +4425,7 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
                         },
                     },
                     {"locktime", RPCArg::Type::NUM, /* default */ "0", "Raw locktime. Non-0 value also locktime-activates inputs"},
+                    {"expiryheight", RPCArg::Type::NUM, /* default */ strprintf("nextblockheight+%d", DEFAULT_TX_EXPIRY_DELTA), "Expiry height of transaction (if Overwinter is active)"},
                     {"options", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED_NAMED_ARG, "",
                         {
                             {"changeAddress", RPCArg::Type::STR_HEX, /* default */ "pool address", "The litecoinz address to receive the change"},
@@ -4107,6 +4470,7 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
         UniValue::VARR,
         UniValueType(), // ARR or OBJ, checked later
         UniValue::VNUM,
+        UniValue::VNUM,
         UniValue::VOBJ,
         UniValue::VBOOL
         }, true
@@ -4115,19 +4479,19 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
     CAmount fee;
     int change_position;
     bool rbf = pwallet->m_signal_rbf;
-    const UniValue &replaceable_arg = request.params[3]["replaceable"];
+    const UniValue &replaceable_arg = request.params[4]["replaceable"];
     if (!replaceable_arg.isNull()) {
         RPCTypeCheckArgument(replaceable_arg, UniValue::VBOOL);
         rbf = replaceable_arg.isTrue();
     }
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf);
-    FundTransaction(pwallet, rawTx, fee, change_position, request.params[3]);
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, request.params[3]);
+    FundTransaction(pwallet, rawTx, fee, change_position, request.params[4]);
 
     // Make a blank psbt
     PartiallySignedTransaction psbtx(rawTx);
 
     // Fill transaction with out data but don't sign
-    bool bip32derivs = request.params[4].isNull() ? false : request.params[4].get_bool();
+    bool bip32derivs = request.params[5].isNull() ? false : request.params[5].get_bool();
     bool complete = true;
     const TransactionError err = FillPSBT(pwallet, psbtx, complete, 1, false, bip32derivs);
     if (err != TransactionError::OK) {
@@ -4145,16 +4509,1582 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
     return result;
 }
 
+UniValue z_getoperationstatus_IMPL(const JSONRPCRequest& request, bool fRemoveFinishedOperations=false)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    std::set<AsyncRPCOperationId> filter;
+    if (!request.params[0].isNull()) {
+        UniValue ids = request.params[0].get_array();
+        for (const UniValue & v : ids.getValues()) {
+            filter.insert(v.get_str());
+        }
+    }
+    bool useFilter = (filter.size()>0);
+
+    UniValue ret(UniValue::VARR);
+    std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
+    std::vector<AsyncRPCOperationId> ids = q->getAllOperationIds();
+
+    for (auto id : ids) {
+        if (useFilter && !filter.count(id))
+            continue;
+
+        std::shared_ptr<AsyncRPCOperation> operation = q->getOperationForId(id);
+        if (!operation) {
+            continue;
+            // It's possible that the operation was removed from the internal queue and map during this loop
+            // throw JSONRPCError(RPC_INVALID_PARAMETER, "No operation exists for that id.");
+        }
+
+        UniValue obj = operation->getStatus();
+        std::string s = obj["status"].get_str();
+        if (fRemoveFinishedOperations) {
+            // Caller is only interested in retrieving finished results
+            if ("success"==s || "failed"==s || "cancelled"==s) {
+                ret.push_back(obj);
+                q->popOperationForId(id);
+            }
+        } else {
+            ret.push_back(obj);
+        }
+    }
+
+    std::vector<UniValue> arrTmp = ret.getValues();
+
+    // sort results chronologically by creation_time
+    std::sort(arrTmp.begin(), arrTmp.end(), [](UniValue a, UniValue b) -> bool {
+        const int64_t t1 = find_value(a.get_obj(), "creation_time").get_int64();
+        const int64_t t2 = find_value(b.get_obj(), "creation_time").get_int64();
+        return t1 < t2;
+    });
+
+    ret.clear();
+    ret.setArray();
+    ret.push_backV(arrTmp);
+
+    return ret;
+}
+
+UniValue z_getoperationresult(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    RPCHelpMan{"z_getoperationresult",
+                "\nRetrieve the result and status of an operation which has finished, and then remove the operation from memory.\n",
+                {
+                    {"ids", RPCArg::Type::ARR, /* default */ "empty array", "A json array of operation id to filter. If not provided, examine all operations known to the node.",
+                        {
+                            {"operationid", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "operation id"},
+                        },
+                    },
+                },
+                 RPCResult{
+            "\"[object, ...]\"          (array) A list of JSON objects.\n"
+                 },
+                RPCExamples{
+            "\nRetrieve the result of an operation:\n"
+            + HelpExampleCli("z_getoperationresult", "'[\"operationid\", ... ]'") +
+            "\nAs a JSON-RPC call\n"
+            + HelpExampleRpc("z_getoperationresult", "'[\"operationid\", ... ]'")
+                },
+    }.Check(request);
+
+    // This call will remove finished operations
+    return z_getoperationstatus_IMPL(request, true);
+}
+
+UniValue z_getoperationstatus(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    RPCHelpMan{"z_getoperationstatus",
+                "\nRetrieve the status and any associated result or error data.  The operation will remain in memory.\n",
+                {
+                    {"ids", RPCArg::Type::ARR, /* default */ "empty array", "A json array of operation id to filter. If not provided, examine all operations known to the node.",
+                        {
+                            {"operationid", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "operation id"},
+                        },
+                    },
+                },
+                 RPCResult{
+            "\"[object, ...]\"          (array) A list of JSON objects.\n"
+                 },
+                RPCExamples{
+            "\nRetrieve the status of an operation:\n"
+            + HelpExampleCli("z_getoperationstatus", "'[\"operationid\", ... ]'") +
+            "\nAs a JSON-RPC call\n"
+            + HelpExampleRpc("z_getoperationstatus", "'[\"operationid\", ... ]'")
+                },
+    }.Check(request);
+
+    // This call is idempotent so we don't want to remove finished operations
+    return z_getoperationstatus_IMPL(request, false);
+}
+
+UniValue z_listoperationids(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    RPCHelpMan{"z_listoperationids\n",
+                "\nReturns the list of operation ids currently known to the wallet.\n",
+                {
+                    {"status", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter result by the operation's state e.g. \"success\"."},
+                },
+                 RPCResult{
+            "[                     (json array of string)\n"
+            "  \"operationid\"       (string) an operation id belonging to the wallet\n"
+            "  ,...\n"
+            "]\n"
+                 },
+                RPCExamples{
+            "\nRetrieve the list of operation ids:\n"
+            + HelpExampleCli("z_listoperationids", "") +
+            "\nAs a JSON-RPC call\n"
+            + HelpExampleRpc("z_listoperationids", "")
+                },
+    }.Check(request);
+
+    LOCK(pwallet->cs_wallet);
+
+    std::string filter;
+    bool useFilter = false;
+    if (!request.params[0].isNull()) {
+        filter = request.params[0].get_str();
+        useFilter = true;
+    }
+
+    UniValue ret(UniValue::VARR);
+    std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
+    std::vector<AsyncRPCOperationId> ids = q->getAllOperationIds();
+    for (auto id : ids) {
+        std::shared_ptr<AsyncRPCOperation> operation = q->getOperationForId(id);
+        if (!operation) {
+            continue;
+        }
+        std::string state = operation->getStateAsString();
+        if (useFilter && filter.compare(state)!=0)
+            continue;
+        ret.push_back(id);
+    }
+
+    return ret;
+}
+
+static UniValue z_getnewaddress(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    std::string defaultType = ADDR_TYPE_SAPLING;
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+            RPCHelpMan{"z_getnewaddress",
+                "\nReturns a new Litecoinz shielded address for receiving payments.\n"
+                "If 'label' is specified, it is added to the address book \n"
+                "so payments received with the shielded address will be associated with 'label'.\n",
+                {
+                    {"label", RPCArg::Type::STR, /* default */ "\"\"", "The label name for the shielded address to be linked to. It can also be set to the empty string \"\" to represent the default label. The label does not need to exist, it will be created if there is no label by the given name."},
+                    {"address_type", RPCArg::Type::STR, /* default */ defaultType, "The address type to use. Options are \"sprout\" and \"sapling\"."},
+                },
+                RPCResult{
+            "\"address\"    (string) The new litecoinz shielded address\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("z_getnewaddress", "")
+            + HelpExampleRpc("a_getnewaddress", "")
+                },
+            }.Check(request);
+
+    LOCK(pwallet->cs_wallet);
+
+    if (!pwallet->CanGetAddresses()) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Error: This wallet has no available keys");
+    }
+
+    // Parse the label first so we don't generate a key if there's an error
+    std::string label;
+    if (!request.params[0].isNull())
+        label = LabelFromValue(request.params[0]);
+
+    auto address_type = defaultType;
+    if (!request.params[1].isNull()) {
+        address_type = request.params[1].get_str();
+    }
+
+    libzcash::PaymentAddress dest;
+    std::string error;
+
+    if (address_type == ADDR_TYPE_SPROUT) {
+        if (!pwallet->GetNewSproutDestination(label, dest, error)) {
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
+        }
+    } else if (address_type == ADDR_TYPE_SAPLING) {
+        if (!pwallet->GetNewSaplingDestination(label, dest, error)) {
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
+        }
+    } else {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", address_type));
+    }
+
+    return EncodePaymentAddress(dest);
+}
+
+// JSDescription size depends on the transaction version
+#define V3_JS_DESCRIPTION_SIZE    (GetSerializeSize(JSDescription(), SER_NETWORK, (OVERWINTER_TX_VERSION | (1 << 31))))
+// Here we define the maximum number of zaddr outputs that can be included in a transaction.
+// If input notes are small, we might actually require more than one joinsplit per zaddr output.
+// For now though, we assume we use one joinsplit per zaddr output (and the second output note is change).
+// We reduce the result by 1 to ensure there is room for non-joinsplit CTransaction data.
+#define Z_SENDMANY_MAX_ZADDR_OUTPUTS_BEFORE_SAPLING    ((MAX_TX_SIZE_BEFORE_SAPLING / V3_JS_DESCRIPTION_SIZE) - 1)
+
+// transaction.h comment: spending taddr output requires CTxIn >= 148 bytes and typical taddr txout is 34 bytes
+#define CTXIN_SPEND_DUST_SIZE   148
+#define CTXOUT_REGULAR_SIZE     34
+
+static UniValue z_sendmany(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    RPCHelpMan{"z_sendmany",
+                "\nSend multiple times. Amounts are double-precision floating point numbers."
+                "\nChange generated from a taddr flows to a new taddr address, while change generated from a zaddr returns to itself."
+                "\nWhen sending coinbase UTXOs to a zaddr, change is not allowed. The entire value of the UTXO(s) must be consumed." +
+                strprintf("\nBefore Sapling activates, the maximum number of zaddr outputs is %d due to transaction size limits.", Z_SENDMANY_MAX_ZADDR_OUTPUTS_BEFORE_SAPLING) +
+                    HelpRequiringPassphrase(pwallet) + "\n",
+                {
+                    {"fromaddress", RPCArg::Type::STR, RPCArg::Optional::NO, "The taddr or zaddr to send the funds from."},
+                    {"amounts", RPCArg::Type::ARR, RPCArg::Optional::NO, "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The address is a taddr or zaddr"},
+                                    {"amount", RPCArg::Type::NUM, RPCArg::Optional::NO, "The numeric amount in " + CURRENCY_UNIT + " is the value"},
+                                    {"memo", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "If the address is a zaddr, raw data represented in hexadecimal string format"},
+                                },
+                            },
+                        },
+                    },
+                    {"minconf", RPCArg::Type::NUM, /* default */ "1", "Only use funds confirmed at least this many times."},
+                    {"fee", RPCArg::Type::AMOUNT, /* default */ strprintf("%s", FormatMoney(ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE)), "The fee amount to attach to this transaction."},
+                },
+                 RPCResult{
+            "\"operationid\"            (string) An operationid to pass to z_getoperationstatus to get the result of the operation.\n"
+                 },
+                RPCExamples{
+            "\nSend amount to a shielded address:\n"
+            + HelpExampleCli("z_sendmany", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" '[{\"address\": \"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\", \"amount\": 5.0}]'") +
+            "\nAs a JSON-RPC call\n"
+            + HelpExampleRpc("z_sendmany", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", [{\"address\": \"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\", \"amount\": 5.0}]")
+                },
+    }.Check(request);
+
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    // Check that the from address is valid.
+    auto fromaddress = request.params[0].get_str();
+    bool fromTaddr = false;
+    bool fromSapling = false;
+    CTxDestination taddr = DecodeDestination(fromaddress);
+    fromTaddr = IsValidDestination(taddr);
+    if (!fromTaddr) {
+        auto res = DecodePaymentAddress(fromaddress);
+        if (!IsValidPaymentAddress(res)) {
+            // invalid
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid from address, should be a taddr or zaddr.");
+        }
+
+        // Check that we have the spending key
+        if (!boost::apply_visitor(HaveSpendingKeyForPaymentAddress(pwallet), res)) {
+             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "From address does not belong to this node, zaddr spending key not found.");
+        }
+
+        // Remember whether this is a Sprout or Sapling address
+        fromSapling = boost::get<libzcash::SaplingPaymentAddress>(&res) != nullptr;
+    }
+    // This logic will need to be updated if we add a new shielded pool
+    bool fromSprout = !(fromTaddr || fromSapling);
+
+    UniValue outputs = request.params[1].get_array();
+
+    if (outputs.size()==0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amounts array is empty.");
+
+    // Keep track of addresses to spot duplicates
+    std::set<std::string> setAddress;
+
+    // Track whether we see any Sprout addresses
+    bool noSproutAddrs = !fromSprout;
+
+    // Recipients
+    std::vector<SendManyRecipient> taddrRecipients;
+    std::vector<SendManyRecipient> zaddrRecipients;
+    CAmount nTotalOut = 0;
+
+    bool containsSproutOutput = false;
+    bool containsSaplingOutput = false;
+
+    for (const UniValue& o : outputs.getValues()) {
+        if (!o.isObject())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
+
+        // sanity check, report error if unknown key-value pairs
+        for (const std::string& name_ : o.getKeys()) {
+            std::string s = name_;
+            if (s != "address" && s != "amount" && s!="memo")
+                throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, unknown key: ")+s);
+        }
+
+        std::string address = find_value(o, "address").get_str();
+        bool isZaddr = false;
+        CTxDestination taddr = DecodeDestination(address);
+        if (!IsValidDestination(taddr)) {
+            auto res = DecodePaymentAddress(address);
+            if (IsValidPaymentAddress(res)) {
+                isZaddr = true;
+
+                bool toSapling = boost::get<libzcash::SaplingPaymentAddress>(&res) != nullptr;
+                bool toSprout = !toSapling;
+                noSproutAddrs = noSproutAddrs && toSapling;
+
+                containsSproutOutput |= toSprout;
+                containsSaplingOutput |= toSapling;
+
+                // Sending to both Sprout and Sapling is currently unsupported using z_sendmany
+                if (containsSproutOutput && containsSaplingOutput) {
+                    throw JSONRPCError(
+                        RPC_INVALID_PARAMETER,
+                        "Cannot send to both Sprout and Sapling addresses using z_sendmany");
+                }
+
+                // If sending between shielded addresses, they must be the same type
+                if ((fromSprout && toSapling) || (fromSapling && toSprout)) {
+                    throw JSONRPCError(
+                        RPC_INVALID_PARAMETER,
+                        "Cannot send between Sprout and Sapling addresses using z_sendmany");
+                }
+            } else {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, unknown address format: ") + address);
+            }
+        }
+
+        if (setAddress.count(address))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ") + address);
+        setAddress.insert(address);
+
+        UniValue memoValue = find_value(o, "memo");
+        std::string memo;
+        if (!memoValue.isNull()) {
+            memo = memoValue.get_str();
+            if (!isZaddr) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Memo cannot be used with a taddr.  It can only be used with a zaddr.");
+            } else if (!IsHex(memo)) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected memo data in hexadecimal format.");
+            }
+            if (memo.length() > ZC_MEMO_SIZE*2) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER,  strprintf("Invalid parameter, size of memo is larger than maximum allowed %d", ZC_MEMO_SIZE));
+            }
+        }
+
+        UniValue av = find_value(o, "amount");
+        CAmount nAmount = AmountFromValue( av );
+        if (nAmount < 0)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
+
+        if (isZaddr) {
+            zaddrRecipients.push_back(SendManyRecipient(address, nAmount, memo));
+        } else {
+            taddrRecipients.push_back(SendManyRecipient(address, nAmount, memo));
+        }
+
+        nTotalOut += nAmount;
+    }
+
+    int nextBlockHeight = ::ChainActive().Height() + 1;
+    CMutableTransaction mtx;
+    mtx.fOverwintered = true;
+    mtx.nVersionGroupId = SAPLING_VERSION_GROUP_ID;
+    mtx.nVersion = SAPLING_TX_VERSION;
+    unsigned int max_tx_size = MAX_TX_SIZE_AFTER_SAPLING;
+    if (!Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_SAPLING)) {
+        if (Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_OVERWINTER)) {
+            mtx.nVersionGroupId = OVERWINTER_VERSION_GROUP_ID;
+            mtx.nVersion = OVERWINTER_TX_VERSION;
+        } else {
+            mtx.fOverwintered = false;
+            mtx.nVersion = 2;
+        }
+
+        max_tx_size = MAX_TX_SIZE_BEFORE_SAPLING;
+
+        // Check the number of zaddr outputs does not exceed the limit.
+        if (zaddrRecipients.size() > Z_SENDMANY_MAX_ZADDR_OUTPUTS_BEFORE_SAPLING)  {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, too many zaddr outputs");
+        }
+        // If Sapling is not active, do not allow sending from or sending to Sapling addresses.
+        if (fromSapling || containsSaplingOutput) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, Sapling has not activated");
+        }
+    }
+
+    // As a sanity check, estimate and verify that the size of the transaction will be valid.
+    // Depending on the input notes, the actual tx size may turn out to be larger and perhaps invalid.
+    size_t txsize = 0;
+    for (size_t i = 0; i < zaddrRecipients.size(); i++) {
+        auto address = std::get<0>(zaddrRecipients[i]);
+        auto res = DecodePaymentAddress(address);
+        bool toSapling = boost::get<libzcash::SaplingPaymentAddress>(&res) != nullptr;
+        if (toSapling) {
+            mtx.vShieldedOutput.push_back(OutputDescription());
+        } else {
+            JSDescription jsdesc;
+            if (mtx.fOverwintered && (mtx.nVersion >= SAPLING_TX_VERSION)) {
+                jsdesc.proof = libzcash::GrothProof();
+            }
+            mtx.vJoinSplit.push_back(jsdesc);
+        }
+    }
+    CTransaction tx(mtx);
+    txsize += GetSerializeSize(tx, SER_NETWORK, tx.nVersion);
+    if (fromTaddr) {
+        txsize += CTXIN_SPEND_DUST_SIZE;
+        txsize += CTXOUT_REGULAR_SIZE;      // There will probably be taddr change
+    }
+    txsize += CTXOUT_REGULAR_SIZE * taddrRecipients.size();
+    if (txsize > max_tx_size) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Too many outputs, size of raw transaction would be larger than limit of %d bytes", max_tx_size));
+    }
+
+    // Minimum confirmations
+    int nMinDepth = 1;
+    if (!request.params[2].isNull()) {
+        nMinDepth = request.params[2].get_int();
+    }
+    if (nMinDepth < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Minimum number of confirmations cannot be less than 0");
+    }
+
+    // Fee in Zatoshis, not currency format)
+    CAmount nFee        = ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE;
+    CAmount nDefaultFee = nFee;
+
+    if (!request.params[3].isNull()) {
+        if (request.params[3].get_real() == 0.0) {
+            nFee = 0;
+        } else {
+            nFee = AmountFromValue(request.params[3]);
+        }
+
+        // Check that the user specified fee is not absurd.
+        // This allows amount=0 (and all amount < nDefaultFee) transactions to use the default network fee
+        // or anything less than nDefaultFee instead of being forced to use a custom fee and leak metadata
+        if (nTotalOut < nDefaultFee) {
+            if (nFee > nDefaultFee) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Small transaction amount %s has fee %s that is greater than the default fee %s", FormatMoney(nTotalOut), FormatMoney(nFee), FormatMoney(nDefaultFee)));
+            }
+        } else {
+            // Check that the user specified fee is not absurd.
+            if (nFee > nTotalOut) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Fee %s is greater than the sum of outputs %s and also greater than the default fee", FormatMoney(nFee), FormatMoney(nTotalOut)));
+            }
+        }
+    }
+
+    // Use input parameters as the optional context info to be returned by z_getoperationstatus and z_getoperationresult.
+    UniValue o(UniValue::VOBJ);
+    o.pushKV("fromaddress", request.params[0]);
+    o.pushKV("amounts", request.params[1]);
+    o.pushKV("minconf", nMinDepth);
+    o.pushKV("fee", std::stod(FormatMoney(nFee)));
+    UniValue contextInfo = o;
+
+    if (!fromTaddr || !zaddrRecipients.empty()) {
+        // We have shielded inputs or outputs, and therefore cannot create
+        // transactions before Sapling activates.
+        if (!Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_SAPLING)) {
+            throw JSONRPCError(
+                RPC_INVALID_PARAMETER, "Cannot create shielded transactions before Sapling has activated");
+        }
+    }
+
+    // Builder (used if Sapling addresses are involved)
+    boost::optional<TransactionBuilder> builder;
+    if (noSproutAddrs) {
+        builder = TransactionBuilder(Params().GetConsensus(), nextBlockHeight, pwallet);
+    }
+
+    // Contextual transaction we will build on
+    // (used if no Sapling addresses are involved)
+    CMutableTransaction contextualTx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), nextBlockHeight);
+    bool isShielded = !fromTaddr || zaddrRecipients.size() > 0;
+    if (contextualTx.nVersion == 1 && isShielded) {
+        contextualTx.nVersion = 2; // Tx format should support vJoinSplits
+    }
+
+    // Create operation and add to global queue
+    std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
+    std::shared_ptr<AsyncRPCOperation> operation(new AsyncRPCOperation_sendmany(request, builder, contextualTx, fromaddress, taddrRecipients, zaddrRecipients, nMinDepth, nFee, contextInfo));
+    q->addOperation(operation);
+    AsyncRPCOperationId operationId = operation->getId();
+    return operationId;
+}
+
+/**
+When estimating the number of coinbase utxos we can shield in a single transaction:
+1. Joinsplit description is 1802 bytes.
+2. Transaction overhead ~ 100 bytes
+3. Spending a typical P2PKH is >=148 bytes, as defined in CTXIN_SPEND_DUST_SIZE.
+4. Spending a multi-sig P2SH address can vary greatly:
+   https://github.com/bitcoin/bitcoin/blob/c3ad56f4e0b587d8d763af03d743fdfc2d180c9b/src/main.cpp#L517
+   In real-world coinbase utxos, we consider a 3-of-3 multisig, where the size is roughly:
+    (3*(33+1))+3 = 105 byte redeem script
+    105 + 1 + 3*(73+1) = 328 bytes of scriptSig, rounded up to 400 based on testnet experiments.
+*/
+#define CTXIN_SPEND_P2SH_SIZE 400
+
+#define SHIELD_COINBASE_DEFAULT_LIMIT 50
+
+UniValue z_shieldcoinbase(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    RPCHelpMan{"z_shieldcoinbase",
+            "\nShield transparent coinbase funds by sending to a shielded address. This is an asynchronous operation and utxos"
+            "\nselected for shielding will be locked. If there is an error, they are unlocked. The RPC call `listlockunspent`"
+            "\ncan be used to return a list of locked utxos. The number of coinbase utxos selected for shielding can be limited"
+            "\nby the caller. Any limit is constrained by the consensus rule defining a maximum"
+            "\ntransaction size of " +
+            strprintf("%d bytes before Sapling, and %d bytes once Sapling activates.", MAX_TX_SIZE_BEFORE_SAPLING, MAX_TX_SIZE_AFTER_SAPLING) +
+                    HelpRequiringPassphrase(pwallet) + "\n",
+                {
+                    {"fromaddress", RPCArg::Type::STR, RPCArg::Optional::NO, "The address is a taddr or \"*\" for all taddrs belonging to the wallet."},
+                    {"toaddress", RPCArg::Type::STR, RPCArg::Optional::NO, "The address is a zaddr."},
+                    {"fee", RPCArg::Type::AMOUNT, /* default */ strprintf("%s", FormatMoney(SHIELD_COINBASE_DEFAULT_MINERS_FEE)), "The fee amount to attach to this transaction)."},
+                    {"limit", RPCArg::Type::NUM, /* default */ strprintf("%d", SHIELD_COINBASE_DEFAULT_LIMIT), "Limit on the maximum number of utxos to shield. Set to 0 to use as many as will fit in the transaction."},
+                },
+                 RPCResult{
+            "{\n"
+            "  \"remainingUTXOs\": xxx    (numeric) Number of coinbase utxos still available for shielding.\n"
+            "  \"remainingValue\": xxx    (numeric) Value of coinbase utxos still available for shielding.\n"
+            "  \"shieldingUTXOs\": xxx    (numeric) Number of coinbase utxos being shielded.\n"
+            "  \"shieldingValue\": xxx    (numeric) Value of coinbase utxos being shielded.\n"
+            "  \"opid\": xxx              (string) An operationid to pass to z_getoperationstatus to get the result of the operation.\n"
+            "}\n"
+                 },
+                RPCExamples{
+            "\nShield utxos to a shielded address:\n"
+            + HelpExampleCli("z_shieldcoinbase", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" \"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\"") +
+            "\nAs a JSON-RPC call\n"
+            + HelpExampleRpc("z_shieldcoinbase", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", \"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\"")
+                },
+    }.Check(request);
+
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    // Validate the from address
+    auto fromaddress = request.params[0].get_str();
+    bool isFromWildcard = fromaddress == "*";
+    CTxDestination taddr;
+    if (!isFromWildcard) {
+        taddr = DecodeDestination(fromaddress);
+        if (!IsValidDestination(taddr)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid from address, should be a taddr or \"*\".");
+        }
+    }
+
+    // Validate the destination address
+    auto destaddress = request.params[1].get_str();
+    if (!IsValidPaymentAddressString(destaddress)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, unknown address format: ") + destaddress );
+    }
+
+    // Convert fee from currency format to zatoshis
+    CAmount nFee = SHIELD_COINBASE_DEFAULT_MINERS_FEE;
+    if (!request.params[2].isNull()) {
+        if (request.params[2].get_real() == 0.0) {
+            nFee = 0;
+        } else {
+            nFee = AmountFromValue(request.params[2]);
+        }
+    }
+
+    int nLimit = SHIELD_COINBASE_DEFAULT_LIMIT;
+    if (!request.params[3].isNull()) {
+        nLimit = request.params[3].get_int();
+        if (nLimit < 0) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Limit on maximum number of utxos cannot be negative");
+        }
+    }
+
+    int nextBlockHeight = ::ChainActive().Height() + 1;
+    const bool saplingActive = Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_SAPLING);
+
+    // We cannot create shielded transactions before Sapling activates.
+    if (!saplingActive) {
+        throw JSONRPCError(
+            RPC_INVALID_PARAMETER, "Cannot create shielded transactions before Sapling has activated");
+    }
+
+    bool overwinterActive = Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_OVERWINTER);
+    assert(overwinterActive);
+    unsigned int max_tx_size = MAX_TX_SIZE_AFTER_SAPLING;
+
+    // Prepare to get coinbase utxos
+    std::vector<ShieldCoinbaseUTXO> inputs;
+    CAmount shieldedValue = 0;
+    CAmount remainingValue = 0;
+    size_t estimatedTxSize = 2000;  // 1802 joinsplit description + tx overhead + wiggle room
+    size_t utxoCounter = 0;
+    bool maxedOutFlag = false;
+    const size_t mempoolLimit = nLimit;
+
+    // Set of addresses to filter utxos by
+    std::set<CTxDestination> destinations = {};
+    if (!isFromWildcard) {
+        destinations.insert(taddr);
+    }
+
+    // Get available utxos
+    std::vector<COutput> vecOutputs;
+    pwallet->AvailableCoins(*locked_chain, true, true, vecOutputs);
+
+    // Find unspent coinbase utxos and update estimated size
+    for (const COutput& out : vecOutputs) {
+        if (!out.fSpendable) {
+            continue;
+        }
+
+        CTxDestination address;
+        if (!ExtractDestination(out.tx->tx->vout[out.i].scriptPubKey, address)) {
+            continue;
+        }
+        // If taddr is not wildcard "*", filter utxos
+        if (destinations.size() > 0 && !destinations.count(address)) {
+            continue;
+        }
+
+        if (!out.tx->IsCoinBase()) {
+            continue;
+        }
+
+        utxoCounter++;
+        auto scriptPubKey = out.tx->tx->vout[out.i].scriptPubKey;
+        CAmount nValue = out.tx->tx->vout[out.i].nValue;
+
+        if (!maxedOutFlag) {
+            size_t increase = (boost::get<ScriptHash>(&address) != nullptr) ? CTXIN_SPEND_P2SH_SIZE : CTXIN_SPEND_DUST_SIZE;
+            if (estimatedTxSize + increase >= max_tx_size ||
+                (mempoolLimit > 0 && utxoCounter > mempoolLimit))
+            {
+                maxedOutFlag = true;
+            } else {
+                estimatedTxSize += increase;
+                ShieldCoinbaseUTXO utxo = {out.tx->GetHash(), out.i, scriptPubKey, nValue};
+                inputs.push_back(utxo);
+                shieldedValue += nValue;
+            }
+        }
+
+        if (maxedOutFlag) {
+            remainingValue += nValue;
+        }
+    }
+
+    size_t numUtxos = inputs.size();
+
+    if (numUtxos == 0) {
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Could not find any coinbase funds to shield.");
+    }
+
+    if (shieldedValue < nFee) {
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
+            strprintf("Insufficient coinbase funds, have %s, which is less than miners fee %s",
+            FormatMoney(shieldedValue), FormatMoney(nFee)));
+    }
+
+    // Check that the user specified fee is sane (if too high, it can result in error -25 absurd fee)
+    CAmount netAmount = shieldedValue - nFee;
+    if (nFee > netAmount) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Fee %s is greater than the net amount to be shielded %s", FormatMoney(nFee), FormatMoney(netAmount)));
+    }
+
+    // Keep record of parameters in context object
+    UniValue contextInfo(UniValue::VOBJ);
+    contextInfo.pushKV("fromaddress", request.params[0]);
+    contextInfo.pushKV("toaddress", request.params[1]);
+    contextInfo.pushKV("fee", ValueFromAmount(nFee));
+
+    // Builder (used if Sapling addresses are involved)
+    TransactionBuilder builder = TransactionBuilder(Params().GetConsensus(), nextBlockHeight, pwallet);
+
+    // Contextual transaction we will build on
+    // (used if no Sapling addresses are involved)
+    CMutableTransaction contextualTx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), nextBlockHeight);
+    if (contextualTx.nVersion == 1) {
+        contextualTx.nVersion = 2; // Tx format should support vJoinSplit
+    }
+
+    // Create operation and add to global queue
+    std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
+    std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(request, builder, contextualTx, inputs, destaddress, nFee, contextInfo) );
+    q->addOperation(operation);
+    AsyncRPCOperationId operationId = operation->getId();
+
+    // Return continuation information
+    UniValue o(UniValue::VOBJ);
+    o.pushKV("remainingUTXOs", static_cast<uint64_t>(utxoCounter - numUtxos));
+    o.pushKV("remainingValue", ValueFromAmount(remainingValue));
+    o.pushKV("shieldingUTXOs", static_cast<uint64_t>(numUtxos));
+    o.pushKV("shieldingValue", ValueFromAmount(shieldedValue));
+    o.pushKV("opid", operationId);
+    return o;
+}
+
+#define MERGE_TO_ADDRESS_DEFAULT_TRANSPARENT_LIMIT 50
+#define MERGE_TO_ADDRESS_DEFAULT_SPROUT_LIMIT 20
+#define MERGE_TO_ADDRESS_DEFAULT_SAPLING_LIMIT 200
+
+UniValue z_mergetoaddress(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    RPCHelpMan{"z_mergetoaddress",
+                "\nMerge multiple UTXOs and notes into a single UTXO or note. Coinbase UTXOs are ignored; use `z_shieldcoinbase`\n"
+                "to combine those into a single note.\n"
+                "\n"
+                "This is an asynchronous operation, and UTXOs selected for merging will be locked. If there is an error, they\n"
+                "are unlocked. The RPC call `listlockunspent` can be used to return a list of locked UTXOs.\n"
+                "\n"
+                "The number of UTXOs and notes selected for merging can be limited by the caller. If the transparent limit\n"
+                "parameter is set to zero will mean limit the number of UTXOs based on the size of the transaction. Any limit is\n"
+                "constrained by the consensus rule defining a maximum transaction size of " +
+                strprintf("%d bytes before Sapling, and %d", MAX_TX_SIZE_BEFORE_SAPLING, MAX_TX_SIZE_AFTER_SAPLING) +
+                "\nbytes once Sapling activates." +
+                    HelpRequiringPassphrase(pwallet) + "\n",
+                {
+                    {"fromaddresses", RPCArg::Type::ARR, RPCArg::Optional::NO, "A JSON array with addresses.",
+                        {
+                            {"address", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Can be a taddr or a zaddr"},
+                        },
+                    },
+                    {"toaddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The taddr or zaddr to send the funds to."},
+                    {"fee", RPCArg::Type::AMOUNT, /* default */ strprintf("%s", FormatMoney(MERGE_TO_ADDRESS_OPERATION_DEFAULT_MINERS_FEE)), "The fee amount to attach to this transaction."},
+                    {"transparent_limit", RPCArg::Type::NUM, /* default */ strprintf("%d", MERGE_TO_ADDRESS_DEFAULT_TRANSPARENT_LIMIT), "Limit on the maximum number of UTXOs to merge. Set to 0 to use as many as will fit in the transaction."},
+                    {"shielded_limit", RPCArg::Type::NUM, /* default */ strprintf("%d Sprout or %d Sapling Notes", MERGE_TO_ADDRESS_DEFAULT_SPROUT_LIMIT, MERGE_TO_ADDRESS_DEFAULT_SAPLING_LIMIT), "Limit on the maximum number of notes to merge. Set to 0 to merge as many as will fit in the transaction."},
+                    {"memo", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Encoded as hex. When toaddress is a zaddr, this will be stored in the memo field of the new note"},
+                },
+                RPCResult{
+            "{\n"
+            "  \"remainingUTXOs\": xxx               (numeric) Number of UTXOs still available for merging.\n"
+            "  \"remainingTransparentValue\": xxx    (numeric) Value of UTXOs still available for merging.\n"
+            "  \"remainingNotes\": xxx               (numeric) Number of notes still available for merging.\n"
+            "  \"remainingShieldedValue\": xxx       (numeric) Value of notes still available for merging.\n"
+            "  \"mergingUTXOs\": xxx                 (numeric) Number of UTXOs being merged.\n"
+            "  \"mergingTransparentValue\": xxx      (numeric) Value of UTXOs being merged.\n"
+            "  \"mergingNotes\": xxx                 (numeric) Number of notes being merged.\n"
+            "  \"mergingShieldedValue\": xxx         (numeric) Value of notes being merged.\n"
+            "  \"opid\": xxx                         (string) An operationid to pass to z_getoperationstatus to get the result of the operation.\n"
+            "}\n"
+                },
+                RPCExamples{
+            "\nMerge multiple UTXOs and notes into a single UTXO or note:\n"
+            + HelpExampleCli("z_mergetoaddress", "'[\"ANY_SAPLING\", \"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\"]' ztestsapling19rnyu293v44f0kvtmszhx35lpdug574twc0lwyf4s7w0umtkrdq5nfcauxrxcyfmh3m7slemqsj") +
+            "\nAs a JSON-RPC call\n"
+            + HelpExampleRpc("z_mergetoaddress", "[\"ANY_SAPLING\", \"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\"], \"ztestsapling19rnyu293v44f0kvtmszhx35lpdug574twc0lwyf4s7w0umtkrdq5nfcauxrxcyfmh3m7slemqsj\"")
+                },
+            }.Check(request);
+
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    bool useAnyUTXO = false;
+    bool useAnySprout = false;
+    bool useAnySapling = false;
+    std::set<CTxDestination> taddrs = {};
+    std::set<libzcash::PaymentAddress> zaddrs = {};
+
+    UniValue addresses = request.params[0].get_array();
+    if (addresses.size() == 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, fromaddresses array is empty.");
+
+    // Keep track of addresses to spot duplicates
+    std::set<std::string> setAddress;
+
+    // Sources
+    for (const UniValue& o : addresses.getValues()) {
+        if (!o.isStr())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected string");
+
+        std::string address = o.get_str();
+
+        if (address == "ANY_TADDR") {
+            useAnyUTXO = true;
+        } else if (address == "ANY_SPROUT") {
+            useAnySprout = true;
+        } else if (address == "ANY_SAPLING") {
+            useAnySapling = true;
+        } else {
+            CTxDestination taddr = DecodeDestination(address);
+            if (IsValidDestination(taddr)) {
+                taddrs.insert(taddr);
+            } else {
+                auto zaddr = DecodePaymentAddress(address);
+                if (IsValidPaymentAddress(zaddr)) {
+                    zaddrs.insert(zaddr);
+                } else {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Unknown address format: ") + address);
+                }
+            }
+        }
+
+        if (setAddress.count(address))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ") + address);
+        setAddress.insert(address);
+    }
+
+    if (useAnyUTXO && taddrs.size() > 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot specify specific taddrs when using \"ANY_TADDR\"");
+    }
+    if ((useAnySprout || useAnySapling) && zaddrs.size() > 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot specify specific zaddrs when using \"ANY_SPROUT\" or \"ANY_SAPLING\"");
+    }
+
+    const int nextBlockHeight = ::ChainActive().Height() + 1;
+    const bool saplingActive =  Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_SAPLING);
+
+    // Validate the destination address
+    auto destaddress = request.params[1].get_str();
+    bool isToSproutZaddr = false;
+    bool isToSaplingZaddr = false;
+    CTxDestination taddr = DecodeDestination(destaddress);
+    if (!IsValidDestination(taddr)) {
+        auto decodeAddr = DecodePaymentAddress(destaddress);
+        if (IsValidPaymentAddress(decodeAddr)) {
+            if (boost::get<libzcash::SaplingPaymentAddress>(&decodeAddr) != nullptr) {
+                isToSaplingZaddr = true;
+                // If Sapling is not active, do not allow sending to a sapling addresses.
+                if (!saplingActive) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, Sapling has not activated");
+                }
+            } else {
+                isToSproutZaddr = true;
+            }
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, unknown address format: ") + destaddress );
+        }
+    }
+
+    // Convert fee from currency format to zatoshis
+    CAmount nFee = SHIELD_COINBASE_DEFAULT_MINERS_FEE;
+    if (!request.params[2].isNull()) {
+        if (request.params[2].get_real() == 0.0) {
+            nFee = 0;
+        } else {
+            nFee = AmountFromValue(request.params[2]);
+        }
+    }
+
+    int nUTXOLimit = MERGE_TO_ADDRESS_DEFAULT_TRANSPARENT_LIMIT;
+    if (!request.params[3].isNull()) {
+        nUTXOLimit = request.params[3].get_int();
+        if (nUTXOLimit < 0) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Limit on maximum number of UTXOs cannot be negative");
+        }
+    }
+
+    size_t sproutNoteLimit = MERGE_TO_ADDRESS_DEFAULT_SPROUT_LIMIT;
+    size_t saplingNoteLimit = MERGE_TO_ADDRESS_DEFAULT_SAPLING_LIMIT;
+    if (!request.params[4].isNull()) {
+        int nNoteLimit = request.params[4].get_int();
+        if (nNoteLimit < 0) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Limit on maximum number of notes cannot be negative");
+        }
+        sproutNoteLimit = nNoteLimit;
+        saplingNoteLimit = nNoteLimit;
+    }
+
+    std::string memo;
+    if (!request.params[5].isNull()) {
+        memo = request.params[5].get_str();
+        if (!(isToSproutZaddr || isToSaplingZaddr)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Memo can not be used with a taddr.  It can only be used with a zaddr.");
+        } else if (!IsHex(memo)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected memo data in hexadecimal format.");
+        }
+        if (memo.length() > ZC_MEMO_SIZE*2) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameter, size of memo is larger than maximum allowed %d", ZC_MEMO_SIZE ));
+        }
+    }
+
+    MergeToAddressRecipient recipient(destaddress, memo);
+
+    // Prepare to get UTXOs and notes
+    std::vector<MergeToAddressInputUTXO> utxoInputs;
+    std::vector<MergeToAddressInputSproutNote> sproutNoteInputs;
+    std::vector<MergeToAddressInputSaplingNote> saplingNoteInputs;
+    CAmount mergedUTXOValue = 0;
+    CAmount mergedNoteValue = 0;
+    CAmount remainingUTXOValue = 0;
+    CAmount remainingNoteValue = 0;
+    size_t utxoCounter = 0;
+    size_t noteCounter = 0;
+    bool maxedOutUTXOsFlag = false;
+    bool maxedOutNotesFlag = false;
+    const size_t mempoolLimit = nUTXOLimit;
+
+    unsigned int max_tx_size = saplingActive ? MAX_TX_SIZE_AFTER_SAPLING : MAX_TX_SIZE_BEFORE_SAPLING;
+    size_t estimatedTxSize = 200;  // tx overhead + wiggle room
+    if (isToSproutZaddr) {
+        estimatedTxSize += JOINSPLIT_SIZE;
+    } else if (isToSaplingZaddr) {
+        estimatedTxSize += OUTPUTDESCRIPTION_SIZE;
+    }
+
+    if (useAnyUTXO || taddrs.size() > 0) {
+        // Get available utxos
+        std::vector<COutput> vecOutputs;
+        pwallet->AvailableCoins(*locked_chain, false, false, vecOutputs);
+
+        // Find unspent utxos and update estimated size
+        for (const COutput& out : vecOutputs) {
+            if (!out.fSpendable) {
+                continue;
+            }
+
+            CScript scriptPubKey = out.tx->tx->vout[out.i].scriptPubKey;
+
+            CTxDestination address;
+            if (!ExtractDestination(scriptPubKey, address)) {
+                continue;
+            }
+            // If taddr is not wildcard "*", filter utxos
+            if (taddrs.size() > 0 && !taddrs.count(address)) {
+                continue;
+            }
+
+            utxoCounter++;
+            CAmount nValue = out.tx->tx->vout[out.i].nValue;
+
+            if (!maxedOutUTXOsFlag) {
+                size_t increase = (boost::get<ScriptHash>(&address) != nullptr) ? CTXIN_SPEND_P2SH_SIZE : CTXIN_SPEND_DUST_SIZE;
+                if (estimatedTxSize + increase >= max_tx_size ||
+                    (mempoolLimit > 0 && utxoCounter > mempoolLimit))
+                {
+                    maxedOutUTXOsFlag = true;
+                } else {
+                    estimatedTxSize += increase;
+                    COutPoint utxo(out.tx->GetHash(), out.i);
+                    utxoInputs.emplace_back(utxo, nValue, scriptPubKey);
+                    mergedUTXOValue += nValue;
+                }
+            }
+
+            if (maxedOutUTXOsFlag) {
+                remainingUTXOValue += nValue;
+            }
+        }
+    }
+
+    if (useAnySprout || useAnySapling || zaddrs.size() > 0) {
+        // Get available notes
+        std::vector<SproutNoteEntry> sproutEntries;
+        std::vector<SaplingNoteEntry> saplingEntries;
+        pwallet->GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, zaddrs);
+
+        // If Sapling is not active, do not allow sending from a sapling addresses.
+        if (!saplingActive && saplingEntries.size() > 0) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, Sapling has not activated");
+        }
+        // Do not include Sprout/Sapling notes if using "ANY_SAPLING"/"ANY_SPROUT" respectively
+        if (useAnySprout) {
+            saplingEntries.clear();
+        }
+        if (useAnySapling) {
+            sproutEntries.clear();
+        }
+        // Sending from both Sprout and Sapling is currently unsupported using z_mergetoaddress
+        if ((sproutEntries.size() > 0 && saplingEntries.size() > 0) || (useAnySprout && useAnySapling)) {
+            throw JSONRPCError(
+                RPC_INVALID_PARAMETER,
+                "Cannot send from both Sprout and Sapling addresses using z_mergetoaddress");
+        }
+        // If sending between shielded addresses, they must be the same type
+        if ((saplingEntries.size() > 0 && isToSproutZaddr) || (sproutEntries.size() > 0 && isToSaplingZaddr)) {
+            throw JSONRPCError(
+                RPC_INVALID_PARAMETER,
+                "Cannot send between Sprout and Sapling addresses using z_mergetoaddress");
+        }
+
+        // Find unspent notes and update estimated size
+        for (const SproutNoteEntry& entry : sproutEntries) {
+            noteCounter++;
+            CAmount nValue = entry.note.value();
+
+            if (!maxedOutNotesFlag) {
+                // If we haven't added any notes yet and the merge is to a
+                // z-address, we have already accounted for the first JoinSplit.
+                size_t increase = (sproutNoteInputs.empty() && !isToSproutZaddr) || (sproutNoteInputs.size() % 2 == 0) ? JOINSPLIT_SIZE : 0;
+                if (estimatedTxSize + increase >= max_tx_size ||
+                    (sproutNoteLimit > 0 && noteCounter > sproutNoteLimit))
+                {
+                    maxedOutNotesFlag = true;
+                } else {
+                    estimatedTxSize += increase;
+                    auto zaddr = entry.address;
+                    libzcash::SproutSpendingKey zkey;
+                    pwallet->GetSproutSpendingKey(zaddr, zkey);
+                    sproutNoteInputs.emplace_back(entry.jsop, entry.note, nValue, zkey);
+                    mergedNoteValue += nValue;
+                }
+            }
+
+            if (maxedOutNotesFlag) {
+                remainingNoteValue += nValue;
+            }
+        }
+
+        for (const SaplingNoteEntry& entry : saplingEntries) {
+            noteCounter++;
+            CAmount nValue = entry.note.value();
+            if (!maxedOutNotesFlag) {
+                size_t increase = SPENDDESCRIPTION_SIZE;
+                if (estimatedTxSize + increase >= max_tx_size ||
+                    (saplingNoteLimit > 0 && noteCounter > saplingNoteLimit))
+                {
+                    maxedOutNotesFlag = true;
+                } else {
+                    estimatedTxSize += increase;
+                    libzcash::SaplingExtendedSpendingKey extsk;
+                    if (!pwallet->GetSaplingExtendedSpendingKey(entry.address, extsk)) {
+                        throw JSONRPCError(RPC_INVALID_PARAMETER, "Could not find spending key for payment address.");
+                    }
+                    saplingNoteInputs.emplace_back(entry.op, entry.note, nValue, extsk.expsk);
+                    mergedNoteValue += nValue;
+                }
+            }
+
+            if (maxedOutNotesFlag) {
+                remainingNoteValue += nValue;
+            }
+        }
+    }
+
+    size_t numUtxos = utxoInputs.size();
+    size_t numNotes = sproutNoteInputs.size() + saplingNoteInputs.size();
+
+    if (numUtxos == 0 && numNotes == 0) {
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Could not find any funds to merge.");
+    }
+
+    // Sanity check: Don't do anything if:
+    // - We only have one from address
+    // - It's equal to toaddress
+    // - The address only contains a single UTXO or note
+    if (setAddress.size() == 1 && setAddress.count(destaddress) && (numUtxos + numNotes) == 1) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Destination address is also the only source address, and all its funds are already merged.");
+    }
+
+    CAmount mergedValue = mergedUTXOValue + mergedNoteValue;
+    if (mergedValue < nFee) {
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
+            strprintf("Insufficient funds, have %s, which is less than miners fee %s",
+            FormatMoney(mergedValue), FormatMoney(nFee)));
+    }
+
+    // Check that the user specified fee is sane (if too high, it can result in error -25 absurd fee)
+    CAmount netAmount = mergedValue - nFee;
+    if (nFee > netAmount) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Fee %s is greater than the net amount to be shielded %s", FormatMoney(nFee), FormatMoney(netAmount)));
+    }
+
+    // Keep record of parameters in context object
+    UniValue contextInfo(UniValue::VOBJ);
+    contextInfo.pushKV("fromaddresses", request.params[0].get_str());
+    contextInfo.pushKV("toaddress", request.params[1].get_str());
+    contextInfo.pushKV("fee", ValueFromAmount(nFee));
+
+    if (!sproutNoteInputs.empty() || !saplingNoteInputs.empty() || !IsValidDestination(taddr)) {
+        // We have shielded inputs or the recipient is a shielded address, and
+        // therefore we cannot create transactions before Sapling activates.
+        if (!saplingActive) {
+            throw JSONRPCError(
+                RPC_INVALID_PARAMETER, "Cannot create shielded transactions before Sapling has activated");
+        }
+    }
+
+    // Contextual transaction we will build on
+    CMutableTransaction contextualTx = CreateNewContextualCMutableTransaction(
+        Params().GetConsensus(),
+        nextBlockHeight);
+    bool isSproutShielded = sproutNoteInputs.size() > 0 || isToSproutZaddr;
+    if (contextualTx.nVersion == 1 && isSproutShielded) {
+        contextualTx.nVersion = 2; // Tx format should support vJoinSplit
+    }
+
+    // Builder (used if Sapling addresses are involved)
+    boost::optional<TransactionBuilder> builder;
+    if (isToSaplingZaddr || saplingNoteInputs.size() > 0) {
+        builder = TransactionBuilder(Params().GetConsensus(), nextBlockHeight, pwallet);
+    }
+    // Create operation and add to global queue
+    std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
+    std::shared_ptr<AsyncRPCOperation> operation(new AsyncRPCOperation_mergetoaddress(request, builder, contextualTx, utxoInputs, sproutNoteInputs, saplingNoteInputs, recipient, nFee, contextInfo));
+    q->addOperation(operation);
+    AsyncRPCOperationId operationId = operation->getId();
+
+    // Return continuation information
+    UniValue o(UniValue::VOBJ);
+    o.pushKV("remainingUTXOs", (uint64_t)(utxoCounter - numUtxos));
+    o.pushKV("remainingTransparentValue", ValueFromAmount(remainingUTXOValue));
+    o.pushKV("remainingNotes", (uint64_t)(noteCounter - numNotes));
+    o.pushKV("remainingShieldedValue", ValueFromAmount(remainingNoteValue));
+    o.pushKV("mergingUTXOs", (uint64_t)numUtxos);
+    o.pushKV("mergingTransparentValue", ValueFromAmount(mergedUTXOValue));
+    o.pushKV("mergingNotes", (uint64_t)numNotes);
+    o.pushKV("mergingShieldedValue", ValueFromAmount(mergedNoteValue));
+    o.pushKV("opid", operationId);
+    return o;
+}
+
+static UniValue z_getbalance(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+            RPCHelpMan{"z_getbalance",
+                "\nReturns the balance of a taddr or zaddr belonging to the node's wallet.\n"
+                "CAUTION: If the wallet has only an incoming viewing key for this address, then spends cannot be\n"
+                "detected, and so the returned balance may be larger than the actual balance.\n",
+                {
+                    {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The selected address. It may be a transparent or private address."},
+                    {"minconf", RPCArg::Type::NUM, /* default */ "1", "Only include transactions confirmed at least this many times."},
+                },
+                RPCResult{
+            "amount              (numeric) The total amount in " + CURRENCY_UNIT + " received for this wallet.\n"
+                },
+                RPCExamples{
+            "\nThe total amount received by address \"myaddress\"\n"
+            + HelpExampleCli("z_getbalance", "\"myaddress\"") +
+            "\nThe total amount received by address \"myaddress\" at least 6 blocks confirmed\n"
+            + HelpExampleCli("z_getbalance", "\"myaddress\" 6") +
+            "\nAs a JSON-RPC call\n"
+            + HelpExampleRpc("z_getbalance", "\"myaddress\", 6")
+                },
+            }.Check(request);
+
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    int min_depth = 1;
+    if (!request.params[1].isNull()) {
+        min_depth = request.params[1].get_int();
+    }
+    if (min_depth < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Minimum number of confirmations cannot be less than 0");
+    }
+
+    // Check that the from address is valid.
+    auto fromaddress = request.params[0].get_str();
+    bool fromTaddr = false;
+    CTxDestination taddr = DecodeDestination(fromaddress);
+    fromTaddr = IsValidDestination(taddr);
+    if (!fromTaddr) {
+        auto res = DecodePaymentAddress(fromaddress);
+        if (!IsValidPaymentAddress(res)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid from address, should be a taddr or zaddr.");
+        }
+        if (!boost::apply_visitor(PaymentAddressBelongsToWallet(pwallet), res)) {
+             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "From address does not belong to this node, spending key or viewing key not found.");
+        }
+    }
+
+    CAmount nBalance = 0;
+    if (fromTaddr) {
+        nBalance = pwallet->GetBalanceTaddr(fromaddress, min_depth, false);
+    } else {
+        nBalance = pwallet->GetBalanceZaddr(fromaddress, min_depth, INT_MAX, false);
+    }
+
+    return ValueFromAmount(nBalance);
+}
+
+UniValue z_gettotalbalance(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    RPCHelpMan{"z_gettotalbalance",
+                "\nReturn the total value of funds stored in the node's wallet.\n"
+                "CAUTION: If the wallet contains any addresses for which it only has incoming viewing keys,\n"
+                "the returned private balance may be larger than the actual balance, because spends cannot\n"
+                "be detected with incoming viewing keys.\n",
+                {
+                    {"minconf", RPCArg::Type::NUM, /* default */ "1", "Only use funds confirmed at least this many times"},
+                    {"includeWatchonly", RPCArg::Type::BOOL, /* defaut */ "false", "Only use funds confirmed at least this many times"},
+                },
+                 RPCResult{
+            "{\n"
+            "  \"transparent\": xxxxx,  (numeric) the total balance of transparent funds\n"
+            "  \"private\": xxxxx,      (numeric) the total balance of shielded funds (in both Sprout and Sapling addresses)\n"
+            "  \"total\": xxxxx,        (numeric) the total balance of both transparent and shielded funds\n"
+            "}\n"
+                 },
+                RPCExamples{
+            "\nThe total amount in the wallet\n"
+            + HelpExampleCli("z_gettotalbalance", "") +
+            "\nThe total amount in the wallet at least 5 blocks confirmed\n"
+            + HelpExampleCli("z_gettotalbalance", "5") +
+            "\nAs a json rpc call\n"
+            + HelpExampleRpc("z_gettotalbalance", "5")
+                },
+    }.Check(request);
+
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    int min_depth = 1;
+    if (!request.params[0].isNull()) {
+        min_depth = request.params[0].get_int();
+    }
+    if (min_depth < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Minimum number of confirmations cannot be less than 0");
+    }
+
+    bool include_watchonly = false;
+    if (!request.params[1].isNull()) {
+        include_watchonly = request.params[1].get_bool();
+    }
+
+    const auto bal = pwallet->GetBalance(min_depth);
+    const auto zbal = pwallet->GetShieldedBalance(min_depth);
+
+    CAmount nBalance = bal.m_mine_trusted + (include_watchonly ? bal.m_watchonly_trusted : 0);
+    CAmount nPrivateBalance = zbal.m_mine_shielded + (include_watchonly ? bal.m_watchonly_shielded : 0);
+    CAmount nToShield = bal.m_mine_coinbase + (include_watchonly ? bal.m_watchonly_coinbase : 0);
+    CAmount nTotalBalance = nBalance + nPrivateBalance + nToShield;
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("transparent", FormatMoney(nBalance));
+    result.pushKV("to_shield", FormatMoney(nToShield));
+    result.pushKV("private", FormatMoney(nPrivateBalance));
+    result.pushKV("total", FormatMoney(nTotalBalance));
+    return result;
+}
+
+UniValue z_listaddresses(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    RPCHelpMan{"z_listaddresses",
+                "\nReturns the list of Sprout and Sapling shielded addresses belonging to the wallet.\n",
+                {
+                    {"includeWatchonly", RPCArg::Type::BOOL, /* default */ "false", "Also include watchonly addresses."},
+                },
+                 RPCResult{
+            "[                     (json array of string)\n"
+            "  \"address\"           (string) a Sprout and Sapling shielded addresses belonging to the wallet\n"
+            "  ,...\n"
+            "]\n"
+                 },
+                RPCExamples{
+            "\nList of Sprout and Sapling shielded addresses:\n"
+            + HelpExampleCli("z_listaddresses", "") +
+            "\nAs a JSON-RPC call\n"
+            + HelpExampleRpc("z_listaddresses", "")
+                },
+    }.Check(request);
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    bool fIncludeWatchonly = false;
+    if (!request.params[0].isNull()) {
+        fIncludeWatchonly = request.params[0].get_bool();
+    }
+
+    UniValue ret(UniValue::VARR);
+    {
+        std::set<libzcash::SproutPaymentAddress> addresses;
+        pwallet->GetSproutPaymentAddresses(addresses);
+        for (auto addr : addresses) {
+            if (fIncludeWatchonly || pwallet->HaveSproutSpendingKey(addr)) {
+                ret.push_back(EncodePaymentAddress(addr));
+            }
+        }
+    }
+    {
+        std::set<libzcash::SaplingPaymentAddress> addresses;
+        pwallet->GetSaplingPaymentAddresses(addresses);
+        libzcash::SaplingIncomingViewingKey ivk;
+        libzcash::SaplingFullViewingKey fvk;
+        for (auto addr : addresses) {
+            if (fIncludeWatchonly || (
+                pwallet->GetSaplingIncomingViewingKey(addr, ivk) &&
+                pwallet->GetSaplingFullViewingKey(ivk, fvk) &&
+                pwallet->HaveSaplingSpendingKey(fvk)
+            )) {
+                ret.push_back(EncodePaymentAddress(addr));
+            }
+        }
+    }
+    return ret;
+}
+
+UniValue z_setmigration(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    RPCHelpMan{"z_setmigration",
+                "\nWhen enabled the Sprout to Sapling migration will attempt to migrate all funds from this wallet’s\n"
+                "When enabled the Sprout to Sapling migration will attempt to migrate all funds from this wallet’s\n"
+                "Sprout addresses to either the address for Sapling account 0 or the address specified by the parameter\n"
+                "'-migrationdestaddress'.\n"
+                "\n"
+                "This migration is designed to minimize information leakage. As a result for wallets with a significant\n"
+                "Sprout balance, this process may take several weeks. The migration works by sending, up to 5, as many\n"
+                "transactions as possible whenever the blockchain reaches a height equal to 499 modulo 500. The transaction\n"
+                "amounts are picked according to the random distribution specified in ZIP 308. The migration will end once\n"
+                "the wallet’s Sprout balance is below " + strprintf("%s %s", FormatMoney(CENT), CURRENCY_UNIT) + ".\n",
+                {
+                    {"enabled", RPCArg::Type::BOOL, RPCArg::Optional::NO, "Enable or disable the Sprout to Sapling migration."},
+                },
+                 RPCResults{},
+                RPCExamples{
+            "\nTo enable the Sprout to Sapling migration:\n"
+            + HelpExampleCli("z_setmigration", "true") +
+            "\nAs a JSON-RPC call\n"
+            + HelpExampleRpc("z_setmigration", "true")
+                },
+    }.Check(request);
+
+    LOCK(pwallet->cs_wallet);
+
+    RPCTypeCheckArgument(request.params[0], UniValue::VBOOL);
+    pwallet->fSaplingMigrationEnabled = request.params[0].get_bool();
+
+    return NullUniValue;
+}
+
+UniValue z_getmigrationstatus(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    RPCHelpMan{"z_getmigrationstatus",
+                "\nRetrieve information about the status of the Sprout to Sapling migration.\n"
+                "Note: A transaction is defined as finalized if it has at least ten confirmations.\n"
+                "Also, it is possible that manually created transactions involving this wallet\n"
+                "will be included in the result.\n",
+                {},
+                 RPCResult{
+            "{\n"
+            "  \"enabled\": true|false,                    (boolean) Whether or not migration is enabled\n"
+            "  \"destination_address\": \"zaddr\",           (string) The Sapling address that will receive Sprout funds\n"
+            "  \"unmigrated_amount\": nnn.n,               (numeric) The total amount of unmigrated " + CURRENCY_UNIT +" \n"
+            "  \"unfinalized_migrated_amount\": nnn.n,     (numeric) The total amount of unfinalized " + CURRENCY_UNIT + " \n"
+            "  \"finalized_migrated_amount\": nnn.n,       (numeric) The total amount of finalized " + CURRENCY_UNIT + " \n"
+            "  \"finalized_migration_transactions\": nnn,  (numeric) The number of migration transactions involving this wallet\n"
+            "  \"time_started\": ttt,                      (numeric, optional) The block time of the first migration transaction as a Unix timestamp\n"
+            "  \"migration_txids\": [txids]                (json array of strings) An array of all migration txids involving this wallet\n"
+            "}\n"
+                 },
+                RPCExamples{
+            "\nRetrieve information about the status of the Sprout to Sapling migration:\n"
+            + HelpExampleCli("z_getmigrationstatus", "") +
+            "\nAs a JSON-RPC call\n"
+            + HelpExampleRpc("z_getmigrationstatus", "")
+                },
+    }.Check(request);
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    UniValue migrationStatus(UniValue::VOBJ);
+    migrationStatus.pushKV("enabled", pwallet->fSaplingMigrationEnabled);
+    //  The "destination_address" field MAY be omitted if the "-migrationdestaddress"
+    // parameter is not set and no default address has yet been generated.
+    // Note: The following function may return the default address even if it has not been added to the wallet
+    auto destinationAddress = AsyncRPCOperation_saplingmigration::getMigrationDestAddress(pwallet->GetZecHDSeedForRPC(pwallet), pwallet);
+    migrationStatus.pushKV("destination_address", EncodePaymentAddress(destinationAddress));
+    //  The values of "unmigrated_amount" and "migrated_amount" MUST take into
+    // account failed transactions, that were not mined within their expiration
+    // height.
+    {
+        std::vector<SproutNoteEntry> sproutEntries;
+        std::vector<SaplingNoteEntry> saplingEntries;
+        std::set<libzcash::PaymentAddress> noFilter;
+        // Here we are looking for any and all Sprout notes for which we have the spending key, including those
+        // which are locked and/or only exist in the mempool, as they should be included in the unmigrated amount.
+        pwallet->GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, noFilter, 0, INT_MAX, true, true, false);
+        CAmount unmigratedAmount = 0;
+        for (const auto& sproutEntry : sproutEntries) {
+            unmigratedAmount += sproutEntry.note.value();
+        }
+        migrationStatus.pushKV("unmigrated_amount", FormatMoney(unmigratedAmount));
+    }
+    //  "migration_txids" is a list of strings representing transaction IDs of all
+    // known migration transactions involving this wallet, as lowercase hexadecimal
+    // in RPC byte order.
+    UniValue migrationTxids(UniValue::VARR);
+    CAmount unfinalizedMigratedAmount = 0;
+    CAmount finalizedMigratedAmount = 0;
+    int numFinalizedMigrationTxs = 0;
+    int64_t timeStarted = 0;
+    for (const std::pair<const uint256, CWalletTx>& pairWtx : pwallet->mapWallet) {
+        const CWalletTx& wtx = pairWtx.second;
+        // A given transaction is defined as a migration transaction iff it has:
+        // * one or more Sprout JoinSplits with nonzero vpub_new field; and
+        // * no Sapling Spends, and;
+        // * one or more Sapling Outputs.
+        if ((!wtx.tx->vJoinSplit.empty()) && wtx.tx->vShieldedSpend.empty() && (!wtx.tx->vShieldedOutput.empty())) {
+            bool nonZeroVPubNew = false;
+            for (const auto& js : wtx.tx->vJoinSplit) {
+                if (js.vpub_new > 0) {
+                    nonZeroVPubNew = true;
+                    break;
+                }
+            }
+            if (!nonZeroVPubNew) {
+                continue;
+            }
+            migrationTxids.push_back(pairWtx.first.ToString());
+            //  A transaction is "finalized" iff it has at least 10 confirmations.
+            // TODO: subject to change, if the recommended number of confirmations changes.
+            if (wtx.GetDepthInMainChain(*locked_chain) >= 10) {
+                finalizedMigratedAmount -= wtx.tx->valueBalance;
+                ++numFinalizedMigrationTxs;
+            } else {
+                unfinalizedMigratedAmount -= wtx.tx->valueBalance;
+            }
+            CBlockIndex* blockIndex = LookupBlockIndex(wtx.m_confirm.hashBlock);
+
+            // If the transaction is in the mempool it will not be associated with a block yet
+            if (wtx.m_confirm.hashBlock.IsNull() || blockIndex == nullptr) {
+                continue;
+            }
+            //  The value of "time_started" is the earliest Unix timestamp of any known
+            // migration transaction involving this wallet; if there is no such transaction,
+            // then the field is absent.
+            if (timeStarted == 0 || timeStarted > blockIndex->GetBlockTime()) {
+                timeStarted = blockIndex->GetBlockTime();
+            }
+        }
+    }
+    migrationStatus.pushKV("unfinalized_migrated_amount", FormatMoney(unfinalizedMigratedAmount));
+    migrationStatus.pushKV("finalized_migrated_amount", FormatMoney(finalizedMigratedAmount));
+    migrationStatus.pushKV("finalized_migration_transactions", numFinalizedMigrationTxs);
+    if (timeStarted > 0) {
+        migrationStatus.pushKV("time_started", timeStarted);
+    }
+    migrationStatus.pushKV("migration_txids", migrationTxids);
+
+    return migrationStatus;
+}
+
 UniValue abortrescan(const JSONRPCRequest& request); // in rpcdump.cpp
 UniValue dumpprivkey(const JSONRPCRequest& request); // in rpcdump.cpp
-UniValue importprivkey(const JSONRPCRequest& request);
-UniValue importaddress(const JSONRPCRequest& request);
-UniValue importpubkey(const JSONRPCRequest& request);
-UniValue dumpwallet(const JSONRPCRequest& request);
-UniValue importwallet(const JSONRPCRequest& request);
-UniValue importprunedfunds(const JSONRPCRequest& request);
-UniValue removeprunedfunds(const JSONRPCRequest& request);
-UniValue importmulti(const JSONRPCRequest& request);
+UniValue importprivkey(const JSONRPCRequest& request); // in rpcdump.cpp
+UniValue importaddress(const JSONRPCRequest& request); // in rpcdump.cpp
+UniValue importpubkey(const JSONRPCRequest& request); // in rpcdump.cpp
+UniValue dumpwallet(const JSONRPCRequest& request); // in rpcdump.cpp
+UniValue importwallet(const JSONRPCRequest& request); // in rpcdump.cpp
+UniValue importprunedfunds(const JSONRPCRequest& request); // in rpcdump.cpp
+UniValue removeprunedfunds(const JSONRPCRequest& request); // in rpcdump.cpp
+UniValue importmulti(const JSONRPCRequest& request); // in rpcdump.cpp
+
+UniValue z_exportkey(const JSONRPCRequest& request); // in rpcdump.cpp
+UniValue z_importkey(const JSONRPCRequest& request); // in rpcdump.cpp
+UniValue z_exportviewingkey(const JSONRPCRequest& request); // in rpcdump.cpp
+UniValue z_importviewingkey(const JSONRPCRequest& request); // in rpcdump.cpp
+UniValue z_exportwallet(const JSONRPCRequest& request); // in rpcdump.cpp
+UniValue z_importwallet(const JSONRPCRequest& request); // in rpcdump.cpp
+
+extern UniValue z_getpaymentdisclosure(const JSONRPCRequest& request); // in rpcdisclosure.cpp
+extern UniValue z_validatepaymentdisclosure(const JSONRPCRequest& request); // in rpcdisclosure.cpp
 
 // clang-format off
 static const CRPCCommand commands[] =
@@ -4209,13 +6139,37 @@ static const CRPCCommand commands[] =
     { "wallet",             "settxfee",                         &settxfee,                      {"amount"} },
     { "wallet",             "setwalletflag",                    &setwalletflag,                 {"flag","value"} },
     { "wallet",             "signmessage",                      &signmessage,                   {"address","message"} },
-    { "wallet",             "signrawtransactionwithwallet",     &signrawtransactionwithwallet,  {"hexstring","prevtxs","sighashtype"} },
+    { "wallet",             "signrawtransactionwithwallet",     &signrawtransactionwithwallet,  {"hexstring","prevtxs","sighashtype","branchid"} },
     { "wallet",             "unloadwallet",                     &unloadwallet,                  {"wallet_name"} },
-    { "wallet",             "walletcreatefundedpsbt",           &walletcreatefundedpsbt,        {"inputs","outputs","locktime","options","bip32derivs"} },
+    { "wallet",             "walletcreatefundedpsbt",           &walletcreatefundedpsbt,        {"inputs","outputs","locktime","expiryheight","options","bip32derivs"} },
     { "wallet",             "walletlock",                       &walletlock,                    {} },
     { "wallet",             "walletpassphrase",                 &walletpassphrase,              {"passphrase","timeout"} },
     { "wallet",             "walletpassphrasechange",           &walletpassphrasechange,        {"oldpassphrase","newpassphrase"} },
     { "wallet",             "walletprocesspsbt",                &walletprocesspsbt,             {"psbt","sign","sighashtype","bip32derivs"} },
+
+    { "wallet",             "z_getoperationresult",             &z_getoperationresult,          {"operationid"} },
+    { "wallet",             "z_getoperationstatus",             &z_getoperationstatus,          {"operationid"} },
+    { "wallet",             "z_listoperationids",               &z_listoperationids,            {"status"} },
+    { "wallet",             "z_getnewaddress",                  &z_getnewaddress,               {"address_type"} },
+    { "wallet",             "z_sendmany",                       &z_sendmany,                    {"fromaddress","amounts","minconf","fee"} },
+    { "wallet",             "z_shieldcoinbase",                 &z_shieldcoinbase,              {"fromaddress","toaddress","fee","limit"} },
+    { "wallet",             "z_mergetoaddress",                 &z_mergetoaddress,              {"fromaddress","toaddress","fee","transparent_limit","shielded_limit","memo"} },
+    { "wallet",             "z_getbalance",                     &z_getbalance,                  {"address","minconf"} },
+    { "wallet",             "z_gettotalbalance",                &z_gettotalbalance,             {"minconf","includeWatchonly"} },
+    { "wallet",             "z_listaddresses",                  &z_listaddresses,               {"includeWatchonly"} },
+    { "wallet",             "z_exportkey",                      &z_exportkey,                   {"zaddress"} },
+    { "wallet",             "z_importwallet",                   &z_importwallet,                {"filename"} },
+    { "wallet",             "z_exportwallet",                   &z_exportwallet,                {"filename"} },
+    { "wallet",             "z_importkey",                      &z_importkey,                   {"zkey","label","rescan"} },
+    { "wallet",             "z_exportviewingkey",               &z_exportviewingkey,            {"zaddr"} },
+    { "wallet",             "z_importviewingkey",               &z_importviewingkey,            {"vkey","label","rescan"} },
+    { "wallet",             "z_listunspent",                    &z_listunspent,                 {"minconf","maxconf","includeWatchonly","addresses"} },
+    { "wallet",             "z_listreceivedbyaddress",          &z_listreceivedbyaddress,       {"address", "minconf"} },
+    { "wallet",             "z_setmigration",                   &z_setmigration,                {"enabled"} },
+    { "wallet",             "z_getmigrationstatus",             &z_getmigrationstatus,          {} },
+
+    { "disclosure",         "z_getpaymentdisclosure",           &z_getpaymentdisclosure,        {"txid","js_index","output_index","message"} },
+    { "disclosure",         "z_validatepaymentdisclosure",      &z_validatepaymentdisclosure,   {"paymentdisclosure"} },
 };
 // clang-format on
 

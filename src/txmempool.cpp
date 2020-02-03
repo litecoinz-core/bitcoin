@@ -6,6 +6,7 @@
 #include <txmempool.h>
 
 #include <consensus/consensus.h>
+#include <consensus/tx_check.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <validation.h>
@@ -19,9 +20,9 @@
 
 CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee,
                                  int64_t _nTime, unsigned int _entryHeight,
-                                 bool _spendsCoinbase, int64_t _sigOpsCost, LockPoints lp)
+                                 bool _spendsCoinbase, uint32_t _nBranchId, int64_t _sigOpsCost, LockPoints lp)
     : tx(_tx), nFee(_nFee), nTxWeight(GetTransactionWeight(*tx)), nUsageSize(RecursiveDynamicUsage(tx)), nTime(_nTime), entryHeight(_entryHeight),
-    spendsCoinbase(_spendsCoinbase), sigOpCost(_sigOpsCost), lockPoints(lp)
+    spendsCoinbase(_spendsCoinbase), nBranchId(_nBranchId), sigOpCost(_sigOpsCost), lockPoints(lp)
 {
     nCountWithDescendants = 1;
     nSizeWithDescendants = GetTxSize();
@@ -392,6 +393,16 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
     UpdateAncestorsOf(true, newit, setAncestors);
     UpdateEntryForAncestors(newit, setAncestors);
 
+    for (const JSDescription &joinsplit : tx.vJoinSplit) {
+        for (const uint256 &nf : joinsplit.nullifiers) {
+            mapSproutNullifiers[nf] = &tx;
+        }
+    }
+
+    for (const SpendDescription &spendDescription : tx.vShieldedSpend) {
+        mapSaplingNullifiers[spendDescription.nullifier] = &tx;
+    }
+
     nTransactionsUpdated++;
     totalTxSize += entry.GetTxSize();
     if (minerPolicyEstimator) {minerPolicyEstimator->processTransaction(entry, validFeeEstimate);}
@@ -458,30 +469,38 @@ void CTxMemPool::removeRecursive(const CTransaction &origTx, MemPoolRemovalReaso
 {
     // Remove transaction from memory pool
     AssertLockHeld(cs);
-        setEntries txToRemove;
-        txiter origit = mapTx.find(origTx.GetHash());
-        if (origit != mapTx.end()) {
-            txToRemove.insert(origit);
-        } else {
-            // When recursively removing but origTx isn't in the mempool
-            // be sure to remove any children that are in the pool. This can
-            // happen during chain re-orgs if origTx isn't re-accepted into
-            // the mempool for any reason.
-            for (unsigned int i = 0; i < origTx.vout.size(); i++) {
-                auto it = mapNextTx.find(COutPoint(origTx.GetHash(), i));
-                if (it == mapNextTx.end())
-                    continue;
-                txiter nextit = mapTx.find(it->second->GetHash());
-                assert(nextit != mapTx.end());
-                txToRemove.insert(nextit);
+    setEntries txToRemove;
+    txiter origit = mapTx.find(origTx.GetHash());
+    if (origit != mapTx.end()) {
+        txToRemove.insert(origit);
+    } else {
+        // When recursively removing but origTx isn't in the mempool
+        // be sure to remove any children that are in the pool. This can
+        // happen during chain re-orgs if origTx isn't re-accepted into
+        // the mempool for any reason.
+        for (unsigned int i = 0; i < origTx.vout.size(); i++) {
+            auto it = mapNextTx.find(COutPoint(origTx.GetHash(), i));
+            if (it == mapNextTx.end())
+                continue;
+            txiter nextit = mapTx.find(it->second->GetHash());
+            assert(nextit != mapTx.end());
+            txToRemove.insert(nextit);
+        }
+        for (const JSDescription& joinsplit : origTx.vJoinSplit) {
+            for (const uint256& nf : joinsplit.nullifiers) {
+                mapSproutNullifiers.erase(nf);
             }
         }
-        setEntries setAllRemoves;
-        for (txiter it : txToRemove) {
-            CalculateDescendants(it, setAllRemoves);
+        for (const SpendDescription &spendDescription : origTx.vShieldedSpend) {
+            mapSaplingNullifiers.erase(spendDescription.nullifier);
         }
+    }
+    setEntries setAllRemoves;
+    for (txiter it : txToRemove) {
+        CalculateDescendants(it, setAllRemoves);
+    }
 
-        RemoveStaged(setAllRemoves, false, reason);
+    RemoveStaged(setAllRemoves, false, reason);
 }
 
 void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, int flags)
@@ -521,6 +540,69 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
     RemoveStaged(setAllRemoves, false, MemPoolRemovalReason::REORG);
 }
 
+void CTxMemPool::removeWithAnchor(const uint256 &invalidRoot, ShieldedType type)
+{
+    // If a block is disconnected from the tip, and the root changed,
+    // we must invalidate transactions from the mempool which spend
+    // from that root -- almost as though they were spending coinbases
+    // which are no longer valid to spend due to coinbase maturity.
+    AssertLockHeld(cs);
+    setEntries txToRemove;
+    for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
+        const CTransaction& tx = it->GetTx();
+        switch (type) {
+            case SPROUT:
+                for (const JSDescription& joinsplit : tx.vJoinSplit) {
+                    if (joinsplit.anchor == invalidRoot) {
+                        txToRemove.insert(it);
+                        break;
+                    }
+                }
+            break;
+            case SAPLING:
+                for (const SpendDescription& spendDescription : tx.vShieldedSpend) {
+                    if (spendDescription.anchor == invalidRoot) {
+                        txToRemove.insert(it);
+                        break;
+                    }
+                }
+            break;
+            default:
+                throw std::runtime_error("Unknown shielded type");
+            break;
+        }
+    }
+    setEntries setAllRemoves;
+    for (txiter it : txToRemove) {
+        CalculateDescendants(it, setAllRemoves);
+    }
+    RemoveStaged(setAllRemoves, false, MemPoolRemovalReason::REORG);
+}
+
+/**
+ * Called whenever the tip changes. Removes transactions which don't commit to
+ * the given branch ID from the mempool.
+ */
+void CTxMemPool::removeWithoutBranchId(uint32_t nMemPoolBranchId)
+{
+    AssertLockHeld(cs);
+    setEntries txToRemove;
+
+    for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
+        const CTransaction& tx = it->GetTx();
+        if (it->GetValidatedBranchId() != nMemPoolBranchId) {
+            LogPrint(BCLog::MEMPOOL, "Removing missing BranchId txid: %s\n", tx.GetHash().ToString());
+            txToRemove.insert(it);
+        }
+    }
+
+    setEntries setAllRemoves;
+    for (txiter it : txToRemove) {
+        CalculateDescendants(it, setAllRemoves);
+    }
+    RemoveStaged(setAllRemoves, false, MemPoolRemovalReason::REORG);
+}
+
 void CTxMemPool::removeConflicts(const CTransaction &tx)
 {
     // Remove transactions which depend on inputs of tx, recursively
@@ -531,6 +613,30 @@ void CTxMemPool::removeConflicts(const CTransaction &tx)
             const CTransaction &txConflict = *it->second;
             if (txConflict != tx)
             {
+                ClearPrioritisation(txConflict.GetHash());
+                removeRecursive(txConflict, MemPoolRemovalReason::CONFLICT);
+            }
+        }
+    }
+
+    for (const JSDescription &joinsplit : tx.vJoinSplit) {
+        for (const uint256 &nf : joinsplit.nullifiers) {
+            auto it = mapSproutNullifiers.find(nf);
+            if (it != mapSproutNullifiers.end()) {
+                const CTransaction &txConflict = *it->second;
+                if (txConflict != tx) {
+                    ClearPrioritisation(txConflict.GetHash());
+                    removeRecursive(txConflict, MemPoolRemovalReason::CONFLICT);
+                }
+            }
+        }
+    }
+
+    for (const SpendDescription &spendDescription : tx.vShieldedSpend) {
+        auto it = mapSaplingNullifiers.find(spendDescription.nullifier);
+        if (it != mapSaplingNullifiers.end()) {
+            const CTransaction &txConflict = *it->second;
+            if (txConflict != tx) {
                 ClearPrioritisation(txConflict.GetHash());
                 removeRecursive(txConflict, MemPoolRemovalReason::CONFLICT);
             }
@@ -593,7 +699,7 @@ static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& m
 {
     CValidationState state;
     CAmount txfee = 0;
-    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, spendheight, txfee);
+    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, spendheight, txfee, Params().GetConsensus());
     assert(fCheckResult);
     UpdateCoins(tx, mempoolDuplicate, std::numeric_limits<int>::max());
 }
@@ -645,6 +751,37 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             assert(it3->second == &tx);
             i++;
         }
+
+        std::unordered_map<uint256, SproutMerkleTree, CCoinsKeyHasher> intermediates;
+
+        for (const JSDescription &joinsplit : tx.vJoinSplit) {
+            for (const uint256 &nf : joinsplit.nullifiers) {
+                assert(!pcoins->GetNullifier(nf, SPROUT));
+            }
+
+            SproutMerkleTree tree;
+            auto it = intermediates.find(joinsplit.anchor);
+            if (it != intermediates.end()) {
+                tree = it->second;
+            } else {
+                assert(pcoins->GetSproutAnchorAt(joinsplit.anchor, tree));
+            }
+
+            for (const uint256& commitment : joinsplit.commitments)
+            {
+                tree.append(commitment);
+            }
+
+            intermediates.insert(std::make_pair(tree.root(), tree));
+        }
+
+        for (const SpendDescription &spendDescription : tx.vShieldedSpend) {
+            SaplingMerkleTree tree;
+
+            assert(pcoins->GetSaplingAnchorAt(spendDescription.anchor, tree));
+            assert(!pcoins->GetNullifier(spendDescription.nullifier, SAPLING));
+        }
+
         assert(setParentCheck == GetMemPoolParents(it));
         // Verify ancestor state is correct.
         setEntries setAncestors;
@@ -710,8 +847,33 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         assert(&tx == it->second);
     }
 
+    checkNullifiers(SPROUT);
+    checkNullifiers(SAPLING);
+
     assert(totalTxSize == checkTotal);
     assert(innerUsage == cachedInnerUsage);
+}
+
+void CTxMemPool::checkNullifiers(ShieldedType type) const
+{
+    const std::map<uint256, const CTransaction*>* mapToUse;
+    switch (type) {
+        case SPROUT:
+            mapToUse = &mapSproutNullifiers;
+            break;
+        case SAPLING:
+            mapToUse = &mapSaplingNullifiers;
+            break;
+        default:
+            throw std::runtime_error("Unknown nullifier type");
+    }
+    for (const auto& entry : *mapToUse) {
+        uint256 hash = entry.second->GetHash();
+        CTxMemPool::indexed_transaction_set::const_iterator findTx = mapTx.find(hash);
+        const CTransaction& tx = findTx->GetTx();
+        assert(findTx != mapTx.end());
+        assert(&tx == entry.second);
+    }
 }
 
 bool CTxMemPool::CompareDepthAndScore(const uint256& hasha, const uint256& hashb)
@@ -885,7 +1047,24 @@ bool CTxMemPool::HasNoInputsOf(const CTransaction &tx) const
     return true;
 }
 
+bool CTxMemPool::nullifierExists(const uint256& nullifier, ShieldedType type) const
+{
+    switch (type) {
+        case SPROUT:
+            return mapSproutNullifiers.count(nullifier);
+        case SAPLING:
+            return mapSaplingNullifiers.count(nullifier);
+        default:
+            throw std::runtime_error("Unknown nullifier type");
+    }
+}
+
 CCoinsViewMemPool::CCoinsViewMemPool(CCoinsView* baseIn, const CTxMemPool& mempoolIn) : CCoinsViewBacked(baseIn), mempool(mempoolIn) { }
+
+bool CCoinsViewMemPool::GetNullifier(const uint256 &nf, ShieldedType type) const
+{
+    return mempool.nullifierExists(nf, type) || base->GetNullifier(nf, type);
+}
 
 bool CCoinsViewMemPool::GetCoin(const COutPoint &outpoint, Coin &coin) const {
     // If an entry in the mempool exists, always return that one, as it's guaranteed to never
@@ -1095,6 +1274,26 @@ void CTxMemPool::SetIsLoaded(bool loaded)
 {
     LOCK(cs);
     m_is_loaded = loaded;
+}
+
+void CTxMemPool::removeExpired(unsigned int nBlockHeight)
+{
+    // Remove expired txs from the mempool
+    AssertLockHeld(cs);
+    setEntries txToRemove;
+
+    for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
+        const CTransaction& tx = it->GetTx();
+        if (IsExpiredTx(tx, nBlockHeight)) {
+            LogPrint(BCLog::MEMPOOL, "Removing expired txid: %s\n", tx.GetHash().ToString());
+            txToRemove.insert(it);
+        }
+    }
+    setEntries setAllRemoves;
+    for (txiter it : txToRemove) {
+        CalculateDescendants(it, setAllRemoves);
+    }
+    RemoveStaged(setAllRemoves, false, MemPoolRemovalReason::REORG);
 }
 
 SaltedTxidHasher::SaltedTxidHasher() : k0(GetRand(std::numeric_limits<uint64_t>::max())), k1(GetRand(std::numeric_limits<uint64_t>::max())) {}

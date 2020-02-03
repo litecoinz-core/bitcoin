@@ -74,25 +74,68 @@ static UniValue GetNetworkHashPS(int lookup, int height) {
     arith_uint256 workDiff = pb->nChainWork - pb0->nChainWork;
     int64_t timeDiff = maxTime - minTime;
 
-    return workDiff.getdouble() / timeDiff;
+    return (int64_t)workDiff.getdouble() / timeDiff;
 }
 
 static UniValue getnetworkhashps(const JSONRPCRequest& request)
 {
             RPCHelpMan{"getnetworkhashps",
-                "\nReturns the estimated network hashes per second based on the last n blocks.\n"
-                "Pass in [blocks] to override # of blocks, -1 specifies since last difficulty change.\n"
+                "\nDEPRECATED - left for backwards-compatibility. Use getnetworksolps instead.\n"
+                "\nReturns the estimated network solutions per second based on the last n blocks.\n"
+                "Pass in [blocks] to override # of blocks, -1 specifies over difficulty averaging window.\n"
                 "Pass in [height] to estimate the network speed at the time when a certain block was found.\n",
                 {
-                    {"nblocks", RPCArg::Type::NUM, /* default */ "120", "The number of blocks, or -1 for blocks since last difficulty change."},
+                    {"nblocks", RPCArg::Type::NUM, /* default */ "120", "The number of blocks, or -1 for blocks over difficulty averaging window."},
                     {"height", RPCArg::Type::NUM, /* default */ "-1", "To estimate at the time of the given height."},
                 },
                 RPCResult{
-            "x             (numeric) Hashes per second estimated\n"
+            "x             (numeric) Solutions per second estimated\n"
                 },
                 RPCExamples{
                     HelpExampleCli("getnetworkhashps", "")
             + HelpExampleRpc("getnetworkhashps", "")
+                },
+            }.Check(request);
+
+    LOCK(cs_main);
+    return GetNetworkHashPS(!request.params[0].isNull() ? request.params[0].get_int() : 120, !request.params[1].isNull() ? request.params[1].get_int() : -1);
+}
+
+static UniValue getlocalsolps(const JSONRPCRequest& request)
+{
+            RPCHelpMan{"getlocalsolps",
+                "\nReturns the average local solutions per second since this node was started.\n"
+                "This is the same information shown on the metrics screen (if enabled).\n",
+                { },
+                RPCResult{
+            "x             (numeric) Solutions per second estimated\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("getlocalsolps", "")
+            + HelpExampleRpc("getlocalsolps", "")
+                },
+            }.Check(request);
+
+    LOCK(cs_main);
+    return 0;
+}
+
+static UniValue getnetworksolps(const JSONRPCRequest& request)
+{
+            RPCHelpMan{"getnetworksolps",
+                "\nReturns the estimated network solutions per second based on the last n blocks.\n"
+                "Pass in [blocks] to override # of blocks, -1 specifies over difficulty averaging window.\n"
+                "Pass in [height] to estimate the network speed at the time when a certain block was found.\n",
+                {
+                    {"nblocks", RPCArg::Type::NUM, /* default */ "120", "The number of blocks, or -1 for blocks over difficulty averaging window."},
+                    {"height", RPCArg::Type::NUM, /* default */ "-1", "To estimate at the time of the given height."},
+                },
+                RPCResult{
+            "x             (numeric) Solutions per second estimated\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("getnetworksolps", "")
+            + HelpExampleRpc("getnetworksolps", "")
                 },
             }.Check(request);
 
@@ -227,9 +270,11 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
                     "  \"blocks\": nnn,             (numeric) The current block\n"
                     "  \"currentblockweight\": nnn, (numeric, optional) The block weight of the last assembled block (only present if a block was ever assembled)\n"
                     "  \"currentblocktx\": nnn,     (numeric, optional) The number of block transactions of the last assembled block (only present if a block was ever assembled)\n"
-                    "  \"difficulty\": xxx.xxxxx    (numeric) The current difficulty\n"
-                    "  \"networkhashps\": nnn,      (numeric) The network hashes per second\n"
-                    "  \"pooledtx\": n              (numeric) The size of the mempool\n"
+                    "  \"difficulty\": xxx.xxxxx,   (numeric) The current difficulty\n"
+                    "  \"localsolps\": nnn,         (numeric) The average local solution rate in Sol/s since this node was started\n"
+                    "  \"networksolps\": nnn,       (numeric) The estimated network solution rate in Sol/s\n"
+                    "  \"networkhashps\": nnn,      (numeric) Left for backwards-compatibility. Use networksolps instead.\n"
+                    "  \"pooledtx\": n,             (numeric) The size of the mempool\n"
                     "  \"chain\": \"xxxx\",           (string) current network name (main, test, regtest)\n"
                     "  \"warnings\": \"...\"          (string) any network and blockchain warnings\n"
                     "}\n"
@@ -246,7 +291,9 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     obj.pushKV("blocks",           (int)::ChainActive().Height());
     if (BlockAssembler::m_last_block_weight) obj.pushKV("currentblockweight", *BlockAssembler::m_last_block_weight);
     if (BlockAssembler::m_last_block_num_txs) obj.pushKV("currentblocktx", *BlockAssembler::m_last_block_num_txs);
-    obj.pushKV("difficulty",       (double)GetDifficulty(::ChainActive().Tip()));
+    obj.pushKV("difficulty",       (double)GetNetworkDifficulty(::ChainActive().Tip()));
+    obj.pushKV("localsolps",       getlocalsolps(request));
+    obj.pushKV("networksolps",     getnetworksolps(request));
     obj.pushKV("networkhashps",    getnetworkhashps(request));
     obj.pushKV("pooledtx",         (uint64_t)mempool.size());
     obj.pushKV("chain",            Params().NetworkIDString());
@@ -357,6 +404,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
             "  },\n"
             "  \"vbrequired\" : n,                 (numeric) bit mask of versionbits the server requires set in submissions\n"
             "  \"previousblockhash\" : \"xxxx\",     (string) The hash of current highest block\n"
+            "  \"saplingroothash\" : \"xxxx\",       (string) The hash of the final sapling root\n"
             "  \"transactions\" : [                (array) contents of non-coinbase transactions that should be included in the next block\n"
             "      {\n"
             "         \"data\" : \"xxxx\",             (string) transaction data encoded in hexadecimal (byte-for-byte)\n"
@@ -671,6 +719,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     }
 
     result.pushKV("previousblockhash", pblock->hashPrevBlock.GetHex());
+    result.pushKV("saplingroothash", pblock->hashSaplingRoot.GetHex());
     result.pushKV("transactions", transactions);
     result.pushKV("coinbaseaux", aux);
     result.pushKV("coinbasevalue", (int64_t)pblock->vtx[0]->vout[0].nValue);
@@ -991,6 +1040,39 @@ static UniValue estimaterawfee(const JSONRPCRequest& request)
     return result;
 }
 
+static UniValue getblocksubsidy(const JSONRPCRequest& request)
+{
+            RPCHelpMan{"getblocksubsidy",
+                "\nReturns block subsidy reward, taking into account the founders reward, of block at index provided.\n",
+                {
+                    {"height", RPCArg::Type::NUM, /* default */ "", "The block height. If not provided, defaults to the current height of the chain"},
+                },
+                RPCResult{
+            "{\n"
+            "  \"miner\" : x.xxx           (numeric) The mining reward amount in " + CURRENCY_UNIT + ".\n"
+            "  \"founders\" : x.xxx        (numeric) The founders reward amount in " + CURRENCY_UNIT + ".\n"
+            "}\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("getblocksubsidy", "\"1000\"")
+            + HelpExampleRpc("getblockubsidy", "\"1000\"")
+                },
+            }.Check(request);
+
+    LOCK(cs_main);
+    int nHeight = (!request.params[0].isNull()) ? request.params[0].get_int() : ::ChainActive().Height();
+    if (nHeight < 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
+
+    CAmount nReward = GetBlockSubsidy(nHeight, Params().GetConsensus());
+    CAmount nFoundersReward = 0;
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("miner", ValueFromAmount(nReward));
+    result.pushKV("founders", ValueFromAmount(nFoundersReward));
+    return result;
+}
+
 // clang-format off
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         argNames
@@ -1001,7 +1083,9 @@ static const CRPCCommand commands[] =
     { "mining",             "getblocktemplate",       &getblocktemplate,       {"template_request"} },
     { "mining",             "submitblock",            &submitblock,            {"hexdata","dummy"} },
     { "mining",             "submitheader",           &submitheader,           {"hexdata"} },
-
+    { "mining",             "getlocalsolps",          &getlocalsolps,          {} },
+    { "mining",             "getnetworksolps",        &getnetworksolps,        {"nblocks","height"} },
+    { "mining",             "getblocksubsidy",        &getblocksubsidy,        {"height"} },
 
     { "generating",         "generatetoaddress",      &generatetoaddress,      {"nblocks","address","maxtries"} },
 

@@ -67,6 +67,18 @@ public:
 
 typedef std::vector<unsigned char, secure_allocator<unsigned char> > CKeyingMaterial;
 
+class CSecureDataStream : public CBaseDataStream<CKeyingMaterial>
+{
+public:
+    explicit CSecureDataStream(int nTypeIn, int nVersionIn) : CBaseDataStream(nTypeIn, nVersionIn) { }
+
+    CSecureDataStream(const_iterator pbegin, const_iterator pend, int nTypeIn, int nVersionIn) :
+            CBaseDataStream(pbegin, pend, nTypeIn, nVersionIn) { }
+
+    CSecureDataStream(const vector_type& vchIn, int nTypeIn, int nVersionIn) :
+            CBaseDataStream(vchIn, nTypeIn, nVersionIn) { }
+};
+
 namespace wallet_crypto_tests
 {
     class TestCrypter;
@@ -112,5 +124,16 @@ public:
 bool EncryptSecret(const CKeyingMaterial& vMasterKey, const CKeyingMaterial &vchPlaintext, const uint256& nIV, std::vector<unsigned char> &vchCiphertext);
 bool DecryptSecret(const CKeyingMaterial& vMasterKey, const std::vector<unsigned char>& vchCiphertext, const uint256& nIV, CKeyingMaterial& vchPlaintext);
 bool DecryptKey(const CKeyingMaterial& vMasterKey, const std::vector<unsigned char>& vchCryptedSecret, const CPubKey& vchPubKey, CKey& key);
+
+bool DecryptZecHDSeed(const CKeyingMaterial& vMasterKey, const std::vector<unsigned char>& vchCryptedSecret, const uint256& seedFp, HDSeed& seed);
+
+bool DecryptSproutSpendingKey(const CKeyingMaterial& vMasterKey,
+                              const std::vector<unsigned char>& vchCryptedSecret,
+                              const libzcash::SproutPaymentAddress& address,
+                              libzcash::SproutSpendingKey& sk);
+bool DecryptSaplingSpendingKey(const CKeyingMaterial& vMasterKey,
+                               const std::vector<unsigned char>& vchCryptedSecret,
+                               const libzcash::SaplingExtendedFullViewingKey& extfvk,
+                               libzcash::SaplingExtendedSpendingKey& sk);
 
 #endif // BITCOIN_WALLET_CRYPTER_H

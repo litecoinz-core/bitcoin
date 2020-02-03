@@ -10,6 +10,8 @@
 #include <key.h>
 #include <pubkey.h>
 #include <script/standard.h>
+#include <zcash/Address.hpp>
+#include <zcash/zip32.h>
 
 #include <string>
 
@@ -25,5 +27,15 @@ std::string EncodeDestination(const CTxDestination& dest);
 CTxDestination DecodeDestination(const std::string& str);
 bool IsValidDestinationString(const std::string& str);
 bool IsValidDestinationString(const std::string& str, const CChainParams& params);
+
+std::string EncodePaymentAddress(const libzcash::PaymentAddress& address);
+libzcash::PaymentAddress DecodePaymentAddress(const std::string& str);
+bool IsValidPaymentAddressString(const std::string& str);
+
+std::string EncodeViewingKey(const libzcash::ViewingKey& vk);
+libzcash::ViewingKey DecodeViewingKey(const std::string& str);
+
+std::string EncodeSpendingKey(const libzcash::SpendingKey& sk);
+libzcash::SpendingKey DecodeSpendingKey(const std::string& str);
 
 #endif // BITCOIN_KEY_IO_H

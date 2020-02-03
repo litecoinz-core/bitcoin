@@ -27,6 +27,7 @@ static constexpr int NUM_GETBLOCKSTATS_PERCENTILES = 5;
  * difficulty (4295032833 hashes).
  */
 double GetDifficulty(const CBlockIndex* blockindex);
+double GetNetworkDifficulty(const CBlockIndex* blockindex);
 
 /** Callback for when block tip changed. */
 void RPCNotifyBlockChange(bool ibd, const CBlockIndex *);

@@ -13,6 +13,7 @@
 #include <chainparams.h>
 #include <clientversion.h>
 #include <consensus/consensus.h>
+#include <consensus/upgrades.h>
 #include <crypto/common.h>
 #include <crypto/sha256.h>
 #include <netbase.h>
@@ -22,6 +23,7 @@
 #include <ui_interface.h>
 #include <util/strencodings.h>
 #include <util/translation.h>
+#include <validation.h>
 
 #ifdef WIN32
 #include <string.h>
@@ -755,6 +757,7 @@ struct NodeEvictionCandidate
     int64_t nMinPingUsecTime;
     int64_t nLastBlockTime;
     int64_t nLastTXTime;
+    int nVersion;
     bool fRelevantServices;
     bool fRelayTxes;
     bool fBloomFilter;
@@ -833,7 +836,7 @@ bool CConnman::AttemptToEvictConnection()
                 peer_filter_not_null = node->m_tx_relay->pfilter != nullptr;
             }
             NodeEvictionCandidate candidate = {node->GetId(), node->nTimeConnected, node->nMinPingUsecTime,
-                                               node->nLastBlockTime, node->nLastTXTime,
+                                               node->nLastBlockTime, node->nLastTXTime, node->nVersion,
                                                HasAllDesirableServiceFlags(node->nServices),
                                                peer_relay_txes, peer_filter_not_null, node->addr, node->nKeyedNetGroup,
                                                node->m_prefer_evict};
@@ -842,6 +845,41 @@ bool CConnman::AttemptToEvictConnection()
     }
 
     // Protect connections with certain characteristics
+
+    // Check version of eviction candidates and prioritize nodes which do not support network upgrade.
+    int height;
+    {
+        LOCK(cs_main);
+        height = ::ChainActive().Height();
+    }
+
+    std::vector<NodeEvictionCandidate> vTmpEvictionCandidates;
+    {
+        LOCK(cs_vNodes);
+        const Consensus::Params& params = Params().GetConsensus();
+        auto nextEpoch = NextEpoch(height, params);
+        if (nextEpoch) {
+            auto idx = nextEpoch.get();
+            int nActivationHeight = params.vUpgrades[idx].nActivationHeight;
+
+            if (nActivationHeight > 0 &&
+                height < nActivationHeight &&
+                height >= nActivationHeight - NETWORK_UPGRADE_PEER_PREFERENCE_BLOCK_PERIOD)
+            {
+                // Find any nodes which don't support the protocol version for the next upgrade
+                for (const NodeEvictionCandidate &node : vEvictionCandidates) {
+                    if (node.nVersion < params.vUpgrades[idx].nProtocolVersion) {
+                        vTmpEvictionCandidates.push_back(node);
+                    }
+                }
+
+                // Prioritize these nodes by replacing eviction set with them
+                if (!vTmpEvictionCandidates.empty()) {
+                    vEvictionCandidates = vTmpEvictionCandidates;
+                }
+            }
+        }
+    }
 
     // Deterministically select 4 peers to protect by netgroup.
     // An attacker cannot predict which netgroups will be protected

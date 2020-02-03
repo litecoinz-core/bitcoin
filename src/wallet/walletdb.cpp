@@ -24,25 +24,44 @@ const std::string ACENTRY{"acentry"};
 const std::string BESTBLOCK_NOMERKLE{"bestblock_nomerkle"};
 const std::string BESTBLOCK{"bestblock"};
 const std::string CRYPTED_KEY{"ckey"};
+const std::string SPROUT_CRYPTED_KEY{"sprout_ckey"};
+const std::string SAPLING_CRYPTED_KEY{"sapling_ckey"};
 const std::string CSCRIPT{"cscript"};
 const std::string DEFAULTKEY{"defaultkey"};
 const std::string DESTDATA{"destdata"};
 const std::string FLAGS{"flags"};
 const std::string HDCHAIN{"hdchain"};
+const std::string SAPLING_HDCHAIN{"sapling_hdchain"};
 const std::string KEYMETA{"keymeta"};
+const std::string SPROUT_KEYMETA{"sprout_keymeta"};
+const std::string SAPLING_KEYMETA{"sapling_keymeta"};
 const std::string KEY{"key"};
+const std::string SPROUT_KEY{"sprout_key"};
+const std::string SAPLING_KEY{"sapling_key"};
 const std::string MASTER_KEY{"mkey"};
 const std::string MINVERSION{"minversion"};
 const std::string NAME{"name"};
+const std::string SPROUT_NAME{"sprout_name"};
+const std::string SAPLING_NAME{"sapling_name"};
 const std::string OLD_KEY{"wkey"};
 const std::string ORDERPOSNEXT{"orderposnext"};
 const std::string POOL{"pool"};
 const std::string PURPOSE{"purpose"};
+const std::string SPROUT_PURPOSE{"sprout_purpose"};
+const std::string SAPLING_PURPOSE{"sapling_purpose"};
 const std::string SETTINGS{"settings"};
 const std::string TX{"tx"};
 const std::string VERSION{"version"};
 const std::string WATCHMETA{"watchmeta"};
+const std::string SPROUT_WATCHMETA{"sprout_watchmeta"};
+const std::string SAPLING_WATCHMETA{"sapling_watchmeta"};
 const std::string WATCHS{"watchs"};
+const std::string SPROUT_WATCHS{"sprout_watchs"};
+const std::string SAPLING_WATCHS{"sapling_watchs"};
+const std::string SAPLING_ADDRESS{"sapling_address"};
+const std::string ZEC_HDSEED{"zec_hdseed"};
+const std::string ZEC_CRYPTED_HDSEED{"zec_chdseed"};
+const std::string WITNESSCACHESIZE{"witnesscachesize"};
 } // namespace DBKeys
 
 //
@@ -54,6 +73,16 @@ bool WalletBatch::WriteName(const std::string& strAddress, const std::string& st
     return WriteIC(std::make_pair(DBKeys::NAME, strAddress), strName);
 }
 
+bool WalletBatch::WriteSproutName(const std::string& strAddress, const std::string& strName)
+{
+    return WriteIC(std::make_pair(DBKeys::SPROUT_NAME, strAddress), strName);
+}
+
+bool WalletBatch::WriteSaplingName(const std::string& strAddress, const std::string& strName)
+{
+    return WriteIC(std::make_pair(DBKeys::SAPLING_NAME, strAddress), strName);
+}
+
 bool WalletBatch::EraseName(const std::string& strAddress)
 {
     // This should only be used for sending addresses, never for receiving addresses,
@@ -61,14 +90,48 @@ bool WalletBatch::EraseName(const std::string& strAddress)
     return EraseIC(std::make_pair(DBKeys::NAME, strAddress));
 }
 
+bool WalletBatch::EraseSproutName(const std::string& strAddress)
+{
+    // This should only be used for sending addresses, never for receiving addresses,
+    // receiving addresses must always have an address book entry if they're not change return.
+    return EraseIC(std::make_pair(DBKeys::SPROUT_NAME, strAddress));
+}
+
+bool WalletBatch::EraseSaplingName(const std::string& strAddress)
+{
+    // This should only be used for sending addresses, never for receiving addresses,
+    // receiving addresses must always have an address book entry if they're not change return.
+    return EraseIC(std::make_pair(DBKeys::SAPLING_NAME, strAddress));
+}
+
 bool WalletBatch::WritePurpose(const std::string& strAddress, const std::string& strPurpose)
 {
     return WriteIC(std::make_pair(DBKeys::PURPOSE, strAddress), strPurpose);
 }
 
+bool WalletBatch::WriteSproutPurpose(const std::string& strAddress, const std::string& strPurpose)
+{
+    return WriteIC(std::make_pair(DBKeys::SPROUT_PURPOSE, strAddress), strPurpose);
+}
+
+bool WalletBatch::WriteSaplingPurpose(const std::string& strAddress, const std::string& strPurpose)
+{
+    return WriteIC(std::make_pair(DBKeys::SAPLING_PURPOSE, strAddress), strPurpose);
+}
+
 bool WalletBatch::ErasePurpose(const std::string& strAddress)
 {
     return EraseIC(std::make_pair(DBKeys::PURPOSE, strAddress));
+}
+
+bool WalletBatch::EraseSproutPurpose(const std::string& strAddress)
+{
+    return EraseIC(std::make_pair(DBKeys::SPROUT_PURPOSE, strAddress));
+}
+
+bool WalletBatch::EraseSaplingPurpose(const std::string& strAddress)
+{
+    return EraseIC(std::make_pair(DBKeys::SAPLING_PURPOSE, strAddress));
 }
 
 bool WalletBatch::WriteTx(const CWalletTx& wtx)
@@ -102,8 +165,8 @@ bool WalletBatch::WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey,
 }
 
 bool WalletBatch::WriteCryptedKey(const CPubKey& vchPubKey,
-                                const std::vector<unsigned char>& vchCryptedSecret,
-                                const CKeyMetadata &keyMeta)
+                                  const std::vector<unsigned char>& vchCryptedSecret,
+                                  const CKeyMetadata &keyMeta)
 {
     if (!WriteKeyMetadata(keyMeta, vchPubKey, true)) {
         return false;
@@ -185,6 +248,19 @@ public:
     unsigned int nCKeys{0};
     unsigned int nWatchKeys{0};
     unsigned int nKeyMeta{0};
+
+    unsigned int nSproutKeys{0};
+    unsigned int nSproutCKeys{0};
+    unsigned int nSproutWatchKeys{0};
+    unsigned int nSproutKeyMeta{0};
+
+    unsigned int nSaplingKeys{0};
+    unsigned int nSaplingCKeys{0};
+    unsigned int nSaplingWatchKeys{0};
+    unsigned int nSaplingKeyMeta{0};
+
+    unsigned int nSaplingAddress{0};
+
     unsigned int m_unknown_records{0};
     bool fIsEncrypted{false};
     bool fAnyUnordered{false};
@@ -207,10 +283,26 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             std::string strAddress;
             ssKey >> strAddress;
             ssValue >> pwallet->mapAddressBook[DecodeDestination(strAddress)].name;
+        } else if (strType == DBKeys::SPROUT_NAME) {
+            std::string strAddress;
+            ssKey >> strAddress;
+            ssValue >> pwallet->mapSproutAddressBook[DecodePaymentAddress(strAddress)].name;
+        } else if (strType == DBKeys::SAPLING_NAME) {
+            std::string strAddress;
+            ssKey >> strAddress;
+            ssValue >> pwallet->mapSaplingAddressBook[DecodePaymentAddress(strAddress)].name;
         } else if (strType == DBKeys::PURPOSE) {
             std::string strAddress;
             ssKey >> strAddress;
             ssValue >> pwallet->mapAddressBook[DecodeDestination(strAddress)].purpose;
+        } else if (strType == DBKeys::SPROUT_PURPOSE) {
+            std::string strAddress;
+            ssKey >> strAddress;
+            ssValue >> pwallet->mapSproutAddressBook[DecodePaymentAddress(strAddress)].purpose;
+        } else if (strType == DBKeys::SAPLING_PURPOSE) {
+            std::string strAddress;
+            ssKey >> strAddress;
+            ssValue >> pwallet->mapSaplingAddressBook[DecodePaymentAddress(strAddress)].purpose;
         } else if (strType == DBKeys::TX) {
             uint256 hash;
             ssKey >> hash;
@@ -252,6 +344,17 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             ssValue >> fYes;
             if (fYes == '1')
                 pwallet->LoadWatchOnly(script);
+        } else if (strType == DBKeys::SPROUT_WATCHS) {
+            wss.nSproutWatchKeys++;
+            libzcash::SproutViewingKey vk;
+            ssKey >> vk;
+            char fYes;
+            ssValue >> fYes;
+            if (fYes == '1')
+                pwallet->LoadSproutViewingKey(vk);
+        } else if (strType == DBKeys::SAPLING_WATCHS) {
+            wss.nSaplingWatchKeys++;
+            /** TO-DO */
         } else if (strType == DBKeys::KEY) {
             CPubKey vchPubKey;
             ssKey >> vchPubKey;
@@ -307,6 +410,31 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 strErr = "Error reading wallet database: LoadKey failed";
                 return false;
             }
+        } else if (strType == DBKeys::SPROUT_KEY) {
+            libzcash::SproutPaymentAddress addr;
+            ssKey >> addr;
+            libzcash::SproutSpendingKey key;
+            ssValue >> key;
+
+            if (!pwallet->LoadZKey(key))
+            {
+                strErr = "Error reading wallet database: LoadZKey failed";
+                return false;
+            }
+
+            wss.nSproutKeys++;
+        } else if (strType == DBKeys::SAPLING_KEY) {
+            libzcash::SaplingIncomingViewingKey ivk;
+            ssKey >> ivk;
+            libzcash::SaplingExtendedSpendingKey key;
+            ssValue >> key;
+
+            if (!pwallet->LoadSaplingZKey(key))
+            {
+                strErr = "Error reading wallet database: LoadSaplingZKey failed";
+                return false;
+            }
+            wss.nSaplingKeys++;
         } else if (strType == DBKeys::MASTER_KEY) {
             unsigned int nID;
             ssKey >> nID;
@@ -338,6 +466,38 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 return false;
             }
             wss.fIsEncrypted = true;
+        } else if (strType == DBKeys::SPROUT_CRYPTED_KEY) {
+            libzcash::SproutPaymentAddress addr;
+            ssKey >> addr;
+            // Deserialization of a pair is just one item after another
+            uint256 rkValue;
+            ssValue >> rkValue;
+            libzcash::ReceivingKey rk(rkValue);
+            std::vector<unsigned char> vchCryptedSecret;
+            ssValue >> vchCryptedSecret;
+            wss.nSproutCKeys++;
+
+            if (!pwallet->LoadCryptedZKey(addr, rk, vchCryptedSecret))
+            {
+                strErr = "Error reading wallet database: LoadCryptedZKey failed";
+                return false;
+            }
+            wss.fIsEncrypted = true;
+        } else if (strType == DBKeys::SAPLING_CRYPTED_KEY) {
+            libzcash::SaplingIncomingViewingKey ivk;
+            ssKey >> ivk;
+            libzcash::SaplingExtendedFullViewingKey extfvk;
+            ssValue >> extfvk;
+            std::vector<unsigned char> vchCryptedSecret;
+            ssValue >> vchCryptedSecret;
+            wss.nSaplingCKeys++;
+
+            if (!pwallet->LoadCryptedSaplingZKey(extfvk, vchCryptedSecret))
+            {
+                strErr = "Error reading wallet database: LoadCryptedSaplingZKey failed";
+                return false;
+            }
+            wss.fIsEncrypted = true;
         } else if (strType == DBKeys::KEYMETA) {
             CPubKey vchPubKey;
             ssKey >> vchPubKey;
@@ -345,6 +505,37 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             ssValue >> keyMeta;
             wss.nKeyMeta++;
             pwallet->LoadKeyMetadata(vchPubKey.GetID(), keyMeta);
+        } else if (strType == DBKeys::SPROUT_KEYMETA) {
+            libzcash::SproutPaymentAddress addr;
+            ssKey >> addr;
+            CKeyMetadata keyMeta;
+            ssValue >> keyMeta;
+            wss.nSproutKeyMeta++;
+
+            pwallet->LoadZKeyMetadata(addr, keyMeta);
+        } else if (strType == DBKeys::SAPLING_KEYMETA) {
+            libzcash::SaplingIncomingViewingKey ivk;
+            ssKey >> ivk;
+            CKeyMetadata keyMeta;
+            ssValue >> keyMeta;
+
+            wss.nSaplingKeyMeta++;
+
+            pwallet->LoadSaplingZKeyMetadata(ivk, keyMeta);
+        } else if (strType == DBKeys::SAPLING_ADDRESS)
+        {
+            libzcash::SaplingPaymentAddress addr;
+            ssKey >> addr;
+            libzcash::SaplingIncomingViewingKey ivk;
+            ssValue >> ivk;
+
+            wss.nSaplingAddress++;
+
+            if (!pwallet->LoadSaplingPaymentAddress(addr, ivk))
+            {
+                strErr = "Error reading wallet database: LoadSaplingPaymentAddress failed";
+                return false;
+            }
         } else if (strType == DBKeys::WATCHMETA) {
             CScript script;
             ssKey >> script;
@@ -352,6 +543,12 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             ssValue >> keyMeta;
             wss.nKeyMeta++;
             pwallet->LoadScriptMetadata(CScriptID(script), keyMeta);
+        } else if (strType == DBKeys::SPROUT_WATCHMETA) {
+            wss.nSproutKeyMeta++;
+            /** TO-DO */
+        } else if (strType == DBKeys::SAPLING_WATCHMETA) {
+            wss.nSaplingKeyMeta++;
+            /** TO-DO */
         } else if (strType == DBKeys::DEFAULTKEY) {
             // We don't want or need the default key, but if there is one set,
             // we want to make sure that it is valid so that we can detect corruption
@@ -386,10 +583,45 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             ssKey >> strKey;
             ssValue >> strValue;
             pwallet->LoadDestData(DecodeDestination(strAddress), strKey, strValue);
+        } else if (strType == DBKeys::WITNESSCACHESIZE) {
+            ssValue >> pwallet->nWitnessCacheSize;
+        } else if (strType == DBKeys::ZEC_HDSEED) {
+            uint256 seedFp;
+            RawHDSeed rawSeed;
+            ssKey >> seedFp;
+            ssValue >> rawSeed;
+            HDSeed seed(rawSeed);
+
+            if (seed.Fingerprint() != seedFp)
+            {
+                strErr = "Error reading wallet database: HDSeed corrupt";
+                return false;
+            }
+
+            if (!pwallet->LoadZecHDSeed(seed))
+            {
+                strErr = "Error reading wallet database: LoadHDSeed failed";
+                return false;
+            }
+        } else if (strType == DBKeys::ZEC_CRYPTED_HDSEED) {
+            uint256 seedFp;
+            std::vector<unsigned char> vchCryptedSecret;
+            ssKey >> seedFp;
+            ssValue >> vchCryptedSecret;
+            if (!pwallet->LoadCryptedZecHDSeed(seedFp, vchCryptedSecret))
+            {
+                strErr = "Error reading wallet database: LoadCryptedHDSeed failed";
+                return false;
+            }
+            wss.fIsEncrypted = true;
         } else if (strType == DBKeys::HDCHAIN) {
             CHDChain chain;
             ssValue >> chain;
             pwallet->SetHDChain(chain, true);
+        } else if (strType == DBKeys::SAPLING_HDCHAIN) {
+            CZecHDChain chain;
+            ssValue >> chain;
+            pwallet->SetZecHDChain(chain, true);
         } else if (strType == DBKeys::FLAGS) {
             uint64_t flags;
             ssValue >> flags;
@@ -422,6 +654,9 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
 bool WalletBatch::IsKeyType(const std::string& strType)
 {
     return (strType == DBKeys::KEY ||
+            strType == DBKeys::ZEC_HDSEED || strType == DBKeys::ZEC_CRYPTED_HDSEED ||
+            strType == DBKeys::SPROUT_KEY || strType == DBKeys::SPROUT_CRYPTED_KEY ||
+            strType == DBKeys::SAPLING_KEY || strType == DBKeys::SAPLING_CRYPTED_KEY ||
             strType == DBKeys::MASTER_KEY || strType == DBKeys::CRYPTED_KEY);
 }
 
@@ -476,6 +711,7 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
                 } else {
                     // Leave other errors alone, if we try to fix them we might make things worse.
                     fNoncriticalErrors = true; // ... but do warn the user there is something wrong.
+                    pwallet->WalletLogPrintf("Error reading record type '%s' from wallet database\n", strType);
                     if (strType == DBKeys::TX)
                         // Rescan if there is a bad transaction record:
                         gArgs.SoftSetBoolArg("-rescan", true);
@@ -508,10 +744,18 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
     int wallet_version = pwallet->GetVersion();
     pwallet->WalletLogPrintf("Wallet File Version = %d\n", wallet_version > 0 ? wallet_version : last_client);
 
-    pwallet->WalletLogPrintf("Keys: %u plaintext, %u encrypted, %u w/ metadata, %u total. Unknown wallet records: %u\n",
-           wss.nKeys, wss.nCKeys, wss.nKeyMeta, wss.nKeys + wss.nCKeys, wss.m_unknown_records);
+    pwallet->WalletLogPrintf("Keys: %u plaintext, %u encrypted, %u w/ metadata, %u total.\n",
+           wss.nKeys, wss.nCKeys, wss.nKeyMeta, wss.nKeys + wss.nCKeys);
 
-    // nTimeFirstKey is only reliable if all keys have metadata
+    pwallet->WalletLogPrintf("Sprout Keys: %u plaintext, %u encrypted, %u w/ metadata, %u total.\n",
+           wss.nSproutKeys, wss.nSproutCKeys, wss.nSproutKeyMeta, wss.nSproutKeys + wss.nSproutCKeys);
+
+    pwallet->WalletLogPrintf("Sapling Keys: %u plaintext, %u encrypted, %u w/ metadata, %u total.\n",
+           wss.nSaplingKeys, wss.nSaplingCKeys, wss.nSaplingKeyMeta, wss.nSaplingKeys + wss.nSaplingCKeys);
+
+    pwallet->WalletLogPrintf("Unknown wallet records: %u\n", wss.m_unknown_records);
+
+    // nTimeFirstKey is only reliable if all keys have metadata (transparent)
     if ((wss.nKeys + wss.nCKeys + wss.nWatchKeys) != wss.nKeyMeta)
         pwallet->UpdateTimeFirstKey(1);
 
@@ -578,11 +822,20 @@ DBErrors WalletBatch::FindWalletTx(std::vector<uint256>& vTxHash, std::vector<CW
                 uint256 hash;
                 ssKey >> hash;
 
-                CWalletTx wtx(nullptr /* pwallet */, MakeTransactionRef());
-                ssValue >> wtx;
+                std::vector<unsigned char> txData(ssValue.begin(), ssValue.end());
+                try {
+                    CWalletTx wtx(nullptr /* pwallet */, MakeTransactionRef());
+                    ssValue >> wtx;
+                    vWtx.push_back(wtx);
+                } catch (...) {
+                    // Decode failure likely due to Sapling v4 transaction format change
+                    // between 2.0.0 and 2.0.1. As user is requesting deletion, log the
+                    // transaction entry and then mark it for deletion anyway.
+                    LogPrintf("Failed to decode wallet transaction; logging it here before deletion:\n");
+                    LogPrintf("txid: %s\n%s\n", hash.GetHex(), HexStr(txData));
+                }
 
                 vTxHash.push_back(hash);
-                vWtx.push_back(wtx);
             }
         }
         pcursor->close();
@@ -741,7 +994,6 @@ bool WalletBatch::EraseDestData(const std::string &address, const std::string &k
     return EraseIC(std::make_pair(DBKeys::DESTDATA, std::make_pair(address, key)));
 }
 
-
 bool WalletBatch::WriteHDChain(const CHDChain& chain)
 {
     return WriteIC(DBKeys::HDCHAIN, chain);
@@ -765,4 +1017,89 @@ bool WalletBatch::TxnCommit()
 bool WalletBatch::TxnAbort()
 {
     return m_batch.TxnAbort();
+}
+
+bool WalletBatch::WriteWitnessCacheSize(int64_t nWitnessCacheSize)
+{
+    return WriteIC(DBKeys::WITNESSCACHESIZE, nWitnessCacheSize);
+}
+
+bool WalletBatch::WriteZecHDSeed(const HDSeed& seed)
+{
+    return WriteIC(std::make_pair(DBKeys::ZEC_HDSEED, seed.Fingerprint()), seed.RawSeed());
+}
+
+bool WalletBatch::WriteCryptedZecHDSeed(const uint256& seedFp, const std::vector<unsigned char>& vchCryptedSecret)
+{
+    return WriteIC(std::make_pair(DBKeys::ZEC_CRYPTED_HDSEED, seedFp), vchCryptedSecret);
+}
+
+bool WalletBatch::WriteZecHDChain(const CZecHDChain& chain)
+{
+    return WriteIC(DBKeys::SAPLING_HDCHAIN, chain);
+}
+
+bool WalletBatch::WriteZKey(const libzcash::SproutPaymentAddress& addr, const libzcash::SproutSpendingKey& key, const CKeyMetadata &keyMeta)
+{
+    if (!WriteIC(std::make_pair(DBKeys::SPROUT_KEYMETA, addr), keyMeta))
+        return false;
+
+    // pair is: tuple_key("zkey", paymentaddress) --> secretkey
+    return WriteIC(std::make_pair(DBKeys::SPROUT_KEY, addr), key, false);
+}
+
+bool WalletBatch::WriteSaplingZKey(const libzcash::SaplingIncomingViewingKey &ivk, const libzcash::SaplingExtendedSpendingKey &key, const CKeyMetadata  &keyMeta)
+{
+    if (!WriteIC(std::make_pair(DBKeys::SAPLING_KEYMETA, ivk), keyMeta))
+        return false;
+
+    return WriteIC(std::make_pair(DBKeys::SAPLING_KEY, ivk), key, false);
+}
+
+bool WalletBatch::WriteSaplingPaymentAddress(const libzcash::SaplingPaymentAddress &addr, const libzcash::SaplingIncomingViewingKey &ivk)
+{
+    return WriteIC(std::make_pair(DBKeys::SAPLING_ADDRESS, addr), ivk, false);
+}
+
+bool WalletBatch::WriteCryptedZKey(const libzcash::SproutPaymentAddress & addr,
+                                   const libzcash::ReceivingKey & rk,
+                                   const std::vector<unsigned char>& vchCryptedSecret,
+                                   const CKeyMetadata &keyMeta)
+{
+    if (!WriteIC(std::make_pair(DBKeys::SPROUT_KEYMETA, addr), keyMeta)) {
+        return false;
+    }
+
+    if (!WriteIC(std::make_pair(DBKeys::SPROUT_CRYPTED_KEY, addr), std::make_pair(rk, vchCryptedSecret), false)) {
+        return false;
+    }
+    EraseIC(std::make_pair(DBKeys::SPROUT_KEY, addr));
+    return true;
+}
+
+bool WalletBatch::WriteCryptedSaplingZKey(const libzcash::SaplingExtendedFullViewingKey &extfvk,
+                                          const std::vector<unsigned char>& vchCryptedSecret,
+                                          const CKeyMetadata &keyMeta)
+{
+    auto ivk = extfvk.fvk.in_viewing_key();
+
+    if (!WriteIC(std::make_pair(DBKeys::SAPLING_KEYMETA, ivk), keyMeta)) {
+        return false;
+    }
+
+    if (!WriteIC(std::make_pair(DBKeys::SAPLING_CRYPTED_KEY, ivk), std::make_pair(extfvk, vchCryptedSecret), false)) {
+        return false;
+    }
+    EraseIC(std::make_pair(DBKeys::SAPLING_KEY, ivk));
+    return true;
+}
+
+bool WalletBatch::WriteSproutViewingKey(const libzcash::SproutViewingKey &vk)
+{
+    return WriteIC(std::make_pair(DBKeys::SPROUT_WATCHS, vk), '1', false);
+}
+
+bool WalletBatch::EraseSproutViewingKey(const libzcash::SproutViewingKey &vk)
+{
+    return EraseIC(std::make_pair(DBKeys::SPROUT_WATCHS, vk));
 }

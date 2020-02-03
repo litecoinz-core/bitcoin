@@ -11,6 +11,8 @@
 #include <script/sign.h>
 #include <wallet/db.h>
 #include <key.h>
+#include <zcash/Address.hpp>
+#include <zcash/zip32.h>
 
 #include <list>
 #include <stdint.h>
@@ -60,25 +62,45 @@ extern const std::string ACENTRY;
 extern const std::string BESTBLOCK;
 extern const std::string BESTBLOCK_NOMERKLE;
 extern const std::string CRYPTED_KEY;
+extern const std::string SPROUT_CRYPTED_KEY;
+extern const std::string SAPLING_CRYPTED_KEY;
 extern const std::string CSCRIPT;
 extern const std::string DEFAULTKEY;
 extern const std::string DESTDATA;
 extern const std::string FLAGS;
 extern const std::string HDCHAIN;
+extern const std::string SAPLING_HDCHAIN;
 extern const std::string KEY;
+extern const std::string SPROUT_KEY;
+extern const std::string SAPLING_KEY;
 extern const std::string KEYMETA;
+extern const std::string SPROUT_KEYMETA;
+extern const std::string SAPLING_KEYMETA;
 extern const std::string MASTER_KEY;
 extern const std::string MINVERSION;
 extern const std::string NAME;
+extern const std::string SPROUT_NAME;
+extern const std::string SAPLING_NAME;
 extern const std::string OLD_KEY;
 extern const std::string ORDERPOSNEXT;
 extern const std::string POOL;
 extern const std::string PURPOSE;
+extern const std::string SPROUT_PURPOSE;
+extern const std::string SAPLING_PURPOSE;
 extern const std::string SETTINGS;
 extern const std::string TX;
 extern const std::string VERSION;
 extern const std::string WATCHMETA;
+extern const std::string SPROUT_WATCHMETA;
+extern const std::string SAPLING_WATCHMETA;
 extern const std::string WATCHS;
+extern const std::string SPROUT_WATCHS;
+extern const std::string SAPLING_WATCHS;
+extern const std::string SAPLING_ADDRESS;
+extern const std::string ZEC_HDSEED;
+extern const std::string ZEC_CRYPTED_HDSEED;
+extern const std::string WITNESSCACHESIZE;
+
 } // namespace DBKeys
 
 /* simple HD chain data model */
@@ -115,6 +137,39 @@ public:
     }
 };
 
+/* zec hd chain data model */
+class CZecHDChain
+{
+public:
+    static const int VERSION_HD_BASE = 1;
+    static const int CURRENT_VERSION = VERSION_HD_BASE;
+    int nVersion;
+    uint256 seedFp;
+    int64_t nCreateTime; // 0 means unknown
+    uint32_t saplingAccountCounter;
+
+    CZecHDChain() { SetNull(); }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(nVersion);
+        READWRITE(seedFp);
+        READWRITE(nCreateTime);
+        READWRITE(saplingAccountCounter);
+    }
+
+    void SetNull()
+    {
+        nVersion = CHDChain::CURRENT_VERSION;
+        seedFp.SetNull();
+        nCreateTime = 0;
+        saplingAccountCounter = 0;
+    }
+};
+
 class CKeyMetadata
 {
 public:
@@ -128,6 +183,7 @@ public:
     CKeyID hd_seed_id; //id of the HD seed used to derive this key
     KeyOriginInfo key_origin; // Key origin info with path and fingerprint
     bool has_key_origin = false; //< Whether the key_origin is useful
+    uint256 seedFp;
 
     CKeyMetadata()
     {
@@ -149,6 +205,7 @@ public:
         {
             READWRITE(hdKeypath);
             READWRITE(hd_seed_id);
+            READWRITE(seedFp);
         }
         if (this->nVersion >= VERSION_WITH_KEY_ORIGIN)
         {
@@ -165,6 +222,7 @@ public:
         hd_seed_id.SetNull();
         key_origin.clear();
         has_key_origin = false;
+        seedFp.SetNull();
     }
 };
 
@@ -213,11 +271,31 @@ public:
     WalletBatch(const WalletBatch&) = delete;
     WalletBatch& operator=(const WalletBatch&) = delete;
 
+    /** transparent */
     bool WriteName(const std::string& strAddress, const std::string& strName);
+    /** sprout */
+    bool WriteSproutName(const std::string& strAddress, const std::string& strName);
+    /** sapling */
+    bool WriteSaplingName(const std::string& strAddress, const std::string& strName);
+    /** transparent */
     bool EraseName(const std::string& strAddress);
+    /** sprout */
+    bool EraseSproutName(const std::string& strAddress);
+    /** sapling */
+    bool EraseSaplingName(const std::string& strAddress);
 
+    /** transparent */
     bool WritePurpose(const std::string& strAddress, const std::string& purpose);
+    /** sprout */
+    bool WriteSproutPurpose(const std::string& strAddress, const std::string& purpose);
+    /** sapling */
+    bool WriteSaplingPurpose(const std::string& strAddress, const std::string& purpose);
+    /** transparent */
     bool ErasePurpose(const std::string& strAddress);
+    /** sprout */
+    bool EraseSproutPurpose(const std::string& strAddress);
+    /** sapling */
+    bool EraseSaplingPurpose(const std::string& strAddress);
 
     bool WriteTx(const CWalletTx& wtx);
     bool EraseTx(uint256 hash);
@@ -275,6 +353,28 @@ public:
     bool TxnCommit();
     //! Abort current transaction
     bool TxnAbort();
+
+    bool WriteWitnessCacheSize(int64_t nWitnessCacheSize);
+    bool WriteZecHDSeed(const HDSeed& seed);
+    bool WriteCryptedZecHDSeed(const uint256& seedFp, const std::vector<unsigned char>& vchCryptedSecret);
+    //! write the hdchain model (external chain child index counter)
+    bool WriteZecHDChain(const CZecHDChain& chain);
+
+    /// Write spending key to wallet database, where key is payment address and value is spending key.
+    bool WriteZKey(const libzcash::SproutPaymentAddress& addr, const libzcash::SproutSpendingKey& key, const CKeyMetadata &keyMeta);
+    bool WriteSaplingZKey(const libzcash::SaplingIncomingViewingKey &ivk, const libzcash::SaplingExtendedSpendingKey &key, const CKeyMetadata  &keyMeta);
+    bool WriteSaplingPaymentAddress(const libzcash::SaplingPaymentAddress &addr, const libzcash::SaplingIncomingViewingKey &ivk);
+    bool WriteCryptedZKey(const libzcash::SproutPaymentAddress & addr,
+                          const libzcash::ReceivingKey & rk,
+                          const std::vector<unsigned char>& vchCryptedSecret,
+                          const CKeyMetadata &keyMeta);
+    bool WriteCryptedSaplingZKey(const libzcash::SaplingExtendedFullViewingKey &extfvk,
+                                 const std::vector<unsigned char>& vchCryptedSecret,
+                                 const CKeyMetadata &keyMeta);
+
+    bool WriteSproutViewingKey(const libzcash::SproutViewingKey &vk);
+    bool EraseSproutViewingKey(const libzcash::SproutViewingKey &vk);
+
 private:
     BerkeleyBatch m_batch;
     WalletDatabase& m_database;

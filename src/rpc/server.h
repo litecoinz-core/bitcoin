@@ -15,11 +15,13 @@
 #include <stdint.h>
 #include <string>
 #include <functional>
+#include <memory>
 
 #include <univalue.h>
 
 static const unsigned int DEFAULT_RPC_SERIALIZE_VERSION = 1;
 
+class AsyncRPCQueue;
 class CRPCCommand;
 
 namespace RPCServer
@@ -30,6 +32,9 @@ namespace RPCServer
 
 /** Query whether RPC is running */
 bool IsRPCRunning();
+
+/** Get the async queue*/
+std::shared_ptr<AsyncRPCQueue> getAsyncRPCQueue();
 
 /**
  * Set the RPC warmup status.  When this is done, all RPC calls will error out

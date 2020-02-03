@@ -37,7 +37,6 @@ These dependencies are required:
  libboost    | Utility          | Library for threading, data structures, etc
  libevent    | Networking       | OS independent asynchronous networking
  libsodium   | Crypto           | A modern and easy-to-use crypto library
- libgmp      | Crypto           | Development tools for the GNU MP arbitrary precision library
  libcurl     | Networking       | Files needed for building applications with libcurl
 
 Optional dependencies:
@@ -84,7 +83,7 @@ Build requirements:
 
 Now, you can either build from self-compiled [depends](/depends/README.md) or install the required dependencies:
 
-    sudo apt-get install libssl-dev libevent-dev libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libsodium23 libsodium-dev libgmp3-dev libcurl-dev
+    sudo apt-get install libssl-dev libevent-dev libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libsodium23 libsodium-dev libcurl-dev
 
 BerkeleyDB is required for the wallet.
 
@@ -130,7 +129,7 @@ built by default.
 
 Build requirements:
 
-    sudo dnf install gcc-c++ libtool make autoconf automake openssl-devel libevent-devel boost-devel libdb4-devel libdb4-cxx-devel python3 libsodium libsodium-devel gmp-devel libcurl-devel
+    sudo dnf install gcc-c++ libtool make autoconf automake openssl-devel libevent-devel boost-devel libdb4-devel libdb4-cxx-devel python3 libsodium libsodium-devel libcurl-devel
 
 Optional (see `--with-miniupnpc` and `--enable-upnp-default`):
 

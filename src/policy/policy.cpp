@@ -7,6 +7,7 @@
 
 #include <policy/policy.h>
 
+#include <chainparams.h>
 #include <consensus/validation.h>
 #include <coins.h>
 
@@ -30,7 +31,7 @@ CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
     if (txout.scriptPubKey.IsUnspendable())
         return 0;
 
-    size_t nSize = GetSerializeSize(txout);
+    size_t nSize = GetSerializeSize(txout, SER_DISK);
     int witnessversion = 0;
     std::vector<unsigned char> witnessprogram;
 
@@ -73,11 +74,33 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
     return true;
 }
 
-bool IsStandardTx(const CTransaction& tx, bool permit_bare_multisig, const CFeeRate& dust_relay_fee, std::string& reason)
+bool IsStandardTx(const CTransaction& tx, bool permit_bare_multisig, const CFeeRate& dust_relay_fee, std::string& reason, const CChainParams& chainparams, const int nHeight)
 {
-    if (tx.nVersion > CTransaction::MAX_STANDARD_VERSION || tx.nVersion < 1) {
+    if (tx.nVersion > CTransaction::MAX_STANDARD_VERSION) {
         reason = "version";
         return false;
+    }
+
+    bool overwinterActive = chainparams.GetConsensus().NetworkUpgradeActive(nHeight, Consensus::UPGRADE_OVERWINTER);
+    bool saplingActive = chainparams.GetConsensus().NetworkUpgradeActive(nHeight, Consensus::UPGRADE_SAPLING);
+
+    if (saplingActive) {
+        // Sapling standard rules apply
+        if (tx.nVersion > CTransaction::SAPLING_MAX_CURRENT_VERSION || tx.nVersion < CTransaction::SAPLING_MIN_CURRENT_VERSION) {
+            reason = "sapling-version";
+            return false;
+        }
+    } else if (overwinterActive) {
+        // Overwinter standard rules apply
+        if (tx.nVersion > CTransaction::OVERWINTER_MAX_CURRENT_VERSION || tx.nVersion < CTransaction::OVERWINTER_MIN_CURRENT_VERSION) {
+            reason = "overwinter-version";
+            return false;
+        }
+    } else {
+        if (tx.nVersion > CTransaction::SPROUT_MAX_CURRENT_VERSION || tx.nVersion < CTransaction::SPROUT_MIN_CURRENT_VERSION) {
+            reason = "version";
+            return false;
+        }
     }
 
     // Extremely large transactions with lots of inputs can cost the network
@@ -153,7 +176,7 @@ bool IsStandardTx(const CTransaction& tx, bool permit_bare_multisig, const CFeeR
  * expensive-to-check-upon-redemption script like:
  *   DUP CHECKSIG DROP ... repeated 100 times... OP_1
  */
-bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
+bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs, uint32_t consensusBranchId)
 {
     if (tx.IsCoinBase())
         return true; // Coinbases don't use vin normally
@@ -169,7 +192,10 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
         } else if (whichType == TX_SCRIPTHASH) {
             std::vector<std::vector<unsigned char> > stack;
             // convert the scriptSig into a stack, so we can inspect the redeemScript
-            if (!EvalScript(stack, tx.vin[i].scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker(), SigVersion::BASE))
+            SigVersion sigversion = SigVersion::BASE;
+            if (tx.nVersion == 4)
+                sigversion = SigVersion::SAPLING_V0;
+            if (!EvalScript(stack, tx.vin[i].scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker(), sigversion, consensusBranchId))
                 return false;
             if (stack.empty())
                 return false;
@@ -183,7 +209,7 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
     return true;
 }
 
-bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
+bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs, uint32_t consensusBranchId)
 {
     if (tx.IsCoinBase())
         return true; // Coinbases are skipped
@@ -205,7 +231,10 @@ bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
             // If the scriptPubKey is P2SH, we try to extract the redeemScript casually by converting the scriptSig
             // into a stack. We do not check IsPushOnly nor compare the hash as these will be done later anyway.
             // If the check fails at this stage, we know that this txid must be a bad one.
-            if (!EvalScript(stack, tx.vin[i].scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker(), SigVersion::BASE))
+            SigVersion sigversion = SigVersion::BASE;
+            if (tx.nVersion == 4)
+                sigversion = SigVersion::SAPLING_V0;
+            if (!EvalScript(stack, tx.vin[i].scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker(), sigversion, consensusBranchId))
                 return false;
             if (stack.empty())
                 return false;

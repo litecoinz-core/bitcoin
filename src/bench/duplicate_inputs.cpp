@@ -57,9 +57,10 @@ static void DuplicateInputs(benchmark::State& state)
 
     block.hashMerkleRoot = BlockMerkleRoot(block);
 
+    auto verifier = libzcash::ProofVerifier::Disabled();
     while (state.KeepRunning()) {
         CValidationState cvstate{};
-        assert(!CheckBlock(block, cvstate, chainparams.GetConsensus(), false, false));
+        assert(!CheckBlock(block, cvstate, chainparams.GetConsensus(), verifier, false, false));
         assert(cvstate.GetRejectReason() == "bad-txns-inputs-duplicate");
     }
 }

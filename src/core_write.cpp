@@ -175,15 +175,114 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
     out.pushKV("addresses", a);
 }
 
+UniValue TxJoinSplitToJSON(const CTransaction& tx)
+{
+    bool useGroth = tx.fOverwintered && tx.nVersion >= SAPLING_TX_VERSION;
+    UniValue vJoinSplit(UniValue::VARR);
+    for (unsigned int i = 0; i < tx.vJoinSplit.size(); i++) {
+        const JSDescription& jsdescription = tx.vJoinSplit[i];
+        UniValue joinsplit(UniValue::VOBJ);
+
+        joinsplit.pushKV("vpub_old", ValueFromAmount(jsdescription.vpub_old));
+        joinsplit.pushKV("vpub_oldZat", jsdescription.vpub_old);
+        joinsplit.pushKV("vpub_new", ValueFromAmount(jsdescription.vpub_new));
+        joinsplit.pushKV("vpub_newZat", jsdescription.vpub_new);
+
+        joinsplit.pushKV("anchor", jsdescription.anchor.GetHex());
+
+        {
+            UniValue nullifiers(UniValue::VARR);
+            for (const uint256 nf : jsdescription.nullifiers) {
+                nullifiers.push_back(nf.GetHex());
+            }
+            joinsplit.pushKV("nullifiers", nullifiers);
+        }
+
+        {
+            UniValue commitments(UniValue::VARR);
+            for (const uint256 commitment : jsdescription.commitments) {
+                commitments.push_back(commitment.GetHex());
+            }
+            joinsplit.pushKV("commitments", commitments);
+        }
+
+        joinsplit.pushKV("onetimePubKey", jsdescription.ephemeralKey.GetHex());
+        joinsplit.pushKV("randomSeed", jsdescription.randomSeed.GetHex());
+
+        {
+            UniValue macs(UniValue::VARR);
+            for (const uint256 mac : jsdescription.macs) {
+                macs.push_back(mac.GetHex());
+            }
+            joinsplit.pushKV("macs", macs);
+        }
+
+        CDataStream ssProof(SER_NETWORK, PROTOCOL_VERSION);
+        auto ps = SproutProofSerializer<CDataStream>(ssProof, useGroth);
+        boost::apply_visitor(ps, jsdescription.proof);
+        joinsplit.pushKV("proof", HexStr(ssProof.begin(), ssProof.end()));
+
+        {
+            UniValue ciphertexts(UniValue::VARR);
+            for (const ZCNoteEncryption::Ciphertext ct : jsdescription.ciphertexts) {
+                ciphertexts.push_back(HexStr(ct.begin(), ct.end()));
+            }
+            joinsplit.pushKV("ciphertexts", ciphertexts);
+        }
+
+        vJoinSplit.push_back(joinsplit);
+    }
+    return vJoinSplit;
+}
+
+UniValue TxShieldedSpendsToJSON(const CTransaction& tx)
+{
+    UniValue vdesc(UniValue::VARR);
+    for (const SpendDescription& spendDesc : tx.vShieldedSpend) {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("cv", spendDesc.cv.GetHex());
+        obj.pushKV("anchor", spendDesc.anchor.GetHex());
+        obj.pushKV("nullifier", spendDesc.nullifier.GetHex());
+        obj.pushKV("rk", spendDesc.rk.GetHex());
+        obj.pushKV("proof", HexStr(spendDesc.zkproof.begin(), spendDesc.zkproof.end()));
+        obj.pushKV("spendAuthSig", HexStr(spendDesc.spendAuthSig.begin(), spendDesc.spendAuthSig.end()));
+        vdesc.push_back(obj);
+    }
+    return vdesc;
+}
+
+UniValue TxShieldedOutputsToJSON(const CTransaction& tx)
+{
+    UniValue vdesc(UniValue::VARR);
+    for (const OutputDescription& outputDesc : tx.vShieldedOutput) {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("cv", outputDesc.cv.GetHex());
+        obj.pushKV("cmu", outputDesc.cm.GetHex());
+        obj.pushKV("ephemeralKey", outputDesc.ephemeralKey.GetHex());
+        obj.pushKV("encCiphertext", HexStr(outputDesc.encCiphertext.begin(), outputDesc.encCiphertext.end()));
+        obj.pushKV("outCiphertext", HexStr(outputDesc.outCiphertext.begin(), outputDesc.outCiphertext.end()));
+        obj.pushKV("proof", HexStr(outputDesc.zkproof.begin(), outputDesc.zkproof.end()));
+        vdesc.push_back(obj);
+    }
+    return vdesc;
+}
+
 void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags)
 {
     entry.pushKV("txid", tx.GetHash().GetHex());
     entry.pushKV("hash", tx.GetWitnessHash().GetHex());
+    entry.pushKV("overwintered", tx.fOverwintered);
     entry.pushKV("version", tx.nVersion);
+    if (tx.fOverwintered) {
+        entry.pushKV("versiongroupid", HexInt(tx.nVersionGroupId));
+    }
     entry.pushKV("size", (int)::GetSerializeSize(tx, PROTOCOL_VERSION));
     entry.pushKV("vsize", (GetTransactionWeight(tx) + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR);
     entry.pushKV("weight", GetTransactionWeight(tx));
     entry.pushKV("locktime", (int64_t)tx.nLockTime);
+    if (tx.fOverwintered) {
+        entry.pushKV("expiryheight", (int64_t)tx.nExpiryHeight);
+    }
 
     UniValue vin(UniValue::VARR);
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
@@ -218,6 +317,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         UniValue out(UniValue::VOBJ);
 
         out.pushKV("value", ValueFromAmount(txout.nValue));
+        out.pushKV("valueZat", txout.nValue);
         out.pushKV("n", (int64_t)i);
 
         UniValue o(UniValue::VOBJ);
@@ -226,6 +326,21 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         vout.push_back(out);
     }
     entry.pushKV("vout", vout);
+
+    UniValue vjoinsplit = TxJoinSplitToJSON(tx);
+    entry.pushKV("vjoinsplit", vjoinsplit);
+
+    if (tx.fOverwintered && tx.nVersion >= SAPLING_TX_VERSION) {
+        entry.pushKV("valueBalance", ValueFromAmount(tx.valueBalance));
+        entry.pushKV("valueBalanceZat", tx.valueBalance);
+        UniValue vspenddesc = TxShieldedSpendsToJSON(tx);
+        entry.pushKV("vShieldedSpend", vspenddesc);
+        UniValue voutputdesc = TxShieldedOutputsToJSON(tx);
+        entry.pushKV("vShieldedOutput", voutputdesc);
+        if (!(vspenddesc.empty() && voutputdesc.empty())) {
+            entry.pushKV("bindingSig", HexStr(tx.bindingSig.begin(), tx.bindingSig.end()));
+        }
+    }
 
     if (!hashBlock.IsNull())
         entry.pushKV("blockhash", hashBlock.GetHex());

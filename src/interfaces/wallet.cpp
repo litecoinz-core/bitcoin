@@ -120,6 +120,18 @@ public:
         std::string error;
         return m_wallet->GetNewDestination(type, label, dest, error);
     }
+    bool getNewSproutDestination(const std::string label, libzcash::PaymentAddress& dest) override
+    {
+        LOCK(m_wallet->cs_wallet);
+        std::string error;
+        return m_wallet->GetNewSproutDestination(label, dest, error);
+    }
+    bool getNewSaplingDestination(const std::string label, libzcash::PaymentAddress& dest) override
+    {
+        LOCK(m_wallet->cs_wallet);
+        std::string error;
+        return m_wallet->GetNewSaplingDestination(label, dest, error);
+    }
     bool getPubKey(const CKeyID& address, CPubKey& pub_key) override { return m_wallet->GetPubKey(address, pub_key); }
     bool getPrivKey(const CKeyID& address, CKey& key) override { return m_wallet->GetKey(address, key); }
     bool isSpendable(const CTxDestination& dest) override { return IsMine(*m_wallet, dest) & ISMINE_SPENDABLE; }
@@ -343,6 +355,7 @@ public:
         const auto bal = m_wallet->GetBalance();
         WalletBalances result;
         result.balance = bal.m_mine_trusted;
+        result.coinbase_balance = bal.m_mine_coinbase;
         result.unconfirmed_balance = bal.m_mine_untrusted_pending;
         result.immature_balance = bal.m_mine_immature;
         result.have_watch_only = m_wallet->HaveWatchOnly();
@@ -351,6 +364,15 @@ public:
             result.unconfirmed_watch_only_balance = bal.m_watchonly_untrusted_pending;
             result.immature_watch_only_balance = bal.m_watchonly_immature;
         }
+        const auto zbal = m_wallet->GetShieldedBalance();
+        result.shielded_balance = zbal.m_mine_shielded;
+        result.unconfirmed_shielded_balance = zbal.m_mine_shielded_pending;
+        if (result.have_watch_only) {
+            result.watch_only_shielded_balance = zbal.m_watchonly_shielded;
+            result.unconfirmed_watch_only_shielded_balance = zbal.m_watchonly_shielded_pending;
+            result.immature_watch_only_shielded_balance = zbal.m_watchonly_shielded_immature;
+        }
+
         return result;
     }
     bool tryGetBalances(WalletBalances& balances, int& num_blocks) override
@@ -366,6 +388,9 @@ public:
         return true;
     }
     CAmount getBalance() override { return m_wallet->GetBalance().m_mine_trusted; }
+    CAmount getShieldedBalance() override { return m_wallet->GetShieldedBalance().m_mine_shielded; }
+    CAmount getBalanceTaddr(std::string address) override { return m_wallet->GetBalanceTaddr(address); }
+    CAmount getBalanceZaddr(std::string address) override { return m_wallet->GetBalanceZaddr(address); }
     CAmount getAvailableBalance(const CCoinControl& coin_control) override
     {
         return m_wallet->GetAvailableBalance(&coin_control);
@@ -394,12 +419,12 @@ public:
         LOCK(m_wallet->cs_wallet);
         return m_wallet->GetCredit(txout, filter);
     }
-    CoinsList listCoins() override
+    CoinsList listCoins(bool fOnlyCoinbase, bool fIncludeCoinbase) override
     {
         auto locked_chain = m_wallet->chain().lock();
         LOCK(m_wallet->cs_wallet);
         CoinsList result;
-        for (const auto& entry : m_wallet->ListCoins(*locked_chain)) {
+        for (const auto& entry : m_wallet->ListCoins(*locked_chain, fOnlyCoinbase, fIncludeCoinbase)) {
             auto& group = result[entry.first];
             for (const auto& coin : entry.second) {
                 group.emplace_back(COutPoint(coin.tx->GetHash(), coin.i),
@@ -467,6 +492,18 @@ public:
         return MakeHandler(m_wallet->NotifyAddressBookChanged.connect(
             [fn](CWallet*, const CTxDestination& address, const std::string& label, bool is_mine,
                 const std::string& purpose, ChangeType status) { fn(address, label, is_mine, purpose, status); }));
+    }
+    std::unique_ptr<Handler> handleSproutAddressBookChanged(SproutAddressBookChangedFn fn) override
+    {
+        return MakeHandler(m_wallet->NotifySproutAddressBookChanged.connect(
+            [fn](CWallet*, const libzcash::PaymentAddress& address, const std::string& label,
+                const std::string& purpose, ChangeType status) { fn(address, label, purpose, status); }));
+    }
+    std::unique_ptr<Handler> handleSaplingAddressBookChanged(SaplingAddressBookChangedFn fn) override
+    {
+        return MakeHandler(m_wallet->NotifySaplingAddressBookChanged.connect(
+            [fn](CWallet*, const libzcash::PaymentAddress& address, const std::string& label,
+                const std::string& purpose, ChangeType status) { fn(address, label, purpose, status); }));
     }
     std::unique_ptr<Handler> handleTransactionChanged(TransactionChangedFn fn) override
     {

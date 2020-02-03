@@ -11,10 +11,20 @@
 
 /** The minimum allowed block version (network rule) */
 static const int32_t MIN_BLOCK_VERSION = 4;
+/** The minimum allowed transaction version (network rule) */
+static const int32_t SPROUT_MIN_TX_VERSION = 1;
+/** The minimum allowed Overwinter transaction version (network rule) */
+static const int32_t OVERWINTER_MIN_TX_VERSION = 3;
+/** The maximum allowed Overwinter transaction version (network rule) */
+static const int32_t OVERWINTER_MAX_TX_VERSION = 3;
+/** The minimum allowed Sapling transaction version (network rule) */
+static const int32_t SAPLING_MIN_TX_VERSION = 4;
+/** The maximum allowed Sapling transaction version (network rule) */
+static const int32_t SAPLING_MAX_TX_VERSION = 4;
 /** The maximum allowed size for a serialized block, in bytes (only for buffer size limits) */
 static const unsigned int MAX_BLOCK_SERIALIZED_SIZE = 4000000;
 /** The maximum allowed weight for a block, see BIP 141 (network rule) */
-static const unsigned int MAX_BLOCK_WEIGHT = 4000000;
+static const unsigned int MAX_BLOCK_WEIGHT = 8000000;
 /** The maximum allowed number of signature check operations in a block (network rule) */
 static const int64_t MAX_BLOCK_SIGOPS_COST = 80000;
 /** Coinbase transaction outputs can only be spent after this number of new blocks (network rule) */
@@ -30,5 +40,11 @@ static const size_t MIN_SERIALIZABLE_TRANSACTION_WEIGHT = WITNESS_SCALE_FACTOR *
 static constexpr unsigned int LOCKTIME_VERIFY_SEQUENCE = (1 << 0);
 /** Use GetMedianTimePast() instead of nTime for end point timestamp. */
 static constexpr unsigned int LOCKTIME_MEDIAN_TIME_PAST = (1 << 1);
+
+static const unsigned int MAX_TX_SIZE_BEFORE_SAPLING = 100000;
+static const unsigned int MAX_TX_SIZE_AFTER_SAPLING = MAX_BLOCK_WEIGHT;
+
+/** The minimum value which is invalid for expiry height, used by CTransaction and CMutableTransaction */
+static constexpr uint32_t TX_EXPIRY_HEIGHT_THRESHOLD = 500000000;
 
 #endif // BITCOIN_CONSENSUS_CONSENSUS_H

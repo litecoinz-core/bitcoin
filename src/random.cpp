@@ -793,3 +793,8 @@ void RandomInit()
 
     ReportHardwareRand();
 }
+
+int GenIdentity(int n)
+{
+    return n-1;
+}

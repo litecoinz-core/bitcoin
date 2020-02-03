@@ -42,8 +42,8 @@ static UniValue validateaddress(const JSONRPCRequest& request)
             "}\n"
                 },
                 RPCExamples{
-                    HelpExampleCli("validateaddress", "\"1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc\"")
-            + HelpExampleRpc("validateaddress", "\"1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc\"")
+                    HelpExampleCli("validateaddress", "\"t16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\"")
+            + HelpExampleRpc("validateaddress", "\"t16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\"")
                 },
             }.Check(request);
 
@@ -61,6 +61,67 @@ static UniValue validateaddress(const JSONRPCRequest& request)
         ret.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
 
         UniValue detail = DescribeAddress(dest);
+        ret.pushKVs(detail);
+    }
+    return ret;
+}
+
+class DescribePaymentAddressVisitor : public boost::static_visitor<UniValue>
+{
+public:
+    UniValue operator()(const libzcash::InvalidEncoding &zaddr) const { return UniValue(UniValue::VOBJ); }
+
+    UniValue operator()(const libzcash::SproutPaymentAddress &zaddr) const {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("type", "sprout");
+        obj.pushKV("payingkey", zaddr.a_pk.GetHex());
+        obj.pushKV("transmissionkey", zaddr.pk_enc.GetHex());
+        return obj;
+    }
+
+    UniValue operator()(const libzcash::SaplingPaymentAddress &zaddr) const {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("type", "sapling");
+        obj.pushKV("diversifier", HexStr(zaddr.d));
+        obj.pushKV("diversifiedtransmissionkey", zaddr.pk_d.GetHex());
+        return obj;
+    }
+};
+
+static UniValue z_validateaddress(const JSONRPCRequest& request)
+{
+            RPCHelpMan{"z_validateaddress",
+                "\nReturn information about the given litecoinz zaddress.\n",
+                {
+                    {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The litecoinz zaddress to validate"},
+                },
+                RPCResult{
+            "{\n"
+            "  \"isvalid\" : true|false,       (boolean) If the address is valid or not. If not, this is the only property returned.\n"
+            "  \"address\" : \"zaddress\",       (string) The litecoinz zaddress validated\n"
+            "  \"type\" : \"xxxx\",              (string) \"sprout\" or \"sapling\"\n"
+            "  \"payingkey\" : \"hex\",          (string) [sprout] The hex value of the paying key, a_pk\n"
+            "  \"transmissionkey\" : \"hex\",    (string) [sprout] The hex value of the transmission key, pk_enc\n"
+            "  \"diversifier\" : \"hex\",        (string) [sapling] The hex value of the diversifier, d\n"
+            "  \"diversifiedtransmissionkey\" : \"hex\", (string) [sapling] The hex value of pk_d\n"
+            "}\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("z_validateaddress", "\"zcWsmqT4X2V4jgxbgiCzyrAfRT1vi1F4sn7M5Pkh66izzw8Uk7LBGAH3DtcSMJeUb2pi3W4SQF8LMKkU2cUuVP68yAGcomL\"")
+            + HelpExampleRpc("z_validateaddress", "\"zcWsmqT4X2V4jgxbgiCzyrAfRT1vi1F4sn7M5Pkh66izzw8Uk7LBGAH3DtcSMJeUb2pi3W4SQF8LMKkU2cUuVP68yAGcomL\"")
+                },
+            }.Check(request);
+
+    std::string strAddress = request.params[0].get_str();
+    auto address = DecodePaymentAddress(strAddress);
+    bool isValid = IsValidPaymentAddress(address);
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("isvalid", isValid);
+    if (isValid)
+    {
+        ret.pushKV("address", strAddress);
+        UniValue detail = boost::apply_visitor(DescribePaymentAddressVisitor(), address);
         ret.pushKVs(detail);
     }
     return ret;
@@ -257,11 +318,11 @@ static UniValue verifymessage(const JSONRPCRequest& request)
             "\nUnlock the wallet for 30 seconds\n"
             + HelpExampleCli("walletpassphrase", "\"mypassphrase\" 30") +
             "\nCreate the signature\n"
-            + HelpExampleCli("signmessage", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\" \"my message\"") +
+            + HelpExampleCli("signmessage", "\"t16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\" \"my message\"") +
             "\nVerify the signature\n"
-            + HelpExampleCli("verifymessage", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\" \"signature\" \"my message\"") +
+            + HelpExampleCli("verifymessage", "\"t16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\" \"signature\" \"my message\"") +
             "\nAs a JSON-RPC call\n"
-            + HelpExampleRpc("verifymessage", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\", \"signature\", \"my message\"")
+            + HelpExampleRpc("verifymessage", "\"t16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\", \"signature\", \"my message\"")
                 },
             }.Check(request);
 
@@ -313,7 +374,7 @@ static UniValue signmessagewithprivkey(const JSONRPCRequest& request)
             "\nCreate the signature\n"
             + HelpExampleCli("signmessagewithprivkey", "\"privkey\" \"my message\"") +
             "\nVerify the signature\n"
-            + HelpExampleCli("verifymessage", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\" \"signature\" \"my message\"") +
+            + HelpExampleCli("verifymessage", "\"t16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\" \"signature\" \"my message\"") +
             "\nAs a JSON-RPC call\n"
             + HelpExampleRpc("signmessagewithprivkey", "\"privkey\", \"my message\"")
                 },
@@ -564,6 +625,7 @@ static const CRPCCommand commands[] =
     { "util",               "getdescriptorinfo",      &getdescriptorinfo,      {"descriptor"} },
     { "util",               "verifymessage",          &verifymessage,          {"address","signature","message"} },
     { "util",               "signmessagewithprivkey", &signmessagewithprivkey, {"privkey","message"} },
+    { "util",               "z_validateaddress",      &z_validateaddress,      {"address"} },
 
     /* Not shown in help */
     { "hidden",             "setmocktime",            &setmocktime,            {"timestamp"}},

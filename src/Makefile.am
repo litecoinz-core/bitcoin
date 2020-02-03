@@ -24,7 +24,6 @@ BITCOIN_INCLUDES=-I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFL
 BITCOIN_INCLUDES += -I$(srcdir)/secp256k1/include
 BITCOIN_INCLUDES += -I$(srcdir)/rustzcash/include
 BITCOIN_INCLUDES += $(UNIVALUE_CFLAGS)
-BITCOIN_INCLUDES += $(LIBSNARK_CFLAGS)
 
 LIBBITCOIN_SERVER=libbitcoin_server.a
 LIBBITCOIN_COMMON=libbitcoin_common.a
@@ -37,7 +36,7 @@ LIBSECP256K1=secp256k1/libsecp256k1.la
 LIBRUSTZCASH=rustzcash/librustzcash.a
 LIBZCASH=zcash/libzcash.a
 
-LIBZCASH_LIBS=$(GMP_LIBS) $(GMPXX_LIBS) $(BOOST_SYSTEM_LIB) $(CRYPTO_LIBS) $(SODIUM_LIBS) $(DL_LIBS)
+LIBZCASH_LIBS=$(BOOST_SYSTEM_LIB) $(CRYPTO_LIBS) $(SODIUM_LIBS) $(DL_LIBS)
 
 if ENABLE_ZMQ
 LIBBITCOIN_ZMQ=libbitcoin_zmq.a
@@ -67,7 +66,7 @@ endif
 $(LIBSECP256K1): $(wildcard secp256k1/src/*.h) $(wildcard secp256k1/src/*.c) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
 
-# A phony target is included here to ensure libsnark is built first, so that its
+# A phony target is included here to ensure librustzcash is built first, so that its
 # header files are collated for use in later build steps.
 # See https://stackoverflow.com/a/10726725
 -include collate-librustzcash
@@ -132,6 +131,8 @@ LIBZCASH_H = \
 BITCOIN_CORE_H = \
   addrdb.h \
   addrman.h \
+  asyncrpcoperation.h \
+  asyncrpcqueue.h \
   attributes.h \
   banman.h \
   base58.h \
@@ -159,6 +160,7 @@ BITCOIN_CORE_H = \
   core_io.h \
   core_memusage.h \
   cuckoocache.h \
+  deprecation.h \
   fetchparams.h \
   flatfile.h \
   fs.h \
@@ -232,6 +234,7 @@ BITCOIN_CORE_H = \
   threadinterrupt.h \
   timedata.h \
   torcontrol.h \
+  transaction_builder.h \
   txdb.h \
   txmempool.h \
   ui_interface.h \
@@ -257,6 +260,11 @@ BITCOIN_CORE_H = \
   versionbits.h \
   versionbitsinfo.h \
   walletinitinterface.h \
+  wallet/asyncrpcoperation_common.h \
+  wallet/asyncrpcoperation_mergetoaddress.h \
+  wallet/asyncrpcoperation_saplingmigration.h \
+  wallet/asyncrpcoperation_sendmany.h \
+  wallet/asyncrpcoperation_shieldcoinbase.h \
   wallet/coincontrol.h \
   wallet/crypter.h \
   wallet/db.h \
@@ -265,6 +273,8 @@ BITCOIN_CORE_H = \
   wallet/ismine.h \
   wallet/load.h \
   wallet/psbtwallet.h \
+  wallet/paymentdisclosure.h \
+  wallet/paymentdisclosuredb.h \
   wallet/rpcwallet.h \
   wallet/wallet.h \
   wallet/walletdb.h \
@@ -295,11 +305,14 @@ libbitcoin_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_server_a_SOURCES = \
   addrdb.cpp \
   addrman.cpp \
+  asyncrpcoperation.cpp \
+  asyncrpcqueue.cpp \
   banman.cpp \
   blockencodings.cpp \
   blockfilter.cpp \
   chain.cpp \
   consensus/tx_verify.cpp \
+  deprecation.cpp \
   flatfile.cpp \
   httprpc.cpp \
   httpserver.cpp \
@@ -366,6 +379,11 @@ libbitcoin_wallet_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 libbitcoin_wallet_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_wallet_a_SOURCES = \
   interfaces/wallet.cpp \
+  wallet/asyncrpcoperation_common.cpp \
+  wallet/asyncrpcoperation_mergetoaddress.cpp \
+  wallet/asyncrpcoperation_saplingmigration.cpp \
+  wallet/asyncrpcoperation_sendmany.cpp \
+  wallet/asyncrpcoperation_shieldcoinbase.cpp \
   wallet/coincontrol.cpp \
   wallet/crypter.cpp \
   wallet/db.cpp \
@@ -374,6 +392,9 @@ libbitcoin_wallet_a_SOURCES = \
   wallet/ismine.cpp \
   wallet/load.cpp \
   wallet/psbtwallet.cpp \
+  wallet/paymentdisclosure.cpp \
+  wallet/paymentdisclosuredb.cpp \
+  wallet/rpcdisclosure.cpp \
   wallet/rpcdump.cpp \
   wallet/rpcwallet.cpp \
   wallet/wallet.cpp \
@@ -492,6 +513,7 @@ libbitcoin_common_a_SOURCES = \
   chainparams.cpp \
   coins.cpp \
   compressor.cpp \
+  consensus/params.cpp \
   consensus/upgrades.cpp \
   core_read.cpp \
   core_write.cpp \
@@ -513,6 +535,7 @@ libbitcoin_common_a_SOURCES = \
   script/sign.cpp \
   script/signingprovider.cpp \
   script/standard.cpp \
+  transaction_builder.cpp \
   versionbitsinfo.cpp \
   warnings.cpp \
   zcashparams.cpp \
@@ -600,7 +623,7 @@ litecoinzd_LDADD = \
   $(LIBSECP256K1)
 
 litecoinzd_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
-litecoinzd_LDADD += $(SODIUM_LIBS) $(LIBZCASH) $(LIBRUSTZCASH) $(LIBSNARK) $(LIBZCASH_LIBS) $(CURL_LIBS)
+litecoinzd_LDADD += $(SODIUM_LIBS) $(LIBZCASH) $(LIBRUSTZCASH) $(LIBZCASH_LIBS) $(CURL_LIBS)
 
 # litecoinz-cli binary #
 litecoinz_cli_SOURCES = bitcoin-cli.cpp
@@ -619,7 +642,7 @@ litecoinz_cli_LDADD = \
   $(LIBBITCOIN_CRYPTO)
 
 litecoinz_cli_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
-litecoinz_cli_LDADD += $(SODIUM_LIBS) $(LIBZCASH) $(LIBRUSTZCASH) $(LIBSNARK) $(LIBZCASH_LIBS) $(CURL_LIBS)
+litecoinz_cli_LDADD += $(SODIUM_LIBS) $(LIBZCASH) $(LIBRUSTZCASH) $(LIBZCASH_LIBS) $(CURL_LIBS)
 #
 
 # litecoinz-tx binary #
@@ -641,7 +664,7 @@ litecoinz_tx_LDADD = \
   $(LIBSECP256K1)
 
 litecoinz_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
-litecoinz_tx_LDADD += $(SODIUM_LIBS) $(LIBZCASH) $(LIBRUSTZCASH) $(LIBSNARK) $(LIBZCASH_LIBS) $(CURL_LIBS)
+litecoinz_tx_LDADD += $(SODIUM_LIBS) $(LIBZCASH) $(LIBRUSTZCASH) $(LIBZCASH_LIBS) $(CURL_LIBS)
 #
 
 # litecoinz-wallet binary #
@@ -657,6 +680,7 @@ endif
 litecoinz_wallet_LDADD = \
   $(LIBBITCOIN_WALLET_TOOL) \
   $(LIBBITCOIN_WALLET) \
+  $(LIBBITCOIN_SERVER) \
   $(LIBBITCOIN_COMMON) \
   $(LIBBITCOIN_CONSENSUS) \
   $(LIBBITCOIN_UTIL) \
@@ -669,7 +693,7 @@ litecoinz_wallet_LDADD = \
   $(LIBUNIVALUE)
 
 litecoinz_wallet_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(CRYPTO_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(MINIUPNPC_LIBS) $(ZMQ_LIBS)
-litecoinz_wallet_LDADD += $(SODIUM_LIBS) $(LIBZCASH) $(LIBRUSTZCASH) $(LIBSNARK) $(LIBZCASH_LIBS) $(CURL_LIBS)
+litecoinz_wallet_LDADD += $(SODIUM_LIBS) $(LIBZCASH) $(LIBRUSTZCASH) $(LIBZCASH_LIBS) $(CURL_LIBS)
 #
 
 # litecoinz protocol primitives #
@@ -748,7 +772,6 @@ $(top_srcdir)/$(subdir)/config/bitcoin-config.h.in:  $(am__configure_deps)
 clean-local:
 	-$(MAKE) -C secp256k1 clean
 	-$(MAKE) -C univalue clean
-	-$(MAKE) -C snark clean
 	-rm -rf rustzcash/target/ rustzcash/librustzcash.a
 	-rm -f leveldb/*/*.gcda leveldb/*/*.gcno leveldb/helpers/memenv/*.gcda leveldb/helpers/memenv/*.gcno
 	-rm -f config.h
@@ -770,8 +793,6 @@ if HARDEN
 	@echo "Checking binary security..."
 	$(AM_V_at) READELF=$(READELF) OBJDUMP=$(OBJDUMP) $(PYTHON) $(top_srcdir)/contrib/devtools/security-check.py < $(bin_PROGRAMS)
 endif
-
-include Makefile.snark.include
 
 if EMBEDDED_LEVELDB
 include Makefile.leveldb.include

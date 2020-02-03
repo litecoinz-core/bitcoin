@@ -9,6 +9,7 @@
 #include <clientversion.h>
 #include <coins.h>
 #include <consensus/consensus.h>
+#include <consensus/upgrades.h>
 #include <core_io.h>
 #include <key_io.h>
 #include <policy/policy.h>
@@ -49,6 +50,7 @@ static void SetupBitcoinTxArgs()
     gArgs.AddArg("delout=N", "Delete output N from TX", ArgsManager::ALLOW_ANY, OptionsCategory::COMMANDS);
     gArgs.AddArg("in=TXID:VOUT(:SEQUENCE_NUMBER)", "Add input to TX", ArgsManager::ALLOW_ANY, OptionsCategory::COMMANDS);
     gArgs.AddArg("locktime=N", "Set TX lock time to N", ArgsManager::ALLOW_ANY, OptionsCategory::COMMANDS);
+    gArgs.AddArg("expiry=N", "Set TX expiry height to N", ArgsManager::ALLOW_ANY, OptionsCategory::COMMANDS);
     gArgs.AddArg("nversion=N", "Set TX version to N", ArgsManager::ALLOW_ANY, OptionsCategory::COMMANDS);
     gArgs.AddArg("outaddr=VALUE:ADDRESS", "Add address-based output to TX", ArgsManager::ALLOW_ANY, OptionsCategory::COMMANDS);
     gArgs.AddArg("outdata=[VALUE:]DATA", "Add data-based output to TX", ArgsManager::ALLOW_ANY, OptionsCategory::COMMANDS);
@@ -62,7 +64,7 @@ static void SetupBitcoinTxArgs()
         "Optionally add the \"W\" flag to produce a pay-to-witness-script-hash output. "
         "Optionally add the \"S\" flag to wrap the output in a pay-to-script-hash.", ArgsManager::ALLOW_ANY, OptionsCategory::COMMANDS);
     gArgs.AddArg("replaceable(=N)", "Set RBF opt-in sequence number for input N (if not provided, opt-in all available inputs)", ArgsManager::ALLOW_ANY, OptionsCategory::COMMANDS);
-    gArgs.AddArg("sign=SIGHASH-FLAGS", "Add zero or more signatures to transaction. "
+    gArgs.AddArg("sign=HEIGHT:SIGHASH-FLAGS", "Add zero or more signatures to transaction. "
         "This command requires JSON registers:"
         "prevtxs=JSON object, "
         "privatekeys=JSON object. "
@@ -195,10 +197,19 @@ static CAmount ExtractAndValidateValue(const std::string& strValue)
 static void MutateTxVersion(CMutableTransaction& tx, const std::string& cmdVal)
 {
     int64_t newVersion;
-    if (!ParseInt64(cmdVal, &newVersion) || newVersion < 1 || newVersion > CTransaction::MAX_STANDARD_VERSION)
+    if (!ParseInt64(cmdVal, &newVersion) || newVersion < SPROUT_MIN_TX_VERSION || newVersion > CTransaction::MAX_STANDARD_VERSION)
         throw std::runtime_error("Invalid TX version requested: '" + cmdVal + "'");
 
     tx.nVersion = (int) newVersion;
+}
+
+static void MutateTxExpiry(CMutableTransaction& tx, const std::string& cmdVal)
+{
+    int64_t newExpiry;
+    if (!ParseInt64(cmdVal, &newExpiry) || newExpiry <= 0 || newExpiry >= TX_EXPIRY_HEIGHT_THRESHOLD)
+        throw std::runtime_error("Invalid TX expiry requested: '" + cmdVal + "'");
+
+    tx.nExpiryHeight = (unsigned int) newExpiry;
 }
 
 static void MutateTxLocktime(CMutableTransaction& tx, const std::string& cmdVal)
@@ -542,9 +553,23 @@ static CAmount AmountFromValue(const UniValue& value)
     return amount;
 }
 
-static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
+static void MutateTxSign(CMutableTransaction& tx, const std::string& strInput)
 {
     int nHashType = SIGHASH_ALL;
+
+    // separate HEIGHT:SIGHASH-FLAGS in string
+    std::vector<std::string> vStrInputParts;
+    boost::split(vStrInputParts, strInput, boost::is_any_of(":"));
+    if (vStrInputParts.size() < 2)
+        throw std::runtime_error("Invalid sighash flag separator");
+
+    // Extract and validate HEIGHT
+    int nHeight = atoi(vStrInputParts[0]);
+    if (nHeight <= 0)
+        throw std::runtime_error("invalid height");
+
+    // extract and validate SIGHASH-FLAGS
+    std::string flagStr = vStrInputParts[1];
 
     if (flagStr.size() > 0)
         if (!findSighashFlags(nHashType, flagStr))
@@ -637,6 +662,9 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
 
     bool fHashSingle = ((nHashType & ~SIGHASH_ANYONECANPAY) == SIGHASH_SINGLE);
 
+    // Grab the consensus branch ID for the given height
+    auto consensusBranchId = CurrentEpochBranchId(nHeight, Params().GetConsensus());
+
     // Sign what we can:
     for (unsigned int i = 0; i < mergedTx.vin.size(); i++) {
         CTxIn& txin = mergedTx.vin[i];
@@ -647,10 +675,10 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
         const CScript& prevPubKey = coin.out.scriptPubKey;
         const CAmount& amount = coin.out.nValue;
 
-        SignatureData sigdata = DataFromTransaction(mergedTx, i, coin.out);
+        SignatureData sigdata = DataFromTransaction(mergedTx, i, coin.out, consensusBranchId);
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
         if (!fHashSingle || (i < mergedTx.vout.size()))
-            ProduceSignature(keystore, MutableTransactionSignatureCreator(&mergedTx, i, amount, nHashType), prevPubKey, sigdata);
+            ProduceSignature(keystore, MutableTransactionSignatureCreator(&mergedTx, i, amount, nHashType), prevPubKey, sigdata, consensusBranchId);
 
         UpdateInput(txin, sigdata);
     }
@@ -680,6 +708,8 @@ static void MutateTx(CMutableTransaction& tx, const std::string& command,
         MutateTxVersion(tx, commandVal);
     else if (command == "locktime")
         MutateTxLocktime(tx, commandVal);
+    else if (command == "expiry")
+        MutateTxExpiry(tx, commandVal);
     else if (command == "replaceable") {
         MutateTxRBFOptIn(tx, commandVal);
     }

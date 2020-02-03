@@ -159,6 +159,9 @@ const CLogCategoryDesc LogCategories[] =
     {BCLog::QT, "qt"},
     {BCLog::LEVELDB, "leveldb"},
     {BCLog::POW, "pow"},
+    {BCLog::ZRPC, "zrpc"},
+    {BCLog::ZRPCUNSAFE, "zrpcunsafe"},
+    {BCLog::PAYMENTDISCLOSURE, "paymentdisclosure"},
     {BCLog::ALL, "1"},
     {BCLog::ALL, "all"},
 };

@@ -2,11 +2,12 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <hash.h>
+#include <streams.h>
 #include <zcash/Address.hpp>
 #include <zcash/NoteEncryption.hpp>
-#include <hash.h>
 #include <zcash/prf.h>
-#include <streams.h>
+#include <zcash/zip32.h>
 
 #include <librustzcash.h>
 
@@ -111,6 +112,16 @@ SaplingPaymentAddress SaplingSpendingKey::default_address() const {
     auto addrOpt = full_viewing_key().in_viewing_key().address(default_diversifier(*this));
     assert(addrOpt != boost::none);
     return addrOpt.value();
+}
+
+std::pair<std::string, PaymentAddress> AddressInfoFromSpendingKey::operator()(const SproutSpendingKey &sk) const {
+    return std::make_pair("sprout", sk.address());
+}
+std::pair<std::string, PaymentAddress> AddressInfoFromSpendingKey::operator()(const SaplingExtendedSpendingKey &sk) const {
+    return std::make_pair("sapling", sk.DefaultAddress());
+}
+std::pair<std::string, PaymentAddress> AddressInfoFromSpendingKey::operator()(const InvalidEncoding&) const {
+    throw std::invalid_argument("Cannot derive default address from invalid spending key");
 }
 
 }

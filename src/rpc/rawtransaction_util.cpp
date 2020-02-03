@@ -5,8 +5,11 @@
 
 #include <rpc/rawtransaction_util.h>
 
+#include <chain.h>
+#include <chainparams.h>
 #include <coins.h>
 #include <core_io.h>
+#include <consensus/upgrades.h>
 #include <key_io.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
@@ -18,8 +21,9 @@
 #include <univalue.h>
 #include <util/rbf.h>
 #include <util/strencodings.h>
+#include <validation.h>
 
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf)
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, const UniValue& expiryheight)
 {
     if (inputs_in.isNull() || outputs_in.isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, arguments 1 and 2 must be non-null");
@@ -28,13 +32,32 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
     const bool outputs_is_obj = outputs_in.isObject();
     UniValue outputs = outputs_is_obj ? outputs_in.get_obj() : outputs_in.get_array();
 
-    CMutableTransaction rawTx;
+    int nextBlockHeight = ::ChainActive().Height() + 1;
+    CMutableTransaction rawTx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), nextBlockHeight);
 
     if (!locktime.isNull()) {
         int64_t nLockTime = locktime.get_int64();
         if (nLockTime < 0 || nLockTime > LOCKTIME_MAX)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, locktime out of range");
         rawTx.nLockTime = nLockTime;
+    }
+
+    if (!expiryheight.isNull()) {
+        if (Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_OVERWINTER)) {
+            int64_t nExpiryHeight = expiryheight.get_int64();
+            if (nExpiryHeight < 0 || nExpiryHeight >= TX_EXPIRY_HEIGHT_THRESHOLD) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expiryheight out of range");
+            }
+            // DoS mitigation: reject transactions expiring soon
+            if (nExpiryHeight != 0 && nextBlockHeight + TX_EXPIRING_SOON_THRESHOLD > nExpiryHeight) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER,
+                    strprintf("Invalid parameter, expiryheight should be at least %d to avoid transaction expiring soon",
+                    nextBlockHeight + TX_EXPIRING_SOON_THRESHOLD));
+            }
+            rawTx.nExpiryHeight = nExpiryHeight;
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expiryheight can only be used if Overwinter is active when the transaction is mined");
+        }
     }
 
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
@@ -268,7 +291,7 @@ void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keyst
     }
 }
 
-UniValue SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, const std::map<COutPoint, Coin>& coins, const UniValue& hashType)
+UniValue SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, const std::map<COutPoint, Coin>& coins, const UniValue& hashType, const uint32_t consensusBranchId)
 {
     int nHashType = ParseSighashString(hashType);
 
@@ -291,10 +314,10 @@ UniValue SignTransaction(CMutableTransaction& mtx, const SigningProvider* keysto
         const CScript& prevPubKey = coin->second.out.scriptPubKey;
         const CAmount& amount = coin->second.out.nValue;
 
-        SignatureData sigdata = DataFromTransaction(mtx, i, coin->second.out);
+        SignatureData sigdata = DataFromTransaction(mtx, i, coin->second.out, consensusBranchId);
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
         if (!fHashSingle || (i < mtx.vout.size())) {
-            ProduceSignature(*keystore, MutableTransactionSignatureCreator(&mtx, i, amount, nHashType), prevPubKey, sigdata);
+            ProduceSignature(*keystore, MutableTransactionSignatureCreator(&mtx, i, amount, nHashType), prevPubKey, sigdata, consensusBranchId);
         }
 
         UpdateInput(txin, sigdata);
@@ -305,7 +328,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const SigningProvider* keysto
         }
 
         ScriptError serror = SCRIPT_ERR_OK;
-        if (!VerifyScript(txin.scriptSig, prevPubKey, &txin.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TransactionSignatureChecker(&txConst, i, amount), &serror)) {
+        if (!VerifyScript(txin.scriptSig, prevPubKey, &txin.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TransactionSignatureChecker(&txConst, i, amount), consensusBranchId, &serror)) {
             if (serror == SCRIPT_ERR_INVALID_STACK_OPERATION) {
                 // Unable to sign input and verification failed (possible attempt to partially sign).
                 TxInErrorToJSON(txin, vErrors, "Unable to sign input, invalid stack size (possibly missing key)");

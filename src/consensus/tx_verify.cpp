@@ -4,6 +4,7 @@
 
 #include <consensus/tx_verify.h>
 
+#include <chainparams.h>
 #include <consensus/consensus.h>
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
@@ -156,12 +157,18 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
     return nSigOps;
 }
 
-bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee)
+bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee, const Consensus::Params& consensusParams)
 {
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
         return state.Invalid(ValidationInvalidReason::TX_MISSING_INPUTS, false, REJECT_INVALID, "bad-txns-inputs-missingorspent",
                          strprintf("%s: inputs missing/spent", __func__));
+    }
+
+    // are the joinsplits' and sapling spends' requirements met in tx(valid anchors/nullifiers)?
+    if (!inputs.HaveShieldedRequirements(tx)) {
+        return state.Invalid(ValidationInvalidReason::TX_MISSING_INPUTS, false, REJECT_INVALID, "bad-txns-shielded-requirements-not-met",
+                         strprintf("%s: shielded requirements not met", __func__));
     }
 
     CAmount nValueIn = 0;
@@ -176,12 +183,22 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
                 strprintf("tried to spend coinbase at depth %d", nSpendHeight - coin.nHeight));
         }
 
+        // Ensure that coinbases cannot be spent to transparent outputs
+        // Disabled on regtest
+        if (coin.IsCoinBase() && consensusParams.fCoinbaseMustBeShielded && !tx.vout.empty()) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
+        }
+
         // Check for negative or overflow input values
         nValueIn += coin.out.nValue;
         if (!MoneyRange(coin.out.nValue) || !MoneyRange(nValueIn)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
         }
     }
+
+    nValueIn += tx.GetShieldedValueIn();
+    if (!MoneyRange(nValueIn))
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 
     const CAmount value_out = tx.GetValueOut();
     if (nValueIn < value_out) {
