@@ -357,6 +357,7 @@ void BitcoinGUI::createActions()
     showHelpMessageAction->setStatusTip(tr("Show the %1 help message to get a list with possible Litecoinz command-line options").arg(PACKAGE_NAME));
 
     m_mask_values_action = new QAction(tr("&Mask values"), this);
+    m_mask_values_action->setShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_M));
     m_mask_values_action->setStatusTip(tr("Cloak values on Overview tab"));
     m_mask_values_action->setCheckable(true);
 
@@ -433,7 +434,7 @@ void BitcoinGUI::createActions()
             activity->open();
         });
 
-        connect(m_mask_values_action, &QAction::toggled, walletFrame, &WalletFrame::setPrivacyMode);
+        connect(m_mask_values_action, &QAction::toggled, this, &BitcoinGUI::setPrivacy);
     }
 #endif // ENABLE_WALLET
 
@@ -1419,6 +1420,11 @@ void BitcoinGUI::unsubscribeFromCoreSignals()
     // Disconnect signals from client
     m_handler_message_box->disconnect();
     m_handler_question->disconnect();
+}
+
+bool BitcoinGUI::isPrivacyModeActivated() const
+{
+    return m_mask_values_action && m_mask_values_action->isChecked();
 }
 
 UnitDisplayStatusBarControl::UnitDisplayStatusBarControl(const PlatformStyle *platformStyle) :

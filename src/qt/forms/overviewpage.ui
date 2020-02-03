@@ -115,10 +115,10 @@
              <number>12</number>
             </property>
             <item row="2" column="2">
-             <widget class="BitcoinAmountLabel" name="labelWatchPending">
+             <widget class="QLabel" name="labelWatchPending">
               <property name="font">
                <font>
-                <family>monospace</family>
+                <family>Monospace</family>
                 <weight>75</weight>
                 <bold>true</bold>
                </font>
@@ -141,10 +141,10 @@
              </widget>
             </item>
             <item row="2" column="1">
-             <widget class="BitcoinAmountLabel" name="labelUnconfirmed">
+             <widget class="QLabel" name="labelUnconfirmed">
               <property name="font">
                <font>
-                <family>monospace</family>
+                <family>Monospace</family>
                 <weight>75</weight>
                 <bold>true</bold>
                </font>
@@ -167,10 +167,10 @@
              </widget>
             </item>
             <item row="3" column="2">
-             <widget class="BitcoinAmountLabel" name="labelWatchImmature">
+             <widget class="QLabel" name="labelWatchImmature">
               <property name="font">
                <font>
-                <family>monospace</family>
+                <family>Monospace</family>
                 <weight>75</weight>
                 <bold>true</bold>
                </font>
@@ -226,10 +226,10 @@
              </widget>
             </item>
             <item row="3" column="1">
-             <widget class="BitcoinAmountLabel" name="labelImmature">
+             <widget class="QLabel" name="labelImmature">
               <property name="font">
                <font>
-                <family>monospace</family>
+                <family>Monospace</family>
                 <weight>75</weight>
                 <bold>true</bold>
                </font>
@@ -272,10 +272,10 @@
              </widget>
             </item>
             <item row="5" column="1">
-             <widget class="BitcoinAmountLabel" name="labelTotal">
+             <widget class="QLabel" name="labelTotal">
               <property name="font">
                <font>
-                <family>monospace</family>
+                <family>Monospace</family>
                 <weight>75</weight>
                 <bold>true</bold>
                </font>
@@ -298,10 +298,10 @@
              </widget>
             </item>
             <item row="5" column="2">
-             <widget class="BitcoinAmountLabel" name="labelWatchTotal">
+             <widget class="QLabel" name="labelWatchTotal">
               <property name="font">
                <font>
-                <family>monospace</family>
+                <family>Monospace</family>
                 <weight>75</weight>
                 <bold>true</bold>
                </font>
@@ -341,10 +341,10 @@
              </widget>
             </item>
             <item row="1" column="1">
-             <widget class="BitcoinAmountLabel" name="labelBalance">
+             <widget class="QLabel" name="labelBalance">
               <property name="font">
                <font>
-                <family>monospace</family>
+                <family>Monospace</family>
                 <weight>75</weight>
                 <bold>true</bold>
                </font>
@@ -367,10 +367,10 @@
              </widget>
             </item>
             <item row="1" column="2">
-             <widget class="BitcoinAmountLabel" name="labelWatchAvailable">
+             <widget class="QLabel" name="labelWatchAvailable">
               <property name="font">
                <font>
-                <family>monospace</family>
+                <family>Monospace</family>
                 <weight>75</weight>
                 <bold>true</bold>
                </font>
@@ -544,13 +544,6 @@
    </item>
   </layout>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>BitcoinAmountLabel</class>
-   <extends>QLabel</extends>
-   <header>qt/bitcoinamountlabel.h</header>
-  </customwidget>
- </customwidgets>
  <resources/>
  <connections/>
 </ui>

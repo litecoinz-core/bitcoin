@@ -13,6 +13,7 @@
 
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QTimer>
 
 WalletFrame::WalletFrame(const PlatformStyle *_platformStyle, BitcoinGUI *_gui) :
     QFrame(_gui),
@@ -47,7 +48,6 @@ void WalletFrame::addWallet(WalletModel *walletModel)
     if (mapWalletViews.count(walletModel) > 0) return;
 
     WalletView *walletView = new WalletView(platformStyle, this);
-    walletView->setBitcoinGUI(gui);
     walletView->setClientModel(clientModel);
     walletView->setWalletModel(walletModel);
     walletView->showOutOfSyncWarning(bOutOfSync);
@@ -63,8 +63,18 @@ void WalletFrame::addWallet(WalletModel *walletModel)
     mapWalletViews[walletModel] = walletView;
 
     connect(walletView, &WalletView::outOfSyncWarningClicked, this, &WalletFrame::outOfSyncWarningClicked);
-
-    connect(this, &WalletFrame::setPrivacyMode, walletView, &WalletView::setPrivacyMode);
+    connect(walletView, &WalletView::transactionClicked, gui, &BitcoinGUI::gotoHistoryPage);
+    connect(walletView, &WalletView::coinsSent, gui, &BitcoinGUI::gotoHistoryPage);
+    connect(walletView, &WalletView::message, [this](const QString& title, const QString& message, unsigned int style) {
+        gui->message(title, message, style);
+    });
+    connect(walletView, &WalletView::encryptionStatusChanged, gui, &BitcoinGUI::updateWalletStatus);
+    connect(walletView, &WalletView::incomingTransaction, gui, &BitcoinGUI::incomingTransaction);
+    connect(walletView, &WalletView::hdEnabledStatusChanged, gui, &BitcoinGUI::updateWalletStatus);
+    connect(gui, &BitcoinGUI::setPrivacy, walletView, &WalletView::setPrivacy);
+    QTimer::singleShot(0, walletView, [this, walletView] {
+        walletView->setPrivacy(gui->isPrivacyModeActivated());
+    });
 }
 
 void WalletFrame::setCurrentWallet(WalletModel* wallet_model)

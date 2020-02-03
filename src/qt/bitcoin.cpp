@@ -282,8 +282,11 @@ void BitcoinApplication::parameterSetup()
     m_node.initParameterInteraction();
 }
 
-void BitcoinApplication::SetPrune(bool prune, bool force) {
-    optionsModel->SetPruneTargetGB(prune ? DEFAULT_PRUNE_TARGET_GB : 0, force);
+void BitcoinApplication::InitializePruneSetting(bool prune)
+{
+    // If prune is set, intentionally override existing prune size with
+    // the default size since this is called when choosing a new datadir.
+    optionsModel->SetPruneTargetGB(prune ? DEFAULT_PRUNE_TARGET_GB : 0, true);
 }
 
 void BitcoinApplication::requestInitialize()
@@ -460,7 +463,6 @@ int GuiMain(int argc, char* argv[])
 
     // Now that the QApplication is setup and we have parsed our parameters, we can set the platform style
     app.setupPlatformStyle();
-    app.setStyleSheet("BitcoinAmountLabel { font-family: monospace }");
 
     /// 3. Application identification
     // must be set before OptionsModel is initialized or translations are loaded,
@@ -572,7 +574,7 @@ int GuiMain(int argc, char* argv[])
 
     if (did_show_intro) {
         // Store intro dialog settings other than datadir (network specific)
-        app.SetPrune(prune, true);
+        app.InitializePruneSetting(prune);
     }
 
     if (gArgs.GetBoolArg("-splash", DEFAULT_SPLASHSCREEN) && !gArgs.GetBoolArg("-min", false))
