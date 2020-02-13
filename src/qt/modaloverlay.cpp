@@ -10,8 +10,9 @@
 #include <chainparams.h>
 #include <net_processing.h>
 
-#include <QResizeEvent>
+#include <QEasingCurve>
 #include <QPropertyAnimation>
+#include <QResizeEvent>
 
 ModalOverlay::ModalOverlay(bool enable_wallet, QWidget *parent) :
 QWidget(parent),
@@ -36,6 +37,11 @@ verificationPauseActive(false)
         ui->infoText->setVisible(false);
         ui->infoTextStrong->setText(tr("Litecoinz Core is currently syncing.  It will download headers and blocks from peers and validate them until reaching the tip of the block chain."));
     }
+
+    animation.setTargetObject(this);
+    animation.setPropertyName("pos");
+    animation.setDuration(300 /* ms */);
+    animation.setEasingCurve(QEasingCurve::OutQuad);
 }
 
 ModalOverlay::~ModalOverlay()
@@ -51,6 +57,9 @@ bool ModalOverlay::eventFilter(QObject * obj, QEvent * ev) {
             if (!layerIsVisible)
                 setGeometry(0, height(), width(), height());
 
+            if (animation.state() != QAbstractAnimation::Stopped && animation.endValue().toPoint().y()) {
+                animation.setEndValue(QPoint(0, height()));
+            }
         }
         else if (ev->type() == QEvent::ChildAdded) {
             raise();
@@ -185,16 +194,9 @@ void ModalOverlay::showHide(bool hide, bool userRequested)
     if (!isVisible() && !hide)
         setVisible(true);
 
-    if (isVisible()) {
-      // The QShowEvent guarantees that this ModalOverlay widget is resized properly.
-      QPropertyAnimation* animation = new QPropertyAnimation(this, "pos");
-      animation->setDuration(300);
-      animation->setStartValue(QPoint(0, hide ? 0 : height()));
-      animation->setEndValue(QPoint(0, hide ? height() : 0));
-      animation->setEasingCurve(QEasingCurve::OutQuad);
-      animation->start(QAbstractAnimation::DeleteWhenStopped);
-    }
-
+    animation.setStartValue(QPoint(0, hide ? 0 : height()));
+    animation.setEndValue(QPoint(0, hide ? height() : 0));
+    animation.start(QAbstractAnimation::KeepWhenStopped);
     layerIsVisible = !hide;
 }
 
