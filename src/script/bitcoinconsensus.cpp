@@ -5,6 +5,9 @@
 
 #include <script/bitcoinconsensus.h>
 
+#include <chain.h>
+#include <chainparams.h>
+#include <consensus/upgrades.h>
 #include <primitives/transaction.h>
 #include <pubkey.h>
 #include <script/interpreter.h>
@@ -94,8 +97,12 @@ static int verify_script(const unsigned char *scriptPubKey, unsigned int scriptP
         // Regardless of the verification result, the tx did not error.
         set_error(err, bitcoinconsensus_ERR_OK);
 
+        // Grab the current consensus branch ID
+        CChain chain;
+        auto consensusBranchId = CurrentEpochBranchId(chain.Height(), Params().GetConsensus());
+
         PrecomputedTransactionData txdata(tx);
-        return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), &tx.vin[nIn].scriptWitness, flags, TransactionSignatureChecker(&tx, nIn, amount, txdata), nullptr);
+        return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), &tx.vin[nIn].scriptWitness, flags, TransactionSignatureChecker(&tx, nIn, amount, txdata), consensusBranchId, nullptr);
     } catch (const std::exception&) {
         return set_error(err, bitcoinconsensus_ERR_TX_DESERIALIZE); // Error deserializing
     }

@@ -148,6 +148,7 @@ private:
     int64_t nLockTimeCutoff;
     const CChainParams& chainparams;
 
+    SaplingMerkleTree sapling_tree;
 public:
     struct Options {
         Options();

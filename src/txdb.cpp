@@ -17,12 +17,20 @@
 
 #include <boost/thread.hpp>
 
+// NOTE: Per issue #3277, do not use the prefix 'X' or 'x' as they were
+// previously used by DB_SAPLING_ANCHOR and DB_BEST_SAPLING_ANCHOR.
+static const char DB_SPROUT_ANCHOR = 'A';
+static const char DB_SAPLING_ANCHOR = 'Z';
+static const char DB_SPROUT_NULLIFIER = 's';
+static const char DB_SAPLING_NULLIFIER = 'S';
 static const char DB_COIN = 'C';
 static const char DB_COINS = 'c';
 static const char DB_BLOCK_FILES = 'f';
 static const char DB_BLOCK_INDEX = 'b';
 
 static const char DB_BEST_BLOCK = 'B';
+static const char DB_BEST_SPROUT_ANCHOR = 'a';
+static const char DB_BEST_SAPLING_ANCHOR = 'z';
 static const char DB_HEAD_BLOCKS = 'H';
 static const char DB_FLAG = 'F';
 static const char DB_REINDEX_FLAG = 'R';
@@ -56,6 +64,42 @@ CCoinsViewDB::CCoinsViewDB(fs::path ldb_path, size_t nCacheSize, bool fMemory, b
 {
 }
 
+bool CCoinsViewDB::GetSproutAnchorAt(const uint256 &rt, SproutMerkleTree &tree) const {
+    if (rt == SproutMerkleTree::empty_root()) {
+        SproutMerkleTree new_tree;
+        tree = new_tree;
+        return true;
+    }
+
+    return db.Read(std::make_pair(DB_SPROUT_ANCHOR, rt), tree);
+}
+
+bool CCoinsViewDB::GetSaplingAnchorAt(const uint256 &rt, SaplingMerkleTree &tree) const {
+    if (rt == SaplingMerkleTree::empty_root()) {
+        SaplingMerkleTree new_tree;
+        tree = new_tree;
+        return true;
+    }
+
+    return db.Read(std::make_pair(DB_SAPLING_ANCHOR, rt), tree);
+}
+
+bool CCoinsViewDB::GetNullifier(const uint256 &nf, ShieldedType type) const {
+    bool spent = false;
+    char dbChar;
+    switch (type) {
+        case SPROUT:
+            dbChar = DB_SPROUT_NULLIFIER;
+            break;
+        case SAPLING:
+            dbChar = DB_SAPLING_NULLIFIER;
+            break;
+        default:
+            throw std::runtime_error("Unknown shielded type");
+    }
+    return db.Read(std::make_pair(dbChar, nf), spent);
+}
+
 bool CCoinsViewDB::GetCoin(const COutPoint &outpoint, Coin &coin) const {
     return db.Read(CoinEntry(&outpoint), coin);
 }
@@ -79,7 +123,67 @@ std::vector<uint256> CCoinsViewDB::GetHeadBlocks() const {
     return vhashHeadBlocks;
 }
 
-bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) {
+uint256 CCoinsViewDB::GetBestAnchor(ShieldedType type) const {
+    uint256 hashBestAnchor;
+
+    switch (type) {
+        case SPROUT:
+            if (!db.Read(DB_BEST_SPROUT_ANCHOR, hashBestAnchor))
+                return SproutMerkleTree::empty_root();
+            break;
+        case SAPLING:
+            if (!db.Read(DB_BEST_SAPLING_ANCHOR, hashBestAnchor))
+                return SaplingMerkleTree::empty_root();
+            break;
+        default:
+            throw std::runtime_error("Unknown shielded type");
+    }
+
+    return hashBestAnchor;
+}
+
+void BatchWriteNullifiers(CDBBatch& batch, CNullifiersMap& mapToUse, const char& dbChar)
+{
+    for (CNullifiersMap::iterator it = mapToUse.begin(); it != mapToUse.end();) {
+        if (it->second.flags & CNullifiersCacheEntry::DIRTY) {
+            if (!it->second.entered)
+                batch.Erase(std::make_pair(dbChar, it->first));
+            else
+                batch.Write(std::make_pair(dbChar, it->first), true);
+            // TODO: changed++? ... See comment in CCoinsViewDB::BatchWrite. If this is needed we could return an int
+        }
+        CNullifiersMap::iterator itOld = it++;
+        mapToUse.erase(itOld);
+    }
+}
+
+template<typename Map, typename MapIterator, typename MapEntry, typename Tree>
+void BatchWriteAnchors(CDBBatch& batch, Map& mapToUse, const char& dbChar)
+{
+    for (MapIterator it = mapToUse.begin(); it != mapToUse.end();) {
+        if (it->second.flags & MapEntry::DIRTY) {
+            if (!it->second.entered)
+                batch.Erase(std::make_pair(dbChar, it->first));
+            else {
+                if (it->first != Tree::empty_root()) {
+                    batch.Write(std::make_pair(dbChar, it->first), it->second.tree);
+                }
+            }
+            // TODO: changed++?
+        }
+        MapIterator itOld = it++;
+        mapToUse.erase(itOld);
+    }
+}
+
+bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
+                              const uint256 &hashBlock,
+                              const uint256 &hashSproutAnchor,
+                              const uint256 &hashSaplingAnchor,
+                              CAnchorsSproutMap &mapSproutAnchors,
+                              CAnchorsSaplingMap &mapSaplingAnchors,
+                              CNullifiersMap &mapSproutNullifiers,
+                              CNullifiersMap &mapSaplingNullifiers) {
     CDBBatch batch(db);
     size_t count = 0;
     size_t changed = 0;
@@ -130,9 +234,20 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) {
         }
     }
 
+    ::BatchWriteAnchors<CAnchorsSproutMap, CAnchorsSproutMap::iterator, CAnchorsSproutCacheEntry, SproutMerkleTree>(batch, mapSproutAnchors, DB_SPROUT_ANCHOR);
+    ::BatchWriteAnchors<CAnchorsSaplingMap, CAnchorsSaplingMap::iterator, CAnchorsSaplingCacheEntry, SaplingMerkleTree>(batch, mapSaplingAnchors, DB_SAPLING_ANCHOR);
+
+    ::BatchWriteNullifiers(batch, mapSproutNullifiers, DB_SPROUT_NULLIFIER);
+    ::BatchWriteNullifiers(batch, mapSaplingNullifiers, DB_SAPLING_NULLIFIER);
+
     // In the last batch, mark the database as consistent with hashBlock again.
     batch.Erase(DB_HEAD_BLOCKS);
     batch.Write(DB_BEST_BLOCK, hashBlock);
+
+    if (!hashSproutAnchor.IsNull())
+        batch.Write(DB_BEST_SPROUT_ANCHOR, hashSproutAnchor);
+    if (!hashSaplingAnchor.IsNull())
+        batch.Write(DB_BEST_SAPLING_ANCHOR, hashSaplingAnchor);
 
     LogPrint(BCLog::COINDB, "Writing final batch of %.2f MiB\n", batch.SizeEstimate() * (1.0 / 1048576.0));
     bool ret = db.WriteBatch(batch);
@@ -261,20 +376,30 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
             if (pcursor->GetValue(diskindex)) {
                 // Construct block index object
                 CBlockIndex* pindexNew = insertBlockIndex(diskindex.GetBlockHash());
-                pindexNew->pprev          = insertBlockIndex(diskindex.hashPrev);
-                pindexNew->nHeight        = diskindex.nHeight;
-                pindexNew->nFile          = diskindex.nFile;
-                pindexNew->nDataPos       = diskindex.nDataPos;
-                pindexNew->nUndoPos       = diskindex.nUndoPos;
-                pindexNew->nVersion       = diskindex.nVersion;
-                pindexNew->hashMerkleRoot = diskindex.hashMerkleRoot;
-                pindexNew->hashReserved   = diskindex.hashReserved;
-                pindexNew->nTime          = diskindex.nTime;
-                pindexNew->nBits          = diskindex.nBits;
-                pindexNew->nNonce         = diskindex.nNonce;
-                pindexNew->nSolution      = diskindex.nSolution;
-                pindexNew->nStatus        = diskindex.nStatus;
-                pindexNew->nTx            = diskindex.nTx;
+                pindexNew->pprev            = insertBlockIndex(diskindex.hashPrev);
+                pindexNew->nHeight          = diskindex.nHeight;
+                pindexNew->nFile            = diskindex.nFile;
+                pindexNew->nDataPos         = diskindex.nDataPos;
+                pindexNew->nUndoPos         = diskindex.nUndoPos;
+                pindexNew->hashSproutAnchor = diskindex.hashSproutAnchor;
+                pindexNew->nVersion         = diskindex.nVersion;
+                pindexNew->hashMerkleRoot   = diskindex.hashMerkleRoot;
+                pindexNew->hashSaplingRoot  = diskindex.hashSaplingRoot;
+                pindexNew->nTime            = diskindex.nTime;
+                pindexNew->nBits            = diskindex.nBits;
+                pindexNew->nNonce           = diskindex.nNonce;
+                pindexNew->nSolution        = diskindex.nSolution;
+                pindexNew->nStatus          = diskindex.nStatus;
+                pindexNew->nCachedBranchId  = diskindex.nCachedBranchId;
+                pindexNew->nTx              = diskindex.nTx;
+                pindexNew->nSproutValue     = diskindex.nSproutValue;
+                pindexNew->nSaplingValue    = diskindex.nSaplingValue;
+
+                // Consistency checks
+                auto header = pindexNew->GetBlockHeader();
+                if (header.GetHash() != pindexNew->GetBlockHash())
+                    return error("%s: block header inconsistency detected: on-disk = %s, in-memory = %s",
+                       __func__, diskindex.ToString(), pindexNew->ToString());
 
                 if (!CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, consensusParams))
                     return error("%s: CheckProofOfWork failed: %s", __func__, pindexNew->ToString());

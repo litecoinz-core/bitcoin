@@ -20,6 +20,8 @@
 #include <functional>
 #include <unordered_map>
 
+#include <zcash/IncrementalMerkleTree.hpp>
+
 /**
  * A UTXO entry.
  *
@@ -109,6 +111,24 @@ public:
     }
 };
 
+class CCoinsKeyHasher
+{
+private:
+    uint256 salt;
+
+public:
+    CCoinsKeyHasher();
+
+    /**
+     * This *must* return size_t. With Boost 1.46 on 32-bit systems the
+     * unordered_map will behave unpredictably if the custom hasher returns a
+     * uint64_t, resulting in failures when syncing the chain (#4634).
+     */
+    size_t operator()(const uint256& key) const {
+        return key.GetHash(salt);
+    }
+};
+
 struct CCoinsCacheEntry
 {
     Coin coin; // The actual cached data.
@@ -128,7 +148,54 @@ struct CCoinsCacheEntry
     explicit CCoinsCacheEntry(Coin&& coin_) : coin(std::move(coin_)), flags(0) {}
 };
 
+struct CAnchorsSproutCacheEntry
+{
+    bool entered; // This will be false if the anchor is removed from the cache
+    SproutMerkleTree tree; // The tree itself
+    unsigned char flags;
+
+    enum Flags {
+        DIRTY = (1 << 0), // This cache entry is potentially different from the version in the parent view.
+    };
+
+    CAnchorsSproutCacheEntry() : entered(false), flags(0) {}
+};
+
+struct CAnchorsSaplingCacheEntry
+{
+    bool entered; // This will be false if the anchor is removed from the cache
+    SaplingMerkleTree tree; // The tree itself
+    unsigned char flags;
+
+    enum Flags {
+        DIRTY = (1 << 0), // This cache entry is potentially different from the version in the parent view.
+    };
+
+    CAnchorsSaplingCacheEntry() : entered(false), flags(0) {}
+};
+
+struct CNullifiersCacheEntry
+{
+    bool entered; // If the nullifier is spent or not
+    unsigned char flags;
+
+    enum Flags {
+        DIRTY = (1 << 0), // This cache entry is potentially different from the version in the parent view.
+    };
+
+    CNullifiersCacheEntry() : entered(false), flags(0) {}
+};
+
+enum ShieldedType
+{
+    SPROUT,
+    SAPLING,
+};
+
 typedef std::unordered_map<COutPoint, CCoinsCacheEntry, SaltedOutpointHasher> CCoinsMap;
+typedef std::unordered_map<uint256, CAnchorsSproutCacheEntry, CCoinsKeyHasher> CAnchorsSproutMap;
+typedef std::unordered_map<uint256, CAnchorsSaplingCacheEntry, CCoinsKeyHasher> CAnchorsSaplingMap;
+typedef std::unordered_map<uint256, CNullifiersCacheEntry, CCoinsKeyHasher> CNullifiersMap;
 
 /** Cursor for iterating over CoinsView state */
 class CCoinsViewCursor
@@ -154,6 +221,15 @@ private:
 class CCoinsView
 {
 public:
+    //! Retrieve the tree (Sprout) at a particular anchored root in the chain
+    virtual bool GetSproutAnchorAt(const uint256 &rt, SproutMerkleTree &tree) const;
+
+    //! Retrieve the tree (Sapling) at a particular anchored root in the chain
+    virtual bool GetSaplingAnchorAt(const uint256 &rt, SaplingMerkleTree &tree) const;
+
+    //! Determine whether a nullifier is spent or not
+    virtual bool GetNullifier(const uint256 &nullifier, ShieldedType type) const;
+
     /** Retrieve the Coin (unspent transaction output) for a given outpoint.
      *  Returns true only when an unspent coin was found, which is returned in coin.
      *  When false is returned, coin's value is unspecified.
@@ -172,9 +248,19 @@ public:
     //! the old block hash, in that order.
     virtual std::vector<uint256> GetHeadBlocks() const;
 
+    //! Get the current "tip" or the latest anchored tree root in the chain
+    virtual uint256 GetBestAnchor(ShieldedType type) const;
+
     //! Do a bulk modification (multiple Coin changes + BestBlock change).
     //! The passed mapCoins can be modified.
-    virtual bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock);
+    virtual bool BatchWrite(CCoinsMap &mapCoins,
+                            const uint256 &hashBlock,
+                            const uint256 &hashSproutAnchor,
+                            const uint256 &hashSaplingAnchor,
+                            CAnchorsSproutMap &mapSproutAnchors,
+                            CAnchorsSaplingMap &mapSaplingAnchors,
+                            CNullifiersMap &mapSproutNullifiers,
+                            CNullifiersMap &mapSaplingNullifiers);
 
     //! Get a cursor to iterate over the whole state
     virtual CCoinsViewCursor *Cursor() const;
@@ -195,12 +281,23 @@ protected:
 
 public:
     CCoinsViewBacked(CCoinsView *viewIn);
+    bool GetSproutAnchorAt(const uint256 &rt, SproutMerkleTree &tree) const override;
+    bool GetSaplingAnchorAt(const uint256 &rt, SaplingMerkleTree &tree) const override;
+    bool GetNullifier(const uint256 &nullifier, ShieldedType type) const override;
     bool GetCoin(const COutPoint &outpoint, Coin &coin) const override;
     bool HaveCoin(const COutPoint &outpoint) const override;
     uint256 GetBestBlock() const override;
     std::vector<uint256> GetHeadBlocks() const override;
     void SetBackend(CCoinsView &viewIn);
-    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) override;
+    uint256 GetBestAnchor(ShieldedType type) const override;
+    bool BatchWrite(CCoinsMap &mapCoins,
+                    const uint256 &hashBlock,
+                    const uint256 &hashSproutAnchor,
+                    const uint256 &hashSaplingAnchor,
+                    CAnchorsSproutMap &mapSproutAnchors,
+                    CAnchorsSaplingMap &mapSaplingAnchors,
+                    CNullifiersMap &mapSproutNullifiers,
+                    CNullifiersMap &mapSaplingNullifiers) override;
     CCoinsViewCursor *Cursor() const override;
     size_t EstimateSize() const override;
 };
@@ -216,6 +313,12 @@ protected:
      */
     mutable uint256 hashBlock;
     mutable CCoinsMap cacheCoins;
+    mutable uint256 hashSproutAnchor;
+    mutable uint256 hashSaplingAnchor;
+    mutable CAnchorsSproutMap cacheSproutAnchors;
+    mutable CAnchorsSaplingMap cacheSaplingAnchors;
+    mutable CNullifiersMap cacheSproutNullifiers;
+    mutable CNullifiersMap cacheSaplingNullifiers;
 
     /* Cached dynamic memory usage for the inner Coin objects. */
     mutable size_t cachedCoinsUsage;
@@ -229,14 +332,36 @@ public:
     CCoinsViewCache(const CCoinsViewCache &) = delete;
 
     // Standard CCoinsView methods
+    bool GetSproutAnchorAt(const uint256 &rt, SproutMerkleTree &tree) const override;
+    bool GetSaplingAnchorAt(const uint256 &rt, SaplingMerkleTree &tree) const override;
+    bool GetNullifier(const uint256 &nullifier, ShieldedType type) const override;
     bool GetCoin(const COutPoint &outpoint, Coin &coin) const override;
     bool HaveCoin(const COutPoint &outpoint) const override;
     uint256 GetBestBlock() const override;
     void SetBestBlock(const uint256 &hashBlock);
-    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) override;
+    uint256 GetBestAnchor(ShieldedType type) const override;
+    bool BatchWrite(CCoinsMap &mapCoins,
+                    const uint256 &hashBlock,
+                    const uint256 &hashSproutAnchor,
+                    const uint256 &hashSaplingAnchor,
+                    CAnchorsSproutMap &mapSproutAnchors,
+                    CAnchorsSaplingMap &mapSaplingAnchors,
+                    CNullifiersMap &mapSproutNullifiers,
+                    CNullifiersMap &mapSaplingNullifiers) override;
     CCoinsViewCursor* Cursor() const override {
         throw std::logic_error("CCoinsViewCache cursor iteration not supported.");
     }
+
+    // Adds the tree to mapSproutAnchors (or mapSaplingAnchors based on the type of tree)
+    // and sets the current commitment root to this root.
+    template<typename Tree> void PushAnchor(const Tree &tree);
+
+    // Removes the current commitment root from mapAnchors and sets
+    // the new current root.
+    void PopAnchor(const uint256 &rt, ShieldedType type);
+
+    // Marks nullifiers for a given transaction as spent or not.
+    void SetNullifiers(const CTransaction& tx, bool spent);
 
     /**
      * Check if we have the given utxo already loaded in this cache.
@@ -295,9 +420,12 @@ public:
      * so may not be able to calculate this.
      *
      * @param[in] tx    transaction for which we are checking input total
-     * @return  Sum of value of all inputs (scriptSigs)
+     * @return	Sum of value of all inputs (scriptSigs), (positive valueBalance or zero) and JoinSplit vpub_new
      */
     CAmount GetValueIn(const CTransaction& tx) const;
+
+    //! Check whether all joinsplit and sapling spend requirements (anchors/nullifiers) are satisfied
+    bool HaveShieldedRequirements(const CTransaction& tx) const;
 
     //! Check whether all prevouts of the transaction are present in the UTXO set represented by this view
     bool HaveInputs(const CTransaction& tx) const;
@@ -308,6 +436,31 @@ private:
      * memory usage.
      */
     CCoinsMap::iterator FetchCoin(const COutPoint &outpoint) const;
+
+    //! Generalized interface for popping anchors
+    template<typename Tree, typename Cache, typename CacheEntry>
+    void AbstractPopAnchor(
+        const uint256 &newrt,
+        ShieldedType type,
+        Cache &cacheAnchors,
+        uint256 &hash
+    );
+
+    //! Generalized interface for pushing anchors
+    template<typename Tree, typename Cache, typename CacheIterator, typename CacheEntry>
+    void AbstractPushAnchor(
+        const Tree &tree,
+        ShieldedType type,
+        Cache &cacheAnchors,
+        uint256 &hash
+    );
+
+    //! Interface for bringing an anchor into the cache.
+    template<typename Tree>
+    void BringBestAnchorIntoCache(
+        const uint256 &currentRoot,
+        Tree &tree
+    );
 };
 
 //! Utility function to add all of a transaction's outputs to a cache.

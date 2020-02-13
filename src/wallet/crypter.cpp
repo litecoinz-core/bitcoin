@@ -139,3 +139,50 @@ bool DecryptKey(const CKeyingMaterial& vMasterKey, const std::vector<unsigned ch
     key.Set(vchSecret.begin(), vchSecret.end(), vchPubKey.IsCompressed());
     return key.VerifyPubKey(vchPubKey);
 }
+
+bool DecryptZecHDSeed(const CKeyingMaterial& vMasterKey, const std::vector<unsigned char>& vchCryptedSecret, const uint256& seedFp, HDSeed& seed)
+{
+    CKeyingMaterial vchSecret;
+
+    // Use seed's fingerprint as IV
+    // TODO: Handle IV properly when we make encryption a supported feature
+    if(!DecryptSecret(vMasterKey, vchCryptedSecret, seedFp, vchSecret))
+        return false;
+
+    seed = HDSeed(vchSecret);
+    return seed.Fingerprint() == seedFp;
+}
+
+bool DecryptSproutSpendingKey(const CKeyingMaterial& vMasterKey,
+                              const std::vector<unsigned char>& vchCryptedSecret,
+                              const libzcash::SproutPaymentAddress& address,
+                              libzcash::SproutSpendingKey& sk)
+{
+    CKeyingMaterial vchSecret;
+    if (!DecryptSecret(vMasterKey, vchCryptedSecret, address.GetHash(), vchSecret))
+        return false;
+
+    if (vchSecret.size() != libzcash::SerializedSproutSpendingKeySize)
+        return false;
+
+    CSecureDataStream ss(vchSecret, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> sk;
+    return sk.address() == address;
+}
+
+bool DecryptSaplingSpendingKey(const CKeyingMaterial& vMasterKey,
+                               const std::vector<unsigned char>& vchCryptedSecret,
+                               const libzcash::SaplingExtendedFullViewingKey& extfvk,
+                               libzcash::SaplingExtendedSpendingKey& sk)
+{
+    CKeyingMaterial vchSecret;
+    if (!DecryptSecret(vMasterKey, vchCryptedSecret, extfvk.fvk.GetFingerprint(), vchSecret))
+        return false;
+
+    if (vchSecret.size() != ZIP32_XSK_SIZE)
+        return false;
+
+    CSecureDataStream ss(vchSecret, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> sk;
+    return sk.expsk.full_viewing_key() == extfvk.fvk;
+}

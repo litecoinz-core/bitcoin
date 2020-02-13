@@ -11,6 +11,7 @@
 #include <chainparams.h>
 #include <coins.h>
 #include <node/coinstats.h>
+#include <consensus/upgrades.h>
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <hash.h>
@@ -18,6 +19,7 @@
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
+#include <pow.h>
 #include <primitives/transaction.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
@@ -58,26 +60,69 @@ static CUpdatedBlock latestblock;
 
 /* Calculate the difficulty for a given block index.
  */
-double GetDifficulty(const CBlockIndex* blockindex)
+double GetDifficultyINTERNAL(const CBlockIndex* blockindex, bool networkDifficulty)
 {
-    assert(blockindex);
+    // Floating point number that is a multiple of the minimum difficulty,
+    // minimum difficulty = 1.0.
+    if (blockindex == nullptr)
+    {
+        if (::ChainActive().Tip() == nullptr)
+            return 1.0;
+        else
+            blockindex = ::ChainActive().Tip();
+    }
 
-    int nShift = (blockindex->nBits >> 24) & 0xff;
-    double dDiff =
-        (double)0x0000ffff / (double)(blockindex->nBits & 0x00ffffff);
+    uint32_t bits;
+    if (networkDifficulty) {
+        bits = GetNextWorkRequired(blockindex, nullptr, Params().GetConsensus());
+    } else {
+        bits = blockindex->nBits;
+    }
 
-    while (nShift < 29)
+    uint32_t powLimit = UintToArith256(Params().GetConsensus().powLimit).GetCompact();
+    int nShift = (bits >> 24) & 0xff;
+    int nShiftAmount = (powLimit >> 24) & 0xff;
+
+    double dDiff = (double)(powLimit & 0x00ffffff) / (double)(bits & 0x00ffffff);
+
+    while (nShift < nShiftAmount)
     {
         dDiff *= 256.0;
         nShift++;
     }
-    while (nShift > 29)
+    while (nShift > nShiftAmount)
     {
         dDiff /= 256.0;
         nShift--;
     }
 
     return dDiff;
+}
+
+double GetDifficulty(const CBlockIndex* blockindex)
+{
+    return GetDifficultyINTERNAL(blockindex, false);
+}
+
+double GetNetworkDifficulty(const CBlockIndex* blockindex)
+{
+    return GetDifficultyINTERNAL(blockindex, true);
+}
+
+static UniValue ValuePoolDesc(const std::string &name, const boost::optional<CAmount> chainValue, const boost::optional<CAmount> valueDelta)
+{
+    UniValue rv(UniValue::VOBJ);
+    rv.pushKV("id", name);
+    rv.pushKV("monitored", (bool)chainValue);
+    if (chainValue) {
+        rv.pushKV("chainValue", ValueFromAmount(*chainValue));
+        rv.pushKV("chainValueZat", *chainValue);
+    }
+    if (valueDelta) {
+        rv.pushKV("valueDelta", ValueFromAmount(*valueDelta));
+        rv.pushKV("valueDeltaZat", *valueDelta);
+    }
+    return rv;
 }
 
 static int ComputeNextBlockAndDepth(const CBlockIndex* tip, const CBlockIndex* blockindex, const CBlockIndex*& next)
@@ -104,6 +149,7 @@ UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex
     result.pushKV("version", blockindex->nVersion);
     result.pushKV("versionHex", strprintf("%08x", blockindex->nVersion));
     result.pushKV("merkleroot", blockindex->hashMerkleRoot.GetHex());
+    result.pushKV("saplingroot", blockindex->hashSaplingRoot.GetHex());
     result.pushKV("time", (int64_t)blockindex->nTime);
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
     result.pushKV("nonce", blockindex->nNonce.GetHex());
@@ -137,6 +183,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     result.pushKV("version", block.nVersion);
     result.pushKV("versionHex", strprintf("%08x", block.nVersion));
     result.pushKV("merkleroot", block.hashMerkleRoot.GetHex());
+    result.pushKV("saplingroot", block.hashSaplingRoot.GetHex());
     UniValue txs(UniValue::VARR);
     for(const auto& tx : block.vtx)
     {
@@ -158,6 +205,12 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     result.pushKV("difficulty", GetDifficulty(blockindex));
     result.pushKV("chainwork", blockindex->nChainWork.GetHex());
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
+
+    result.pushKV("anchor", blockindex->hashSproutRoot.GetHex());
+    UniValue valuePools(UniValue::VARR);
+    valuePools.push_back(ValuePoolDesc("sprout", blockindex->nChainSproutValue, blockindex->nSproutValue));
+    valuePools.push_back(ValuePoolDesc("sapling", blockindex->nChainSaplingValue, blockindex->nSaplingValue));
+    result.pushKV("valuePools", valuePools);
 
     if (blockindex->pprev)
         result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
@@ -369,7 +422,7 @@ static UniValue getdifficulty(const JSONRPCRequest& request)
             }.Check(request);
 
     LOCK(cs_main);
-    return GetDifficulty(::ChainActive().Tip());
+    return GetNetworkDifficulty(::ChainActive().Tip());
 }
 
 static std::string EntryDescriptionString()
@@ -737,6 +790,7 @@ static UniValue getblockheader(const JSONRPCRequest& request)
             "  \"version\" : n,         (numeric) The block version\n"
             "  \"versionHex\" : \"00000000\", (string) The block version formatted in hexadecimal\n"
             "  \"merkleroot\" : \"xxxx\", (string) The merkle root\n"
+            "  \"saplingroot\" : \"xxxx\", (string) The root of the Sapling commitment tree after applying this block\n"
             "  \"time\" : ttt,          (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"mediantime\" : ttt,    (numeric) The median block time in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"nonce\" : n,           (numeric) The nonce\n"
@@ -845,6 +899,7 @@ static UniValue getblock(const JSONRPCRequest& request)
             "  \"version\" : n,         (numeric) The block version\n"
             "  \"versionHex\" : \"00000000\", (string) The block version formatted in hexadecimal\n"
             "  \"merkleroot\" : \"xxxx\", (string) The merkle root\n"
+            "  \"saplingroot\" : \"xxxx\", (string) The root of the Sapling commitment tree after applying this block\n"
             "  \"tx\" : [               (array of string) The transaction ids\n"
             "     \"transactionid\"     (string) The transaction id\n"
             "     ,...\n"
@@ -1188,10 +1243,37 @@ static void BIP9SoftForkDescPushBack(UniValue& softforks, const std::string &nam
     softforks.pushKV(name, rv);
 }
 
+static UniValue NetworkUpgradeDesc(const Consensus::Params& consensusParams, Consensus::UpgradeIndex idx, int height)
+{
+    UniValue rv(UniValue::VOBJ);
+    auto upgrade = NetworkUpgradeInfo[idx];
+    rv.pushKV("name", upgrade.strName);
+    rv.pushKV("activationheight", consensusParams.vUpgrades[idx].nActivationHeight);
+    switch (NetworkUpgradeState(height, consensusParams, idx)) {
+        case UPGRADE_DISABLED: rv.pushKV("status", "disabled"); break;
+        case UPGRADE_PENDING: rv.pushKV("status", "pending"); break;
+        case UPGRADE_ACTIVE: rv.pushKV("status", "active"); break;
+    }
+    rv.pushKV("info", upgrade.strInfo);
+    return rv;
+}
+
+void NetworkUpgradeDescPushBack(UniValue& networkUpgrades, const Consensus::Params& consensusParams, Consensus::UpgradeIndex idx, int height)
+{
+    // Network upgrades with an activation height of NO_ACTIVATION_HEIGHT are
+    // hidden. This is used when network upgrade implementations are merged
+    // without specifying the activation height.
+    if (consensusParams.vUpgrades[idx].nActivationHeight != Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT) {
+        networkUpgrades.pushKV(HexInt(NetworkUpgradeInfo[idx].nBranchId), NetworkUpgradeDesc(consensusParams, idx, height));
+    }
+}
+
 UniValue getblockchaininfo(const JSONRPCRequest& request)
 {
             RPCHelpMan{"getblockchaininfo",
-                "Returns an object containing various state info regarding blockchain processing.\n",
+                "Returns an object containing various state info regarding blockchain processing.\n"
+                "\nNote that when the chain tip is at the last block before a network upgrade activation,\n"
+                "consensus.chaintip != consensus.nextblock.\n",
                 {},
                 RPCResult{
             "{\n"
@@ -1205,6 +1287,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "  \"initialblockdownload\": xxxx, (bool) (debug information) estimate of whether this node is in Initial Block Download mode.\n"
             "  \"chainwork\": \"xxxx\"           (string) total amount of work in active chain, in hexadecimal\n"
             "  \"size_on_disk\": xxxxxx,       (numeric) the estimated size of the block and undo files on disk\n"
+            "  \"commitments\": xxxxxx,        (numeric) the current number of note commitments in the commitment tree\n"
             "  \"pruned\": xx,                 (boolean) if the blocks are subject to pruning\n"
             "  \"pruneheight\": xxxxxx,        (numeric) lowest-height complete block stored (only present if pruning is enabled)\n"
             "  \"automatic_pruning\": xx,      (boolean) whether automatic pruning is enabled (only present if pruning is enabled)\n"
@@ -1230,6 +1313,19 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "        \"active\": xx,           (boolean) true if the rules are enforced for the mempool and the next block\n"
             "     }\n"
             "  }\n"
+            "  ],\n"
+            "  \"upgrades\": {                (object) status of network upgrades\n"
+            "     \"xxxx\" : {                (string) branch ID of the upgrade\n"
+            "        \"name\": \"xxxx\",        (string) name of upgrade\n"
+            "        \"activationheight\": xxxxxx,  (numeric) block height of activation\n"
+            "        \"status\": \"xxxx\",      (string) status of upgrade\n"
+            "        \"info\": \"xxxx\",        (string) additional information about upgrade\n"
+            "     }, ...\n"
+            "  },\n"
+            "  \"consensus\": {               (object) branch IDs of the current and upcoming consensus rules\n"
+            "     \"chaintip\": \"xxxxxxxx\",   (string) branch ID used to validate the current chain tip\n"
+            "     \"nextblock\": \"xxxxxxxx\"   (string) branch ID that the next block will be validated under\n"
+            "  },\n"
             "  \"warnings\" : \"...\",           (string) any network and blockchain warnings.\n"
             "}\n"
                 },
@@ -1247,12 +1343,22 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     obj.pushKV("blocks",                (int)::ChainActive().Height());
     obj.pushKV("headers",               pindexBestHeader ? pindexBestHeader->nHeight : -1);
     obj.pushKV("bestblockhash",         tip->GetBlockHash().GetHex());
-    obj.pushKV("difficulty",            (double)GetDifficulty(tip));
+    obj.pushKV("difficulty",            (double)GetNetworkDifficulty(tip));
     obj.pushKV("mediantime",            (int64_t)tip->GetMedianTimePast());
     obj.pushKV("verificationprogress",  GuessVerificationProgress(Params().TxData(), tip));
     obj.pushKV("initialblockdownload",  ::ChainstateActive().IsInitialBlockDownload());
     obj.pushKV("chainwork",             tip->nChainWork.GetHex());
     obj.pushKV("size_on_disk",          CalculateCurrentUsage());
+
+    SproutMerkleTree tree;
+    ::ChainstateActive().CoinsTip().GetSproutAnchorAt(::ChainstateActive().CoinsTip().GetBestAnchor(SPROUT), tree);
+    obj.pushKV("commitments",           static_cast<uint64_t>(tree.size()));
+
+    UniValue valuePools(UniValue::VARR);
+    valuePools.push_back(ValuePoolDesc("sprout", tip->nChainSproutValue, boost::none));
+    valuePools.push_back(ValuePoolDesc("sapling", tip->nChainSaplingValue, boost::none));
+    obj.pushKV("valuePools",            valuePools);
+
     obj.pushKV("pruned",                fPruneMode);
     if (fPruneMode) {
         const CBlockIndex* block = tip;
@@ -1273,15 +1379,26 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
 
     const Consensus::Params& consensusParams = Params().GetConsensus();
     UniValue softforks(UniValue::VOBJ);
-    BuriedForkDescPushBack(softforks, "bip34", consensusParams.BIP34Height);
-    BuriedForkDescPushBack(softforks, "bip66", consensusParams.BIP66Height);
-    BuriedForkDescPushBack(softforks, "bip65", consensusParams.BIP65Height);
+    BuriedForkDescPushBack(softforks, "bip34", consensusParams.BIP34Enabled ? 0 : std::numeric_limits<int>::max());
+    BuriedForkDescPushBack(softforks, "bip65", consensusParams.BIP65Enabled ? 0 : std::numeric_limits<int>::max());
+    BuriedForkDescPushBack(softforks, "bip66", consensusParams.BIP66Enabled ? 0 : std::numeric_limits<int>::max());
     BuriedForkDescPushBack(softforks, "csv", consensusParams.CSVHeight);
     BuriedForkDescPushBack(softforks, "segwit", consensusParams.SegwitHeight);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);
 
-    obj.pushKV("warnings", GetWarnings("statusbar"));
+    UniValue upgrades(UniValue::VOBJ);
+    for (size_t i = Consensus::UPGRADE_OVERWINTER; i < Consensus::MAX_NETWORK_UPGRADES; i++) {
+        NetworkUpgradeDescPushBack(upgrades, consensusParams, Consensus::UpgradeIndex(i), tip->nHeight);
+    }
+    obj.pushKV("upgrades", upgrades);
+
+    UniValue consensus(UniValue::VOBJ);
+    consensus.pushKV("chaintip", HexInt(CurrentEpochBranchId(tip->nHeight, consensusParams)));
+    consensus.pushKV("nextblock", HexInt(CurrentEpochBranchId(tip->nHeight + 1, consensusParams)));
+    obj.pushKV("consensus", consensus);
+
+    obj.pushKV("warnings", GetWarnings(false));
     return obj;
 }
 

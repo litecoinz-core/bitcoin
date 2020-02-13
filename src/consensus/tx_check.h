@@ -5,6 +5,11 @@
 #ifndef BITCOIN_CONSENSUS_TX_CHECK_H
 #define BITCOIN_CONSENSUS_TX_CHECK_H
 
+#include <chainparams.h>
+#include <zcash/Proof.hpp>
+
+#include <librustzcash.h>
+
 /**
  * Context-independent transaction checking code that can be called outside the
  * bitcoin server and doesn't depend on chain or mempool state. Transaction
@@ -12,9 +17,27 @@
  * belongs in tx_verify.h/cpp instead.
  */
 
+class CChainParams;
 class CTransaction;
 class CValidationState;
 
-bool CheckTransaction(const CTransaction& tx, CValidationState& state, bool fCheckDuplicateInputs=true);
+/** Check a transaction contextually against a set of consensus rules */
+bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state, int nHeight);
+
+/** Context-independent validity checks */
+bool CheckTransaction(const CTransaction& tx, CValidationState& state, libzcash::ProofVerifier& verifier, bool fCheckDuplicateInputs=true);
+bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidationState &state, bool fCheckDuplicateInputs);
+
+/**
+ * Check if transaction is expired and can be included in a block with the
+ * specified height. Consensus critical.
+ */
+bool IsExpiredTx(const CTransaction &tx, int nBlockHeight);
+
+/**
+ * Check if transaction is expiring soon.  If yes, not propagating the transaction
+ * can help DoS mitigation.  This is not consensus critical.
+ */
+bool IsExpiringSoonTx(const CTransaction &tx, int nNextBlockHeight);
 
 #endif // BITCOIN_CONSENSUS_TX_CHECK_H

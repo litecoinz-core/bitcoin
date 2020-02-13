@@ -136,7 +136,7 @@ BitcoinCore::BitcoinCore(interfaces::Node& node) :
 void BitcoinCore::handleRunawayException(const std::exception *e)
 {
     PrintExceptionContinue(e, "Runaway exception");
-    Q_EMIT runawayException(QString::fromStdString(m_node.getWarnings("gui")));
+    Q_EMIT runawayException(QString::fromStdString(m_node.getWarnings()));
 }
 
 void BitcoinCore::initialize()
@@ -282,8 +282,11 @@ void BitcoinApplication::parameterSetup()
     m_node.initParameterInteraction();
 }
 
-void BitcoinApplication::SetPrune(bool prune, bool force) {
-    optionsModel->SetPruneTargetGB(prune ? DEFAULT_PRUNE_TARGET_GB : 0, force);
+void BitcoinApplication::InitializePruneSetting(bool prune)
+{
+    // If prune is set, intentionally override existing prune size with
+    // the default size since this is called when choosing a new datadir.
+    optionsModel->SetPruneTargetGB(prune ? DEFAULT_PRUNE_TARGET_GB : 0, true);
 }
 
 void BitcoinApplication::requestInitialize()
@@ -503,7 +506,15 @@ int GuiMain(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    /// 7. Determine network (and switch to network specific options)
+    /// 7. Determine availability of LitecoinZ circuit parameters
+    if (!fs::is_directory(GetParamsDir()))
+    {
+        QMessageBox::critical(nullptr, QObject::tr(PACKAGE_NAME),
+            QObject::tr("Error: Specified circuit parameters directory \"%1\" does not exist.").arg(QString::fromStdString(gArgs.GetArg("-paransdir", ""))));
+        return EXIT_FAILURE;
+    }
+
+    /// 8. Determine network (and switch to network specific options)
     // - Do not call Params() before this step
     // - Do this after parsing the configuration file, as the network can be switched there
     // - QSettings() will use the new application name after this, resulting in network-specific settings
@@ -530,7 +541,7 @@ int GuiMain(int argc, char* argv[])
     initTranslations(qtTranslatorBase, qtTranslator, translatorBase, translator);
 
 #ifdef ENABLE_WALLET
-    /// 8. URI IPC sending
+    /// 9. URI IPC sending
     // - Do this early as we don't want to bother initializing if we are just calling IPC
     // - Do this *after* setting up the data directory, as the data directory hash is used in the name
     // of the server.
@@ -546,7 +557,7 @@ int GuiMain(int argc, char* argv[])
     }
 #endif // ENABLE_WALLET
 
-    /// 9. Main GUI initialization
+    /// 10. Main GUI initialization
     // Install global event filter that makes sure that long tooltips can be word-wrapped
     app.installEventFilter(new GUIUtil::ToolTipToRichTextFilter(TOOLTIP_WRAP_THRESHOLD, &app));
 #if defined(Q_OS_WIN)
@@ -557,12 +568,13 @@ int GuiMain(int argc, char* argv[])
     qInstallMessageHandler(DebugMessageHandler);
     // Allow parameter interaction before we create the options model
     app.parameterSetup();
+    GUIUtil::LogQtInfo();
     // Load GUI settings from QSettings
     app.createOptionsModel(gArgs.GetBoolArg("-resetguisettings", false));
 
     if (did_show_intro) {
         // Store intro dialog settings other than datadir (network specific)
-        app.SetPrune(prune, true);
+        app.InitializePruneSetting(prune);
     }
 
     if (gArgs.GetBoolArg("-splash", DEFAULT_SPLASHSCREEN) && !gArgs.GetBoolArg("-min", false))
@@ -590,10 +602,10 @@ int GuiMain(int argc, char* argv[])
         }
     } catch (const std::exception& e) {
         PrintExceptionContinue(&e, "Runaway exception");
-        app.handleRunawayException(QString::fromStdString(node->getWarnings("gui")));
+        app.handleRunawayException(QString::fromStdString(node->getWarnings()));
     } catch (...) {
         PrintExceptionContinue(nullptr, "Runaway exception");
-        app.handleRunawayException(QString::fromStdString(node->getWarnings("gui")));
+        app.handleRunawayException(QString::fromStdString(node->getWarnings()));
     }
     return rv;
 }

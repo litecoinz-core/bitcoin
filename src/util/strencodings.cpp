@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <errno.h>
+#include <iomanip>
 #include <limits>
 
 static const std::string CHARS_ALPHA_NUM = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -32,6 +33,20 @@ std::string SanitizeString(const std::string& str, int rule)
             strResult.push_back(str[i]);
     }
     return strResult;
+}
+
+std::string HexInt(uint32_t val)
+{
+    std::stringstream ss;
+    ss << std::setfill('0') << std::setw(sizeof(uint32_t) * 2) << std::hex << val;
+    return ss.str();
+}
+
+uint32_t ParseHexToUInt32(const std::string& str) {
+    std::istringstream converter(str);
+    uint32_t value;
+    converter >> std::hex >> value;
+    return value;
 }
 
 const signed char p_util_hexdigit[256] =

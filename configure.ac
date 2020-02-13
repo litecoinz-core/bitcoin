@@ -239,27 +239,27 @@ AC_ARG_ENABLE(man,
     enable_man=yes)
 AM_CONDITIONAL(ENABLE_MAN, test "$enable_man" != no)
 
-# Enable debug
+dnl Enable debug
 AC_ARG_ENABLE([debug],
     [AS_HELP_STRING([--enable-debug],
                     [use compiler flags and macros suited for debugging (default is no)])],
     [enable_debug=$enableval],
     [enable_debug=no])
 
-# Enable different -fsanitize options
+dnl Enable different -fsanitize options
 AC_ARG_WITH([sanitizers],
     [AS_HELP_STRING([--with-sanitizers],
                     [comma separated list of extra sanitizers to build with (default is none enabled)])],
     [use_sanitizers=$withval])
 
-# Enable gprof profiling
+dnl Enable gprof profiling
 AC_ARG_ENABLE([gprof],
     [AS_HELP_STRING([--enable-gprof],
                     [use gprof profiling compiler flags (default is no)])],
     [enable_gprof=$enableval],
     [enable_gprof=no])
 
-# Turn warnings into errors
+dnl Turn warnings into errors
 AC_ARG_ENABLE([werror],
     [AS_HELP_STRING([--enable-werror],
                     [Treat certain compiler warnings as errors (default is no)])],
@@ -356,9 +356,9 @@ enable_shani=no
 
 if test "x$use_asm" = "xyes"; then
 
-# Check for optional instruction set support. Enabling these does _not_ imply that all code will
-# be compiled with them, rather that specific objects/libs may use them after checking for runtime
-# compatibility.
+dnl Check for optional instruction set support. Enabling these does _not_ imply that all code will
+dnl be compiled with them, rather that specific objects/libs may use them after checking for runtime
+dnl compatibility.
 AX_CHECK_COMPILE_FLAG([-msse4.2],[[SSE42_CXXFLAGS="-msse4.2"]],,[[$CXXFLAG_WERROR]])
 AX_CHECK_COMPILE_FLAG([-msse4.1],[[SSE41_CXXFLAGS="-msse4.1"]],,[[$CXXFLAG_WERROR]])
 AX_CHECK_COMPILE_FLAG([-mavx -mavx2],[[AVX2_CXXFLAGS="-mavx -mavx2"]],,[[$CXXFLAG_WERROR]])
@@ -463,15 +463,35 @@ AC_ARG_ENABLE([util-wallet],
 
 AC_ARG_WITH([libs],
   [AS_HELP_STRING([--with-libs],
-  [build libraries (default=yes)])],
+  [build libraries (default=no)])],
   [build_bitcoin_libs=$withval],
-  [build_bitcoin_libs=yes])
+  [build_bitcoin_libs=no])
 
 AC_ARG_WITH([daemon],
   [AS_HELP_STRING([--with-daemon],
   [build litecoinzd daemon (default=yes)])],
   [build_bitcoind=$withval],
   [build_bitcoind=yes])
+
+AC_PATH_PROG(CARGO,cargo,none)
+if test x$CARGO = xnone; then
+  AC_MSG_ERROR("cargo required to enable rust support.")
+fi
+
+dnl Find the additional lib (if any) responsible for handling
+dnl dlopen/dlsym/etc.
+TEMP_LIBS="$LIBS"
+LIBS=
+AC_SEARCH_LIBS([dlsym],[dl])
+DL_LIBS="$LIBS"
+LIBS="$TEMP_LIBS"
+
+case $host in
+  ${host_cpu}-w64-mingw*) CARGO_FLAGS="$CARGO_FLAGS --verbose --release" CARGO_TARGET=${host_cpu}-pc-windows-gnu ;;
+  ${host_cpu}-pc-linux*) CARGO_FLAGS="$CARGO_FLAGS --verbose --release" CARGO_TARGET=${host_cpu}-unknown-${host_os} ;;
+  ${host_cpu}-apple-darwin*) CARGO_FLAGS="$CARGO_FLAGS --verbose --release" CARGO_TARGET=${host_cpu}-apple-darwin ;;
+  *) CARGO_FLAGS="$CARGO_FLAGS --verbose --release" CARGO_TARGET=${host} ;;
+esac
 
 use_pkgconfig=yes
 case $host in
@@ -520,12 +540,6 @@ case $host in
      if test "x$CXXFLAGS_overridden" = "xno"; then
        CXXFLAGS="$CXXFLAGS -w"
      fi
-     case $host in
-       i?86-*) WINDOWS_BITS=32 ;;
-       x86_64-*) WINDOWS_BITS=64 ;;
-       *) AC_MSG_ERROR("Could not determine win32/win64 for installer") ;;
-     esac
-     AC_SUBST(WINDOWS_BITS)
 
      dnl libtool insists upon adding -nostdlib and a list of objects/libs to link against.
      dnl That breaks our ability to build dll's with static libgcc/libstdc++/libssp. Override
@@ -550,9 +564,10 @@ case $host in
          dnl It's safe to add these paths even if the functionality is disabled by
          dnl the user (--without-wallet or --without-gui for example).
 
-         openssl_prefix=`$BREW --prefix openssl 2>/dev/null`
-         bdb_prefix=`$BREW --prefix berkeley-db4 2>/dev/null`
-         qt5_prefix=`$BREW --prefix qt5 2>/dev/null`
+         openssl_prefix=$(BREW --prefix openssl 2>/dev/null)
+         bdb_prefix=$(BREW --prefix berkeley-db4 2>/dev/null)
+         qt5_prefix=$(BREW --prefix qt5 2>/dev/null)
+         curl_prefix=$(BREW --prefix curl 2>/dev/null)
          if test x$openssl_prefix != x; then
            PKG_CONFIG_PATH="$openssl_prefix/lib/pkgconfig:$PKG_CONFIG_PATH"
            export PKG_CONFIG_PATH
@@ -564,6 +579,9 @@ case $host in
          if test x$qt5_prefix != x; then
            PKG_CONFIG_PATH="$qt5_prefix/lib/pkgconfig:$PKG_CONFIG_PATH"
            export PKG_CONFIG_PATH
+         fi
+         if test x$curl_prefix != x; then
+           PKG_CONFIG_PATH="$curl_prefix/lib/pkgconfig:$PKG_CONFIG_PATH"
          fi
        fi
      else
@@ -672,11 +690,11 @@ AC_C_BIGENDIAN
 dnl Check for pthread compile/link requirements
 AX_PTHREAD
 
-# The following macro will add the necessary defines to bitcoin-config.h, but
-# they also need to be passed down to any subprojects. Pull the results out of
-# the cache and add them to CPPFLAGS.
+dnl The following macro will add the necessary defines to bitcoin-config.h, but
+dnl they also need to be passed down to any subprojects. Pull the results out of
+dnl the cache and add them to CPPFLAGS.
 AC_SYS_LARGEFILE
-# detect POSIX or GNU variant of strerror_r
+dnl detect POSIX or GNU variant of strerror_r
 AC_FUNC_STRERROR_R
 
 if test x$ac_cv_sys_file_offset_bits != x &&
@@ -744,9 +762,9 @@ if test x$TARGET_OS != xwindows; then
   AX_CHECK_COMPILE_FLAG([-fPIC],[PIC_FLAGS="-fPIC"])
 fi
 
-# All versions of gcc that we commonly use for building are subject to bug
-# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=90348. To work around that, set
-# -fstack-reuse=none for all gcc builds. (Only gcc understands this flag)
+dnl All versions of gcc that we commonly use for building are subject to bug
+dnl https://gcc.gnu.org/bugzilla/show_bug.cgi?id=90348. To work around that, set
+dnl -fstack-reuse=none for all gcc builds. (Only gcc understands this flag)
 AX_CHECK_COMPILE_FLAG([-fstack-reuse=none],[HARDENED_CXXFLAGS="$HARDENED_CXXFLAGS -fstack-reuse=none"])
 if test x$use_hardening != xno; then
   use_hardening=yes
@@ -781,8 +799,8 @@ fi
 
 AC_CHECK_HEADERS([endian.h sys/endian.h byteswap.h stdio.h stdlib.h unistd.h strings.h sys/types.h sys/stat.h sys/select.h sys/prctl.h])
 
-# FD_ZERO may be dependent on a declaration of memcpy, e.g. in SmartOS
-# check that it fails to build without memcpy, then that it builds with
+dnl FD_ZERO may be dependent on a declaration of memcpy, e.g. in SmartOS
+dnl check that it fails to build without memcpy, then that it builds with
 AC_MSG_CHECKING(FD_ZERO memcpy dependence)
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
     #include <cstddef>
@@ -820,7 +838,7 @@ AC_CHECK_DECLS([getifaddrs, freeifaddrs],,,
 )
 AC_CHECK_DECLS([strnlen])
 
-# Check for daemon(3), unrelated to --with-daemon (although used by it)
+dnl Check for daemon(3), unrelated to --with-daemon (although used by it)
 AC_CHECK_DECLS([daemon])
 
 AC_CHECK_DECLS([le16toh, le32toh, le64toh, htole16, htole32, htole64, be16toh, be32toh, be64toh, htobe16, htobe32, htobe64],,,
@@ -933,7 +951,7 @@ if test "x$use_thread_local" = xyes || { test "x$use_thread_local" = xauto && te
   LDFLAGS="$TEMP_LDFLAGS"
 fi
 
-# Check for different ways of gathering OS randomness
+dnl Check for different ways of gathering OS randomness
 AC_MSG_CHECKING(for Linux getrandom syscall)
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <unistd.h>
   #include <sys/syscall.h>
@@ -975,7 +993,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdint.h>
  [ AC_MSG_RESULT(no)]
 )
 
-# Check for reduced exports
+dnl Check for reduced exports
 if test x$use_reduce_exports = xyes; then
   AX_CHECK_COMPILE_FLAG([-fvisibility=hidden],[RE_CXXFLAGS="-fvisibility=hidden"],
   [AC_MSG_ERROR([Cannot set default symbol visibility. Use --disable-reduce-exports.])])
@@ -987,7 +1005,7 @@ AC_LINK_IFELSE(
         [[ #include <cstdlib> ]],
         [[ int nErr = std::system(""); ]]
     )],
-    [ AC_MSG_RESULT(yes); AC_DEFINE(HAVE_STD__SYSTEM, 1, Define to 1 if you have the `std::system' function.)],
+    [ AC_MSG_RESULT(yes); AC_DEFINE(HAVE_STD__SYSTEM, 1, Define to 1 if std::system is available.)],
     [ AC_MSG_RESULT(no) ]
 )
 
@@ -997,11 +1015,10 @@ AC_LINK_IFELSE(
         [[ ]],
         [[ int nErr = ::_wsystem(""); ]]
     )],
-    [ AC_MSG_RESULT(yes); AC_DEFINE(HAVE_WSYSTEM, 1, Define to 1 if you have the `::wsystem' function.)],
+    [ AC_MSG_RESULT(yes); AC_DEFINE(HAVE_WSYSTEM, 1, Define to 1 if ::wsystem is available.)],
     [ AC_MSG_RESULT(no) ]
 )
 
-# Define to 1 if std::system or ::wsystem (Windows) is available
 AC_DEFINE([HAVE_SYSTEM], [HAVE_STD__SYSTEM || HAVE_WSYSTEM], [std::system or ::wsystem])
 
 LEVELDB_CPPFLAGS=
@@ -1251,6 +1268,7 @@ if test x$use_pkgconfig = xyes; then
   m4_ifdef(
     [PKG_CHECK_MODULES],
     [
+      PKG_CHECK_MODULES([CURL], [libcurl],,[AC_MSG_ERROR(libcurl not found.)])
       PKG_CHECK_MODULES([CRYPTO], [libcrypto],,[AC_MSG_ERROR(libcrypto not found.)])
       PKG_CHECK_MODULES([SODIUM], [libsodium],,[AC_MSG_ERROR(libsodium not found.)])
       if test x$use_qr != xno; then
@@ -1604,6 +1622,10 @@ AC_SUBST(EVENT_LIBS)
 AC_SUBST(EVENT_PTHREADS_LIBS)
 AC_SUBST(ZMQ_LIBS)
 AC_SUBST(QR_LIBS)
+AC_SUBST(DL_LIBS)
+AC_SUBST(CURL_LIBS)
+AC_SUBST(CARGO_FLAGS)
+AC_SUBST(CARGO_TARGET)
 AC_CONFIG_FILES([Makefile src/Makefile doc/man/Makefile share/setup.nsi share/qt/Info.plist test/config.ini])
 AC_CONFIG_FILES([contrib/devtools/split-debug.sh],[chmod +x contrib/devtools/split-debug.sh])
 AM_COND_IF([HAVE_DOXYGEN], [AC_CONFIG_FILES([doc/Doxyfile])])

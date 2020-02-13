@@ -146,6 +146,8 @@ protected:
     friend void ::RegisterValidationInterface(CValidationInterface*);
     friend void ::UnregisterValidationInterface(CValidationInterface*);
     friend void ::UnregisterAllValidationInterfaces();
+
+    virtual void ChainTip(const CBlockIndex*, const std::shared_ptr<const CBlock> &pblock, SproutMerkleTree, SaplingMerkleTree, bool) {}
 };
 
 struct MainSignalsInstance;
@@ -182,6 +184,8 @@ public:
     void ChainStateFlushed(const CBlockLocator &);
     void BlockChecked(const CBlock&, const CValidationState&);
     void NewPoWValidBlock(const CBlockIndex *, const std::shared_ptr<const CBlock>&);
+
+    void ChainTip(const CBlockIndex*, const std::shared_ptr<const CBlock>&, SproutMerkleTree, SaplingMerkleTree, bool);
 };
 
 CMainSignals& GetMainSignals();

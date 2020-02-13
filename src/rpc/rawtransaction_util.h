@@ -23,7 +23,7 @@ class SigningProvider;
  * @param  hashType      The signature hash type
  * @returns JSON object with details of signed transaction
  */
-UniValue SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, const std::map<COutPoint, Coin>& coins, const UniValue& hashType);
+UniValue SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, const std::map<COutPoint, Coin>& coins, const UniValue& hashType, const uint32_t consensusBranchId);
 
 /**
   * Parse a prevtxs UniValue array and get the map of coins from it
@@ -35,6 +35,6 @@ UniValue SignTransaction(CMutableTransaction& mtx, const SigningProvider* keysto
 void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keystore, std::map<COutPoint, Coin>& coins);
 
 /** Create a transaction from univalue parameters */
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf);
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, const UniValue& expiryheight);
 
 #endif // BITCOIN_RPC_RAWTRANSACTION_UTIL_H

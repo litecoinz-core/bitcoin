@@ -21,11 +21,12 @@ class CBlockHeader
 {
 public:
     static const size_t HEADER_SIZE=4+32+32+32+4+4+32; // excluding Equihash solution
+    static const int32_t CURRENT_VERSION=4;
     // header
     int32_t nVersion;
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
-    uint256 hashReserved;
+    uint256 hashSaplingRoot;
     uint32_t nTime;
     uint32_t nBits;
     uint256 nNonce;
@@ -43,7 +44,7 @@ public:
         READWRITE(this->nVersion);
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
-        READWRITE(hashReserved);
+        READWRITE(hashSaplingRoot);
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
@@ -52,10 +53,10 @@ public:
 
     void SetNull()
     {
-        nVersion = 0;
+        nVersion = CBlockHeader::CURRENT_VERSION;;
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
-        hashReserved.SetNull();
+        hashSaplingRoot.SetNull();
         nTime = 0;
         nBits = 0;
         nNonce.SetNull();
@@ -114,14 +115,14 @@ public:
     CBlockHeader GetBlockHeader() const
     {
         CBlockHeader block;
-        block.nVersion       = nVersion;
-        block.hashPrevBlock  = hashPrevBlock;
-        block.hashMerkleRoot = hashMerkleRoot;
-        block.hashReserved   = hashReserved;
-        block.nTime          = nTime;
-        block.nBits          = nBits;
-        block.nNonce         = nNonce;
-        block.nSolution      = nSolution;
+        block.nVersion        = nVersion;
+        block.hashPrevBlock   = hashPrevBlock;
+        block.hashMerkleRoot  = hashMerkleRoot;
+        block.hashSaplingRoot = hashSaplingRoot;
+        block.nTime           = nTime;
+        block.nBits           = nBits;
+        block.nNonce          = nNonce;
+        block.nSolution       = nSolution;
         return block;
     }
 
@@ -159,6 +160,10 @@ struct CBlockLocator
     {
         return vHave.empty();
     }
+
+    friend bool operator==(const CBlockLocator& a, const CBlockLocator& b) {
+        return (a.vHave == b.vHave);
+    }
 };
 
 /**
@@ -181,7 +186,7 @@ public:
         READWRITE(this->nVersion);
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
-        READWRITE(hashReserved);
+        READWRITE(hashSaplingRoot);
         READWRITE(nTime);
         READWRITE(nBits);
     }

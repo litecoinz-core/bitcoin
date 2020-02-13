@@ -37,6 +37,9 @@ static constexpr int64_t TIMESTAMP_WINDOW = MAX_FUTURE_BLOCK_TIME;
  */
 static constexpr int64_t MAX_BLOCK_TIME_GAP = 90 * 60;
 
+static const int SPROUT_VALUE_VERSION = 1001400;
+static const int SAPLING_VALUE_VERSION = 1010100;
+
 class CBlockFileInfo
 {
 public:
@@ -128,8 +131,12 @@ enum BlockStatus: uint32_t {
     BLOCK_FAILED_CHILD       =   64, //!< descends from failed block
     BLOCK_FAILED_MASK        =   BLOCK_FAILED_VALID | BLOCK_FAILED_CHILD,
 
-    BLOCK_OPT_WITNESS       =   128, //!< block data in blk*.data was received with a witness-enforcing client
+    BLOCK_ACTIVATES_UPGRADE  =   128, //! block activates a network upgrade
 };
+
+//! Short-hand for the highest consensus validity we implement.
+//! Blocks with this validity are assumed to satisfy all consensus rules.
+static const BlockStatus BLOCK_VALID_CONSENSUS = BLOCK_VALID_SCRIPTS;
 
 /** The block chain is a tree shaped structure starting with the
  * genesis block at the root, with each block potentially having multiple
@@ -175,10 +182,39 @@ public:
     //! Verification status of this block. See enum BlockStatus
     uint32_t nStatus;
 
+    //! Branch ID corresponding to the consensus rules used to validate this block.
+    //! Only cached if block validity is BLOCK_VALID_CONSENSUS.
+    //! Persisted at each activation height, memory-only for intervening blocks.
+    boost::optional<uint32_t> nCachedBranchId;
+
+    //! The anchor for the tree state up to the start of this block
+    uint256 hashSproutAnchor;
+
+    //! (memory only) The anchor for the tree state up to the end of this block
+    uint256 hashSproutRoot;
+
+    //! Change in value held by the Sprout circuit over this block.
+    //! Will be boost::none for older blocks on old nodes until a reindex has taken place.
+    boost::optional<CAmount> nSproutValue;
+
+    //! (memory only) Total value held by the Sprout circuit up to and including this block.
+    //! Will be boost::none for on old nodes until a reindex has taken place.
+    //! Will be boost::none if nChainTx is zero.
+    boost::optional<CAmount> nChainSproutValue;
+
+    //! Change in value held by the Sapling circuit over this block.
+    //! Not a boost::optional because this was added before Sapling activated, so we can
+    //! rely on the invariant that every block before this was added had nSaplingValue = 0.
+    CAmount nSaplingValue;
+
+    //! (memory only) Total value held by the Sapling circuit up to and including this block.
+    //! Will be boost::none if nChainTx is zero.
+    boost::optional<CAmount> nChainSaplingValue;
+
     //! block header
     int32_t nVersion;
     uint256 hashMerkleRoot;
-    uint256 hashReserved;
+    uint256 hashSaplingRoot;
     uint32_t nTime;
     uint32_t nBits;
     uint256 nNonce;
@@ -205,13 +241,20 @@ public:
         nStatus = 0;
         nSequenceId = 0;
         nTimeMax = 0;
+        nCachedBranchId = boost::none;
+        hashSproutAnchor = uint256();
+        hashSproutRoot = uint256();
+        nSproutValue = boost::none;
+        nChainSproutValue = boost::none;
+        nSaplingValue = 0;
+        nChainSaplingValue = boost::none;
 
-        nVersion       = 0;
-        hashMerkleRoot = uint256();
-        hashReserved   = uint256();
-        nTime          = 0;
-        nBits          = 0;
-        nNonce         = uint256();
+        nVersion        = 0;
+        hashMerkleRoot  = uint256();
+        hashSaplingRoot = uint256();
+        nTime           = 0;
+        nBits           = 0;
+        nNonce          = uint256();
         nSolution.clear();
     }
 
@@ -224,13 +267,13 @@ public:
     {
         SetNull();
 
-        nVersion       = block.nVersion;
-        hashMerkleRoot = block.hashMerkleRoot;
-        hashReserved   = block.hashReserved;
-        nTime          = block.nTime;
-        nBits          = block.nBits;
-        nNonce         = block.nNonce;
-        nSolution      = block.nSolution;
+        nVersion         = block.nVersion;
+        hashMerkleRoot   = block.hashMerkleRoot;
+        hashSaplingRoot  = block.hashSaplingRoot;
+        nTime            = block.nTime;
+        nBits            = block.nBits;
+        nNonce           = block.nNonce;
+        nSolution        = block.nSolution;
     }
 
     FlatFilePos GetBlockPos() const {
@@ -254,15 +297,15 @@ public:
     CBlockHeader GetBlockHeader() const
     {
         CBlockHeader block;
-        block.nVersion       = nVersion;
+        block.nVersion        = nVersion;
         if (pprev)
             block.hashPrevBlock = pprev->GetBlockHash();
-        block.hashMerkleRoot = hashMerkleRoot;
-        block.hashReserved   = hashReserved;
-        block.nTime          = nTime;
-        block.nBits          = nBits;
-        block.nNonce         = nNonce;
-        block.nSolution      = nSolution;
+        block.hashMerkleRoot  = hashMerkleRoot;
+        block.hashSaplingRoot = hashSaplingRoot;
+        block.nTime           = nTime;
+        block.nBits           = nBits;
+        block.nNonce          = nNonce;
+        block.nSolution       = nSolution;
         return block;
     }
 
@@ -383,16 +426,44 @@ public:
             READWRITE(VARINT(nDataPos));
         if (nStatus & BLOCK_HAVE_UNDO)
             READWRITE(VARINT(nUndoPos));
+        if (nStatus & BLOCK_ACTIVATES_UPGRADE) {
+            if (ser_action.ForRead()) {
+                uint32_t branchId;
+                READWRITE(branchId);
+                nCachedBranchId = branchId;
+            } else {
+                // nCachedBranchId must always be set if BLOCK_ACTIVATES_UPGRADE is set.
+                assert(nCachedBranchId);
+                uint32_t branchId = *nCachedBranchId;
+                READWRITE(branchId);
+            }
+        }
+        READWRITE(hashSproutAnchor);
 
         // block header
         READWRITE(this->nVersion);
         READWRITE(hashPrev);
         READWRITE(hashMerkleRoot);
-        READWRITE(hashReserved);
+        READWRITE(hashSaplingRoot);
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
         READWRITE(nSolution);
+
+        // Only read/write nSproutValue if the client version used to create
+        // this index was storing them.
+        if ((s.GetType() & SER_DISK) && (nVersion >= SPROUT_VALUE_VERSION)) {
+            READWRITE(nSproutValue);
+        }
+
+        // Only read/write nSaplingValue if the client version used to create
+        // this index was storing them.
+        if ((s.GetType() & SER_DISK) && (nVersion >= SAPLING_VALUE_VERSION)) {
+            READWRITE(nSaplingValue);
+        }
+
+        // If you have just added new serialized fields above, remember to add
+        // them to CBlockTreeDB::LoadBlockIndexGuts() in txdb.cpp :)
     }
 
     uint256 GetBlockHash() const
@@ -401,7 +472,7 @@ public:
         block.nVersion        = nVersion;
         block.hashPrevBlock   = hashPrev;
         block.hashMerkleRoot  = hashMerkleRoot;
-        block.hashReserved    = hashReserved;
+        block.hashSaplingRoot = hashSaplingRoot;
         block.nTime           = nTime;
         block.nBits           = nBits;
         block.nNonce          = nNonce;

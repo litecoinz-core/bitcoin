@@ -7,6 +7,7 @@
         <file alias="da">locale/bitcoin_da.qm</file>
         <file alias="de">locale/bitcoin_de.qm</file>
         <file alias="el">locale/bitcoin_el.qm</file>
+        <file alias="en">locale/bitcoin_en.qm</file>
         <file alias="en_GB">locale/bitcoin_en_GB.qm</file>
         <file alias="eo">locale/bitcoin_eo.qm</file>
         <file alias="es">locale/bitcoin_es.qm</file>

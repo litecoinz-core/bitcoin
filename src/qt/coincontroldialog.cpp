@@ -605,6 +605,7 @@ void CoinControlDialog::updateView()
         return;
 
     bool treeMode = ui->radioTreeMode->isChecked();
+    bool fIncludeCoinbase = !Params().GetConsensus().fCoinbaseMustBeShielded;
 
     ui->treeWidget->clear();
     ui->treeWidget->setEnabled(false); // performance, otherwise updateLabels would be called for every checked checkbox
@@ -614,7 +615,7 @@ void CoinControlDialog::updateView()
 
     int nDisplayUnit = model->getOptionsModel()->getDisplayUnit();
 
-    for (const auto& coins : model->wallet().listCoins()) {
+    for (const auto& coins : model->wallet().listCoins(false, fIncludeCoinbase)) {
         CCoinControlWidgetItem *itemWalletAddress = new CCoinControlWidgetItem();
         itemWalletAddress->setCheckState(COLUMN_CHECKBOX, Qt::Unchecked);
         QString sWalletAddress = QString::fromStdString(EncodeDestination(coins.first));

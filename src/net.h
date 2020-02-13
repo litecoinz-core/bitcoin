@@ -35,6 +35,7 @@
 #include <arpa/inet.h>
 #endif
 
+extern CCriticalSection cs_main;
 
 class CScheduler;
 class CNode;
@@ -85,6 +86,9 @@ static const uint64_t MAX_UPLOAD_TIMEFRAME = 60 * 60 * 24;
 static const bool DEFAULT_BLOCKSONLY = false;
 /** -peertimeout default */
 static const int64_t DEFAULT_PEER_CONNECT_TIMEOUT = 60;
+
+/** The period before a network upgrade activates, where connections to upgrading peers are preferred (in blocks). */
+static const int NETWORK_UPGRADE_PEER_PREFERENCE_BLOCK_PERIOD = 24 * 24 * 3;
 
 static const bool DEFAULT_FORCEDNSSEED = false;
 static const size_t DEFAULT_MAXRECEIVEBUFFER = 5 * 1000;
@@ -386,8 +390,8 @@ private:
     // Network usage totals
     CCriticalSection cs_totalBytesRecv;
     CCriticalSection cs_totalBytesSent;
-    uint64_t nTotalBytesRecv GUARDED_BY(cs_totalBytesRecv);
-    uint64_t nTotalBytesSent GUARDED_BY(cs_totalBytesSent);
+    uint64_t nTotalBytesRecv GUARDED_BY(cs_totalBytesRecv) {0};
+    uint64_t nTotalBytesSent GUARDED_BY(cs_totalBytesSent) {0};
 
     // outbound limit & stats
     uint64_t nMaxOutboundTotalBytesSentInCycle GUARDED_BY(cs_totalBytesSent);

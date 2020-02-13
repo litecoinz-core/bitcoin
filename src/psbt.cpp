@@ -3,6 +3,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <psbt.h>
+#include <chain.h>
+#include <chainparams.h>
+#include <consensus/upgrades.h>
 #include <util/strencodings.h>
 
 #include <numeric>
@@ -67,8 +70,11 @@ bool PartiallySignedTransaction::AddOutput(const CTxOut& txout, const PSBTOutput
 bool PartiallySignedTransaction::GetInputUTXO(CTxOut& utxo, int input_index) const
 {
     PSBTInput input = inputs[input_index];
-    int prevout_index = tx->vin[input_index].prevout.n;
+    uint32_t prevout_index = tx->vin[input_index].prevout.n;
     if (input.non_witness_utxo) {
+        if (prevout_index >= input.non_witness_utxo->vout.size()) {
+            return false;
+        }
         utxo = input.non_witness_utxo->vout[prevout_index];
     } else if (!input.witness_utxo.IsNull()) {
         utxo = input.witness_utxo;
@@ -217,6 +223,10 @@ void UpdatePSBTOutput(const SigningProvider& provider, PartiallySignedTransactio
     const CTxOut& out = psbt.tx->vout.at(index);
     PSBTOutput& psbt_out = psbt.outputs.at(index);
 
+    // Grab the current consensus branch ID
+    CChain chain;
+    auto consensusBranchId = CurrentEpochBranchId(chain.Height() + 1, Params().GetConsensus());
+
     // Fill a SignatureData with output info
     SignatureData sigdata;
     psbt_out.FillSignatureData(sigdata);
@@ -225,7 +235,7 @@ void UpdatePSBTOutput(const SigningProvider& provider, PartiallySignedTransactio
     // Note that ProduceSignature is used to fill in metadata (not actual signatures),
     // so provider does not need to provide any private keys (it can be a HidingSigningProvider).
     MutableTransactionSignatureCreator creator(psbt.tx.get_ptr(), /* index */ 0, out.nValue, SIGHASH_ALL);
-    ProduceSignature(provider, creator, out.scriptPubKey, sigdata);
+    ProduceSignature(provider, creator, out.scriptPubKey, sigdata, consensusBranchId);
 
     // Put redeem_script, witness_script, key paths, into PSBTOutput.
     psbt_out.FromSignatureData(sigdata);
@@ -235,6 +245,10 @@ bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& 
 {
     PSBTInput& input = psbt.inputs.at(index);
     const CMutableTransaction& tx = *psbt.tx;
+
+    // Grab the current consensus branch ID
+    CChain chain;
+    auto consensusBranchId = CurrentEpochBranchId(chain.Height() + 1, Params().GetConsensus());
 
     if (PSBTInputSigned(input)) {
         return true;
@@ -256,6 +270,9 @@ bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& 
     if (input.non_witness_utxo) {
         // If we're taking our information from a non-witness UTXO, verify that it matches the prevout.
         COutPoint prevout = tx.vin[index].prevout;
+        if (prevout.n >= input.non_witness_utxo->vout.size()) {
+            return false;
+        }
         if (input.non_witness_utxo->GetHash() != prevout.hash) {
             return false;
         }
@@ -274,10 +291,10 @@ bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& 
     sigdata.witness = false;
     bool sig_complete;
     if (use_dummy) {
-        sig_complete = ProduceSignature(provider, DUMMY_SIGNATURE_CREATOR, utxo.scriptPubKey, sigdata);
+        sig_complete = ProduceSignature(provider, DUMMY_SIGNATURE_CREATOR, utxo.scriptPubKey, sigdata, consensusBranchId);
     } else {
         MutableTransactionSignatureCreator creator(&tx, index, utxo.nValue, sighash);
-        sig_complete = ProduceSignature(provider, creator, utxo.scriptPubKey, sigdata);
+        sig_complete = ProduceSignature(provider, creator, utxo.scriptPubKey, sigdata, consensusBranchId);
     }
     // Verify that a witness signature was produced in case one was required.
     if (require_witness_sig && !sigdata.witness) return false;
@@ -349,6 +366,7 @@ TransactionError CombinePSBTs(PartiallySignedTransaction& out, const std::vector
 
 std::string PSBTRoleName(PSBTRole role) {
     switch (role) {
+    case PSBTRole::CREATOR: return "creator";
     case PSBTRole::UPDATER: return "updater";
     case PSBTRole::SIGNER: return "signer";
     case PSBTRole::FINALIZER: return "finalizer";

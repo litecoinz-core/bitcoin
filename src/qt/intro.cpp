@@ -46,10 +46,10 @@ public:
     };
 
 public Q_SLOTS:
-    void check(bool keep_prune);
+    void check();
 
 Q_SIGNALS:
-    void reply(int status, const QString& message, quint64 available, bool keep_prune);
+    void reply(int status, const QString &message, quint64 available);
 
 private:
     Intro *intro;
@@ -62,7 +62,7 @@ FreespaceChecker::FreespaceChecker(Intro *_intro)
     this->intro = _intro;
 }
 
-void FreespaceChecker::check(bool keep_prune)
+void FreespaceChecker::check()
 {
     QString dataDirStr = intro->getPathToCheck();
     fs::path dataDir = GUIUtil::qstringToBoostPath(dataDirStr);
@@ -104,17 +104,27 @@ void FreespaceChecker::check(bool keep_prune)
         replyStatus = ST_ERROR;
         replyMessage = tr("Cannot create data directory here.");
     }
-    Q_EMIT reply(replyStatus, replyMessage, freeBytesAvailable, keep_prune);
+    Q_EMIT reply(replyStatus, replyMessage, freeBytesAvailable);
 }
 
+namespace {
+//! Return pruning size that will be used if automatic pruning is enabled.
+int GetPruneTargetGB()
+{
+    int64_t prune_target_mib = gArgs.GetArg("-prune", 0);
+    // >1 means automatic pruning is enabled by config, 1 means manual pruning, 0 means no pruning.
+    return prune_target_mib > 1 ? PruneMiBtoGB(prune_target_mib) : DEFAULT_PRUNE_TARGET_GB;
+}
+} // namespace
 
-Intro::Intro(QWidget *parent, uint64_t blockchain_size, uint64_t chain_state_size) :
+Intro::Intro(QWidget *parent, int64_t blockchain_size_gb, int64_t chain_state_size_gb) :
     QDialog(parent),
     ui(new Ui::Intro),
     thread(nullptr),
     signalled(false),
-    m_blockchain_size(blockchain_size),
-    m_chain_state_size(chain_state_size)
+    m_blockchain_size_gb(blockchain_size_gb),
+    m_chain_state_size_gb(chain_state_size_gb),
+    m_prune_target_gb{GetPruneTargetGB()}
 {
     ui->setupUi(this);
     ui->welcomeLabel->setText(ui->welcomeLabel->text().arg(PACKAGE_NAME));
@@ -122,20 +132,24 @@ Intro::Intro(QWidget *parent, uint64_t blockchain_size, uint64_t chain_state_siz
 
     ui->lblExplanation1->setText(ui->lblExplanation1->text()
         .arg(PACKAGE_NAME)
-        .arg(m_blockchain_size)
-        .arg(2009)
+        .arg(m_blockchain_size_gb)
+        .arg(2018)
         .arg(tr("Litecoinz"))
     );
     ui->lblExplanation2->setText(ui->lblExplanation2->text().arg(PACKAGE_NAME));
 
-    int64_t prune_target_mib = std::max<int64_t>(0, gArgs.GetArg("-prune", 0));
-    if (prune_target_mib > 1) { // -prune=1 means enabled, above that it's a size in MiB
+    if (gArgs.GetArg("-prune", 0) > 1) { // -prune=1 means enabled, above that it's a size in MiB
         ui->prune->setChecked(true);
         ui->prune->setEnabled(false);
     }
-    m_prune_target_gb = prune_target_mib ? PruneMiBtoGB(prune_target_mib) : DEFAULT_PRUNE_TARGET_GB;
     ui->prune->setText(tr("Discard blocks after verification, except most recent %1 GB (prune)").arg(m_prune_target_gb));
     UpdatePruneLabels(ui->prune->isChecked());
+
+    connect(ui->prune, &QCheckBox::toggled, [this](bool prune_checked) {
+        UpdatePruneLabels(prune_checked);
+        UpdateFreeSpaceLabel();
+    });
+
     startThread();
 }
 
@@ -233,7 +247,7 @@ bool Intro::showIfNeeded(interfaces::Node& node, bool& did_show_intro, bool& pru
     return true;
 }
 
-void Intro::setStatus(int status, const QString& message, quint64 bytesAvailable, bool keep_prune)
+void Intro::setStatus(int status, const QString &message, quint64 bytesAvailable)
 {
     switch(status)
     {
@@ -251,22 +265,29 @@ void Intro::setStatus(int status, const QString& message, quint64 bytesAvailable
     {
         ui->freeSpace->setText("");
     } else {
-        QString freeString = tr("%n GB of free space available", "", bytesAvailable/GB_BYTES);
-        if (bytesAvailable < m_required_space_gb * GB_BYTES) {
-            freeString += " " + tr("(of %n GB needed)", "", m_required_space_gb);
-            ui->freeSpace->setStyleSheet("QLabel { color: #800000 }");
-            if (!keep_prune) ui->prune->setChecked(true);
-        } else if (bytesAvailable / GB_BYTES - m_required_space_gb < 10) {
-            freeString += " " + tr("(%n GB needed for full chain)", "", m_required_space_gb);
-            ui->freeSpace->setStyleSheet("QLabel { color: #999900 }");
-            if (!keep_prune) ui->prune->setChecked(true);
-        } else {
-            ui->freeSpace->setStyleSheet("");
+        m_bytes_available = bytesAvailable;
+        if (ui->prune->isEnabled()) {
+            ui->prune->setChecked(m_bytes_available < (m_blockchain_size_gb + m_chain_state_size_gb + 10) * GB_BYTES);
         }
-        ui->freeSpace->setText(freeString + ".");
+        UpdateFreeSpaceLabel();
     }
     /* Don't allow confirm in ERROR state */
     ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(status != FreespaceChecker::ST_ERROR);
+}
+
+void Intro::UpdateFreeSpaceLabel()
+{
+    QString freeString = tr("%n GB of free space available", "", m_bytes_available / GB_BYTES);
+    if (m_bytes_available < m_required_space_gb * GB_BYTES) {
+        freeString += " " + tr("(of %n GB needed)", "", m_required_space_gb);
+        ui->freeSpace->setStyleSheet("QLabel { color: #800000 }");
+    } else if (m_bytes_available / GB_BYTES - m_required_space_gb < 10) {
+        freeString += " " + tr("(%n GB needed for full chain)", "", m_required_space_gb);
+        ui->freeSpace->setStyleSheet("QLabel { color: #999900 }");
+    } else {
+        ui->freeSpace->setStyleSheet("");
+    }
+    ui->freeSpace->setText(freeString + ".");
 }
 
 void Intro::on_dataDirectory_textChanged(const QString &dataDirStr)
@@ -302,10 +323,7 @@ void Intro::startThread()
 
     connect(executor, &FreespaceChecker::reply, this, &Intro::setStatus);
     connect(this, &Intro::requestCheck, executor, &FreespaceChecker::check);
-    connect(ui->prune, &QCheckBox::toggled, [this](bool prune_checked) {
-        UpdatePruneLabels(prune_checked);
-        Q_EMIT requestCheck(true);
-    });
+    /*  make sure executor object is deleted in its own thread */
     connect(thread, &QThread::finished, executor, &QObject::deleteLater);
 
     thread->start();
@@ -318,7 +336,7 @@ void Intro::checkPath(const QString &dataDir)
     if(!signalled)
     {
         signalled = true;
-        Q_EMIT requestCheck(false);
+        Q_EMIT requestCheck();
     }
     mutex.unlock();
 }
@@ -335,20 +353,15 @@ QString Intro::getPathToCheck()
 
 void Intro::UpdatePruneLabels(bool prune_checked)
 {
-    m_required_space_gb = m_blockchain_size;
+    m_required_space_gb = m_blockchain_size_gb + m_chain_state_size_gb;
     QString storageRequiresMsg = tr("At least %1 GB of data will be stored in this directory, and it will grow over time.");
-    if (prune_checked) {
-        if (m_prune_target_gb <= m_required_space_gb) {
-            m_required_space_gb = m_prune_target_gb;
-            storageRequiresMsg = tr("Approximately %1 GB of data will be stored in this directory.");
-        }
-        ui->lblExplanation3->setVisible(true);
-    } else {
-        ui->lblExplanation3->setVisible(false);
+    if (prune_checked && m_prune_target_gb <= m_blockchain_size_gb) {
+        m_required_space_gb = m_prune_target_gb + m_chain_state_size_gb;
+        storageRequiresMsg = tr("Approximately %1 GB of data will be stored in this directory.");
     }
-    m_required_space_gb += m_chain_state_size;
+    ui->lblExplanation3->setVisible(prune_checked);
     ui->sizeWarningLabel->setText(
-        tr("%1 will download and store a copy of the Litecoinz block chain.").arg(PACKAGE_NAME) + " " +
+        tr("%1 will download and store a copy of the Bitcoin block chain.").arg(PACKAGE_NAME) + " " +
         storageRequiresMsg.arg(m_required_space_gb) + " " +
         tr("The wallet will also be stored in this directory.")
     );

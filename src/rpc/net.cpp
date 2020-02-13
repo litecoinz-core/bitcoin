@@ -7,6 +7,7 @@
 #include <banman.h>
 #include <clientversion.h>
 #include <core_io.h>
+#include <deprecation.h>
 #include <net.h>
 #include <net_processing.h>
 #include <net_permissions.h>
@@ -520,7 +521,7 @@ static UniValue getnetworkinfo(const JSONRPCRequest& request)
         }
     }
     obj.pushKV("localaddresses", localAddresses);
-    obj.pushKV("warnings",       GetWarnings("statusbar"));
+    obj.pushKV("warnings",       GetWarnings(false));
     return obj;
 }
 
@@ -730,6 +731,33 @@ static UniValue getnodeaddresses(const JSONRPCRequest& request)
     return ret;
 }
 
+static UniValue getdeprecationinfo(const JSONRPCRequest& request)
+{
+            RPCHelpMan{"getdeprecationinfo",
+                "\nReturns an object containing current version and deprecation block height.\n",
+                {},
+                RPCResult{
+            "{\n"
+            "  \"version\": xxxxx,                      (numeric) the server version\n"
+            "  \"subversion\": \"/MagicBean:x.y.z[-v]/\",     (string) the server subversion string\n"
+            "  \"deprecationheight\": xxxxx,            (numeric) the block height at which this version will deprecate and shut down\n"
+            "}\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("getdeprecationinfo", "")
+            + HelpExampleRpc("getdeprecationinfo", "")
+                },
+            }.Check(request);
+
+    UniValue obj(UniValue::VOBJ);
+    obj.pushKV("version", CLIENT_VERSION);
+    obj.pushKV("subversion", FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, std::vector<std::string>()));
+    CDeprecation deprecation = CDeprecation(Params().GetConsensus().nApproxReleaseHeight);
+    obj.pushKV("deprecationheight", deprecation.getDeprecationHeight());
+
+    return obj;
+}
+
 // clang-format off
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         argNames
@@ -747,6 +775,7 @@ static const CRPCCommand commands[] =
     { "network",            "clearbanned",            &clearbanned,            {} },
     { "network",            "setnetworkactive",       &setnetworkactive,       {"state"} },
     { "network",            "getnodeaddresses",       &getnodeaddresses,       {"count"} },
+    { "network",            "getdeprecationinfo",     &getdeprecationinfo,     {} },
 };
 // clang-format on
 

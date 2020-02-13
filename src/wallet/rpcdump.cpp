@@ -524,31 +524,10 @@ UniValue importpubkey(const JSONRPCRequest& request)
     return NullUniValue;
 }
 
-
-UniValue importwallet(const JSONRPCRequest& request)
+UniValue importwallet_impl(const JSONRPCRequest& request, bool fImportZKeys)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
-    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
-        return NullUniValue;
-    }
-
-            RPCHelpMan{"importwallet",
-                "\nImports keys from a wallet dump file (see dumpwallet). Requires a new wallet backup to include imported keys.\n"
-                "Note: Use \"getwalletinfo\" to query the scanning progress.\n",
-                {
-                    {"filename", RPCArg::Type::STR, RPCArg::Optional::NO, "The wallet file"},
-                },
-                RPCResults{},
-                RPCExamples{
-            "\nDump the wallet\n"
-            + HelpExampleCli("dumpwallet", "\"test\"") +
-            "\nImport the wallet\n"
-            + HelpExampleCli("importwallet", "\"test\"") +
-            "\nImport using the json rpc call\n"
-            + HelpExampleRpc("importwallet", "\"test\"")
-                },
-            }.Check(request);
 
     if (pwallet->chain().havePruned()) {
         // Exit early and print an error.
@@ -597,6 +576,30 @@ UniValue importwallet(const JSONRPCRequest& request)
             boost::split(vstr, line, boost::is_any_of(" "));
             if (vstr.size() < 2)
                 continue;
+
+            // Let's see if the address is a valid Zcash spending key
+            if (fImportZKeys) {
+                auto spendingkey = DecodeSpendingKey(vstr[0]);
+                int64_t nTime = DecodeDumpTime(vstr[1]);
+                // Only include hdKeypath and seedFpStr if we have both
+                boost::optional<std::string> hdKeypath = (vstr.size() > 3) ? boost::optional<std::string>(vstr[2]) : boost::none;
+                boost::optional<std::string> seedFpStr = (vstr.size() > 3) ? boost::optional<std::string>(vstr[3]) : boost::none;
+                if (IsValidSpendingKey(spendingkey)) {
+                    auto addResult = boost::apply_visitor(
+                        AddSpendingKeyToWallet(pwallet, Params().GetConsensus(), nTime, hdKeypath, seedFpStr, true), spendingkey);
+                    if (addResult == KeyAlreadyExists){
+                        pwallet->WalletLogPrintf("Skipping import of zaddr (key already present)");
+                    } else if (addResult == KeyNotAdded) {
+                        // Something went wrong
+                        fGood = false;
+                    }
+                    continue;
+                } else {
+                    pwallet->WalletLogPrintf("Importing detected an error: invalid spending key. Trying as a transparent key...");
+                    // Not a valid spending key, so carry on and see if it's a LitecoinZ style t-address.
+                }
+            }
+
             CKey key = DecodeSecret(vstr[0]);
             if (key.IsValid()) {
                 int64_t nTime = DecodeDumpTime(vstr[1]);
@@ -683,6 +686,62 @@ UniValue importwallet(const JSONRPCRequest& request)
     return NullUniValue;
 }
 
+UniValue importwallet(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+            RPCHelpMan{"importwallet",
+                "\nImports taddr keys from a wallet dump file (see dumpwallet). Requires a new wallet backup to include imported keys.\n"
+                "Note: Use \"getwalletinfo\" to query the scanning progress.\n",
+                {
+                    {"filename", RPCArg::Type::STR, RPCArg::Optional::NO, "The wallet file"},
+                },
+                RPCResults{},
+                RPCExamples{
+            "\nDump the wallet\n"
+            + HelpExampleCli("dumpwallet", "\"test\"") +
+            "\nImport the wallet\n"
+            + HelpExampleCli("importwallet", "\"test\"") +
+            "\nImport using the json rpc call\n"
+            + HelpExampleRpc("importwallet", "\"test\"")
+                },
+            }.Check(request);
+
+        return importwallet_impl(request, false);
+}
+
+UniValue z_importwallet(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+            RPCHelpMan{"z_importwallet",
+                "\nImports taddr and zaddr keys from a wallet dump file (see z_exportwallet). Requires a new wallet backup to include imported keys.\n"
+                "Note: Use \"getwalletinfo\" to query the scanning progress.\n",
+                {
+                    {"filename", RPCArg::Type::STR, RPCArg::Optional::NO, "The wallet file"},
+                },
+                RPCResults{},
+                RPCExamples{
+            "\nDump the wallet\n"
+            + HelpExampleCli("z_exportwallet", "\"test\"") +
+            "\nImport the wallet\n"
+            + HelpExampleCli("z_importwallet", "\"test\"") +
+            "\nImport using the json rpc call\n"
+            + HelpExampleRpc("z_importwallet", "\"test\"")
+                },
+            }.Check(request);
+
+        return importwallet_impl(request, true);
+}
+
 UniValue dumpprivkey(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -728,33 +787,10 @@ UniValue dumpprivkey(const JSONRPCRequest& request)
     return EncodeSecret(vchSecret);
 }
 
-
-UniValue dumpwallet(const JSONRPCRequest& request)
+UniValue dumpwallet_impl(const JSONRPCRequest& request, bool fDumpZKeys)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
-    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
-        return NullUniValue;
-    }
-
-            RPCHelpMan{"dumpwallet",
-                "\nDumps all wallet keys in a human-readable format to a server-side file. This does not allow overwriting existing files.\n"
-                "Imported scripts are included in the dumpfile, but corresponding BIP173 addresses, etc. may not be added automatically by importwallet.\n"
-                "Note that if your wallet contains keys which are not derived from your HD seed (e.g. imported keys), these are not covered by\n"
-                "only backing up the seed itself, and must be backed up too (e.g. ensure you back up the whole dumpfile).\n",
-                {
-                    {"filename", RPCArg::Type::STR, RPCArg::Optional::NO, "The filename with path (either absolute or relative to litecoinzd)"},
-                },
-                RPCResult{
-            "{                           (json object)\n"
-            "  \"filename\" : {        (string) The filename with full absolute path\n"
-            "}\n"
-                },
-                RPCExamples{
-                    HelpExampleCli("dumpwallet", "\"test\"")
-            + HelpExampleRpc("dumpwallet", "\"test\"")
-                },
-            }.Check(request);
 
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
@@ -793,12 +829,20 @@ UniValue dumpwallet(const JSONRPCRequest& request)
     std::sort(vKeyBirth.begin(), vKeyBirth.end());
 
     // produce output
-    file << strprintf("# Wallet dump created by Litecoinz %s\n", CLIENT_BUILD);
+    file << strprintf("# Wallet dump created by LitecoinZ %s\n", CLIENT_BUILD);
     file << strprintf("# * Created on %s\n", FormatISO8601DateTime(GetTime()));
     const Optional<int> tip_height = locked_chain->getHeight();
     file << strprintf("# * Best block at time of backup was %i (%s),\n", tip_height.get_value_or(-1), tip_height ? locked_chain->getBlockHash(*tip_height).ToString() : "(missing block hash)");
     file << strprintf("#   mined on %s\n", tip_height ? FormatISO8601DateTime(locked_chain->getBlockTime(*tip_height)) : "(missing block time)");
     file << "\n";
+
+    {
+        HDSeed hdSeed;
+        pwallet->GetZecHDSeed(hdSeed);
+        auto rawSeed = hdSeed.RawSeed();
+        file << strprintf("# ZecHDSeed=%s fingerprint=%s", HexStr(rawSeed.begin(), rawSeed.end()), hdSeed.Fingerprint().GetHex());
+        file << "\n";
+    }
 
     // add the base58check encoded extended master if the wallet uses HD
     CKeyID seed_id = pwallet->GetHDChain().seed_id;
@@ -835,6 +879,42 @@ UniValue dumpwallet(const JSONRPCRequest& request)
         }
     }
     file << "\n";
+
+    if (fDumpZKeys) {
+        std::set<libzcash::SproutPaymentAddress> sproutAddresses;
+        pwallet->GetSproutPaymentAddresses(sproutAddresses);
+        file << "\n";
+        file << "# Zkeys\n";
+        file << "\n";
+        for (auto addr : sproutAddresses) {
+            libzcash::SproutSpendingKey key;
+            if (pwallet->GetSproutSpendingKey(addr, key)) {
+                std::string strTime = FormatISO8601DateTime(pwallet->mapSproutZKeyMetadata[addr].nCreateTime);
+                file << strprintf("%s %s # zaddr=%s\n", EncodeSpendingKey(key), strTime, EncodePaymentAddress(addr));
+            }
+        }
+        std::set<libzcash::SaplingPaymentAddress> saplingAddresses;
+        pwallet->GetSaplingPaymentAddresses(saplingAddresses);
+        file << "\n";
+        file << "# Sapling keys\n";
+        file << "\n";
+        for (auto addr : saplingAddresses) {
+            libzcash::SaplingExtendedSpendingKey extsk;
+            if (pwallet->GetSaplingExtendedSpendingKey(addr, extsk)) {
+                auto ivk = extsk.expsk.full_viewing_key().in_viewing_key();
+                CKeyMetadata keyMeta = pwallet->mapSaplingZKeyMetadata[ivk];
+                std::string strTime = FormatISO8601DateTime(keyMeta.nCreateTime);
+                // Keys imported with z_importkey do not have zip32 metadata
+                if (keyMeta.hdKeypath.empty() || keyMeta.seedFp.IsNull()) {
+                    file << strprintf("%s %s # zaddr=%s\n", EncodeSpendingKey(extsk), strTime, EncodePaymentAddress(addr));
+                } else {
+                    file << strprintf("%s %s %s %s # zaddr=%s\n", EncodeSpendingKey(extsk), strTime, keyMeta.hdKeypath, keyMeta.seedFp.GetHex(), EncodePaymentAddress(addr));
+                }
+            }
+        }
+        file << "\n";
+    }
+
     for (const CScriptID &scriptid : scripts) {
         CScript script;
         std::string create_time = "0";
@@ -857,6 +937,66 @@ UniValue dumpwallet(const JSONRPCRequest& request)
     reply.pushKV("filename", filepath.string());
 
     return reply;
+}
+
+UniValue dumpwallet(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+            RPCHelpMan{"dumpwallet",
+                "\nDumps all taddr wallet keys in a human-readable format to a server-side file. This does not allow overwriting existing files.\n"
+                "Imported scripts are included in the dumpfile, but corresponding BIP173 addresses, etc. may not be added automatically by importwallet.\n"
+                "Note that if your wallet contains keys which are not derived from your HD seed (e.g. imported keys), these are not covered by\n"
+                "only backing up the seed itself, and must be backed up too (e.g. ensure you back up the whole dumpfile).\n",
+                {
+                    {"filename", RPCArg::Type::STR, RPCArg::Optional::NO, "The filename with path (either absolute or relative to litecoinzd)"},
+                },
+                RPCResult{
+            "{                           (json object)\n"
+            "  \"filename\" : {        (string) The filename with full absolute path\n"
+            "}\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("dumpwallet", "\"test\"")
+            + HelpExampleRpc("dumpwallet", "\"test\"")
+                },
+            }.Check(request);
+
+        return dumpwallet_impl(request, false);
+}
+
+UniValue z_exportwallet(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+            RPCHelpMan{"z_exportwallet",
+                "\nDumps all wallet keys, for taddr and zaddr, in a human-readable format to a server-side file. This does not allow overwriting existing files.\n"
+                "Imported scripts are included in the dumpfile, but corresponding BIP173 addresses, etc. may not be added automatically by importwallet.\n"
+                "Note that if your wallet contains keys which are not derived from your HD seed (e.g. imported keys), these are not covered by\n"
+                "only backing up the seed itself, and must be backed up too (e.g. ensure you back up the whole dumpfile).\n",
+                {
+                    {"filename", RPCArg::Type::STR, RPCArg::Optional::NO, "The filename with path (either absolute or relative to litecoinzd)"},
+                },
+                RPCResult{
+            "{                           (json object)\n"
+            "  \"filename\" : {        (string) The filename with full absolute path\n"
+            "}\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("z_exportwallet", "\"test\"")
+            + HelpExampleRpc("z_exportwallet", "\"test\"")
+                },
+            }.Check(request);
+
+        return dumpwallet_impl(request, true);
 }
 
 struct ImportData
@@ -1448,4 +1588,311 @@ UniValue importmulti(const JSONRPCRequest& mainRequest)
     }
 
     return response;
+}
+
+UniValue z_exportkey(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+            RPCHelpMan{"z_exportkey",
+                "\nReveals the private key corresponding to 'zaddress'.\n"
+                "Then the z_importkey can be used with this output\n",
+                {
+                    {"zaddress", RPCArg::Type::STR, RPCArg::Optional::NO, "The zaddress for the private key"},
+                },
+                RPCResult{
+            "\"key\"                (string) The private key\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("z_exportkey", "\"myaddress\"")
+            + HelpExampleCli("z_importkey", "\"mykey\"")
+            + HelpExampleRpc("z_exportkey", "\"myaddress\"")
+                },
+            }.Check(request);
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    EnsureWalletIsUnlocked(pwallet);
+
+    std::string strAddress = request.params[0].get_str();
+    auto address = DecodePaymentAddress(strAddress);
+    if (!IsValidPaymentAddress(address)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid zaddress");
+    }
+
+    // Sapling support
+    auto sk = boost::apply_visitor(GetSpendingKeyForPaymentAddress(pwallet), address);
+    if (!sk) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Private key for zaddress " + strAddress + " is not known");
+    }
+    return EncodeSpendingKey(sk.get());
+}
+
+UniValue z_importkey(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+            RPCHelpMan{"z_importkey",
+                "\nAdds a zkey (as returned by z_exportkey) to your wallet.\n"
+            "\nNote: This call can take over an hour to complete if rescan is true, during that time, other rpc calls\n"
+            "may report that the imported key exists but related transactions are still missing, leading to temporarily incorrect/bogus balances and unspent outputs until rescan completes.\n"
+            "Note: Use \"getwalletinfo\" to query the scanning progress.\n",
+                {
+                    {"zkey", RPCArg::Type::STR, RPCArg::Optional::NO, "The zkey (see z_exportkey)"},
+                    {"label", RPCArg::Type::STR, /* default */ "current label if address exists, otherwise \"\"", "An optional label"},
+                    {"rescan", RPCArg::Type::BOOL, /* default */ "true", "Rescan the wallet for transactions"},
+                },
+                RPCResult{
+            "{\n"
+            "  \"type\" : \"xxxx\",                         (string) \"sprout\" or \"sapling\"\n"
+            "  \"address\" : \"address|DefaultAddress\",    (string) The address(sprout) or the DefaultAddress(sapling)\n"
+            "}\n"
+                },
+                RPCExamples{
+            "\nDump a private key\n"
+            + HelpExampleCli("z_exportkey", "\"myaddress\"") +
+            "\nImport the private key with rescan\n"
+            + HelpExampleCli("z_importkey", "\"mykey\"") +
+            "\nImport using a label and without rescan\n"
+            + HelpExampleCli("z_importkey", "\"mykey\" \"testing\" false") +
+            "\nImport using default blank label and without rescan\n"
+            + HelpExampleCli("z_importkey", "\"mykey\" \"\" false") +
+            "\nAs a JSON-RPC call\n"
+            + HelpExampleRpc("z_importkey", "\"mykey\", \"testing\", false")
+                },
+            }.Check(request);
+
+    if (pwallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Cannot import private keys to a wallet with private keys disabled");
+    }
+
+    UniValue result(UniValue::VOBJ);
+
+    WalletRescanReserver reserver(pwallet);
+    bool fRescan = true;
+    {
+        auto locked_chain = pwallet->chain().lock();
+        LOCK(pwallet->cs_wallet);
+
+        EnsureWalletIsUnlocked(pwallet);
+
+        std::string strSecret = request.params[0].get_str();
+        std::string strLabel = "";
+        if (!request.params[1].isNull())
+            strLabel = request.params[1].get_str();
+
+        // Whether to perform rescan after import
+        if (!request.params[2].isNull())
+            fRescan = request.params[2].get_bool();
+
+        if (fRescan && pwallet->chain().havePruned()) {
+            // Exit early and print an error.
+            // If a block is pruned after this check, we will import the key(s),
+            // but fail the rescan with a generic error.
+            throw JSONRPCError(RPC_WALLET_ERROR, "Rescan is disabled when blocks are pruned");
+        }
+
+        if (fRescan && !reserver.reserve()) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Wallet is currently rescanning. Abort existing rescan or wait.");
+        }
+
+        auto spendingkey = DecodeSpendingKey(strSecret);
+        if (!IsValidSpendingKey(spendingkey)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid spending key");
+        }
+
+        auto addrInfo = boost::apply_visitor(libzcash::AddressInfoFromSpendingKey{}, spendingkey);
+        auto type = addrInfo.first;
+        auto dest = addrInfo.second;
+
+        result.pushKV("type", type);
+        result.pushKV("address", EncodePaymentAddress(dest));
+
+        // Sapling support
+        auto addResult = boost::apply_visitor(AddSpendingKeyToWallet(pwallet, Params().GetConsensus()), spendingkey);
+        if (addResult == KeyAlreadyExists) {
+            return result;
+        }
+
+        if (addResult == KeyNotAdded) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Error adding spending key to wallet");
+        }
+
+        {
+            pwallet->MarkDirty();
+            if (type == "sprout") {
+                if (!request.params[1].isNull() || pwallet->mapSproutAddressBook.count(dest) == 0) {
+                    pwallet->SetSproutAddressBook(dest, strLabel, "receive");
+                }
+            } else {
+                if (!request.params[1].isNull() || pwallet->mapSaplingAddressBook.count(dest) == 0) {
+                    pwallet->SetSaplingAddressBook(dest, strLabel, "receive");
+                }
+            }
+        }
+    }
+    if (fRescan) {
+        RescanWallet(*pwallet, reserver);
+    }
+
+    return result;
+}
+
+UniValue z_importviewingkey(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+            RPCHelpMan{"z_importviewingkey",
+                "\nAdds a viewing key (as returned by z_exportviewingkey) to your wallet. Requires a new wallet backup.\n"
+            "\nNote: This call can take over an hour to complete if rescan is true, during that time, other rpc calls\n"
+            "may report that the imported pubkey exists but related transactions are still missing, leading to temporarily incorrect/bogus balances and unspent outputs until rescan completes.\n"
+            "Note: Use \"getwalletinfo\" to query the scanning progress.\n",
+                {
+                    {"vkey", RPCArg::Type::STR, RPCArg::Optional::NO, "The viewing key (see z_exportviewingkey)"},
+                    {"label", RPCArg::Type::STR, /* default */ "\"\"", "An optional label"},
+                    {"rescan", RPCArg::Type::BOOL, /* default */ "true", "Rescan the wallet for transactions"},
+                },
+                RPCResults{},
+                RPCExamples{
+            "\nImport a viewing key with rescan\n"
+            + HelpExampleCli("z_importviewingkey", "\"vkey\"") +
+            "\nImport using a label without rescan\n"
+            + HelpExampleCli("z_importviewingkey", "\"vkey\" \"testing\" false") +
+            "\nAs a JSON-RPC call\n"
+            + HelpExampleRpc("z_importviewingkey", "\"vkey\", \"testing\", false")
+                },
+            }.Check(request);
+
+    std::string strLabel;
+    if (!request.params[1].isNull())
+        strLabel = request.params[1].get_str();
+
+    // Whether to perform rescan after import
+    bool fRescan = true;
+    if (!request.params[2].isNull())
+        fRescan = request.params[2].get_bool();
+
+    if (fRescan && pwallet->chain().havePruned()) {
+        // Exit early and print an error.
+        // If a block is pruned after this check, we will import the key(s),
+        // but fail the rescan with a generic error.
+        throw JSONRPCError(RPC_WALLET_ERROR, "Rescan is disabled when blocks are pruned");
+    }
+
+    WalletRescanReserver reserver(pwallet);
+    if (fRescan && !reserver.reserve()) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Wallet is currently rescanning. Abort existing rescan or wait.");
+    }
+
+    std::string strVKey = request.params[0].get_str();
+    auto viewingkey = DecodeViewingKey(strVKey);
+    if (!IsValidViewingKey(viewingkey)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid viewing key");
+    }
+
+    // TODO: Add Sapling support. For now, return an error to the user.
+    if (boost::get<libzcash::SproutViewingKey>(&viewingkey) == nullptr) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Currently, only Sprout viewing keys are supported");
+    }
+
+    {
+        auto locked_chain = pwallet->chain().lock();
+        LOCK(pwallet->cs_wallet);
+
+        auto vkey = boost::get<libzcash::SproutViewingKey>(viewingkey);
+        auto addr = vkey.address();
+
+        if (pwallet->HaveSproutSpendingKey(addr)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "The wallet already contains the private key for this viewing key");
+        }
+
+        // Don't throw error in case a viewing key is already there
+        if (pwallet->HaveSproutViewingKey(addr)) {
+            return NullUniValue;
+        }
+
+        pwallet->MarkDirty();
+
+        if (!pwallet->AddSproutViewingKey(vkey)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Error adding viewing key to wallet");
+        }
+    }
+    if (fRescan)
+    {
+        RescanWallet(*pwallet, reserver);
+        {
+            auto locked_chain = pwallet->chain().lock();
+            LOCK(pwallet->cs_wallet);
+            pwallet->ReacceptWalletTransactions(*locked_chain);
+        }
+    }
+
+    return NullUniValue;
+}
+
+UniValue z_exportviewingkey(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+            RPCHelpMan{"z_exportviewingkey",
+                "\nReveals the viewing key corresponding to 'zaddr'.\n"
+                "Then the z_importviewingkey can be used with this output\n",
+                {
+                    {"zaddr", RPCArg::Type::STR, RPCArg::Optional::NO, "The zaddr for the viewing key"},
+                },
+                RPCResult{
+            "\"vkey\"                  (string) The viewing key\n"
+                },
+                RPCExamples{
+            "\nExport a viewing key\n"
+            + HelpExampleCli("z_exportviewingkey", "\"myaddress\"") +
+            "\nAs a JSON-RPC call\n"
+            + HelpExampleRpc("z_exportviewingkey", "\"myaddress\", false")
+                },
+            }.Check(request);
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    EnsureWalletIsUnlocked(pwallet);
+
+    std::string strAddress = request.params[0].get_str();
+
+    auto address = DecodePaymentAddress(strAddress);
+    if (!IsValidPaymentAddress(address)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid zaddr");
+    }
+    // TODO: Add Sapling support. For now, return an error to the user.
+    if (boost::get<libzcash::SproutPaymentAddress>(&address) == nullptr) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Currently, only Sprout zaddrs are supported");
+    }
+    auto addr = boost::get<libzcash::SproutPaymentAddress>(address);
+
+    libzcash::SproutViewingKey vk;
+    if (!pwallet->GetSproutViewingKey(addr, vk)) {
+        libzcash::SproutSpendingKey k;
+        if (!pwallet->GetSproutSpendingKey(addr, k)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Wallet does not hold private key or viewing key for this zaddr");
+        }
+        vk = k.viewing_key();
+    }
+
+    return EncodeViewingKey(vk);
 }

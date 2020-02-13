@@ -170,7 +170,7 @@ void TestGUI()
     {
         // Check balance in send dialog
         QLabel* balanceLabel = sendCoinsDialog.findChild<QLabel*>("labelBalance");
-        QString balanceText = balanceLabel->text();
+        QString balanceText = balanceLabel->text().trimmed();
         int unit = walletModel.getOptionsModel()->getDisplayUnit();
         CAmount balance = walletModel.wallet().getBalance();
         QString balanceComparison = BitcoinUnits::formatWithUnit(unit, balance, false, BitcoinUnits::separatorAlways);

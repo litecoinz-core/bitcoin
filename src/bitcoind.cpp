@@ -83,6 +83,11 @@ static bool AppInit(int argc, char* argv[])
         if (!gArgs.ReadConfigFiles(error, true)) {
             return InitError(strprintf("Error reading configuration file: %s\n", error));
         }
+        // Check for LitecoinZ circuit parameters
+        if (!fs::is_directory(GetParamsDir()))
+        {
+            return InitError(strprintf("Specified circuit parameters directory \"%s\" does not exist.\n", gArgs.GetArg("-paramsdir", "")));
+        }
         // Check for -chain, -testnet or -regtest parameter (Params() calls are only valid after this clause)
         try {
             SelectParams(gArgs.GetChainName());

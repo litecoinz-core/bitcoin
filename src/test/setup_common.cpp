@@ -8,6 +8,7 @@
 #include <chainparams.h>
 #include <consensus/consensus.h>
 #include <consensus/params.h>
+#include <consensus/upgrades.h>
 #include <consensus/validation.h>
 #include <crypto/equihash.h>
 #include <crypto/sha256.h>
@@ -222,8 +223,12 @@ CTxMemPoolEntry TestMemPoolEntryHelper::FromTx(const CMutableTransaction &tx) {
 
 CTxMemPoolEntry TestMemPoolEntryHelper::FromTx(const CTransactionRef& tx)
 {
-    return CTxMemPoolEntry(tx, nFee, nTime, nHeight,
-                           spendsCoinbase, sigOpCost, lp);
+    // Grab the branch ID we expect this transaction to commit to. We don't
+    // yet know if it does, but if the entry gets added to the mempool, then
+    // it has passed ContextualCheckInputs and therefore this is correct.
+    auto consensusBranchId = CurrentEpochBranchId(::ChainActive().Height() + 1, Params().GetConsensus());
+
+    return CTxMemPoolEntry(tx, nFee, nTime, nHeight, spendsCoinbase, consensusBranchId, sigOpCost, lp);
 }
 
 /**

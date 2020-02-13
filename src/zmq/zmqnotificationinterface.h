@@ -5,6 +5,7 @@
 #ifndef BITCOIN_ZMQ_ZMQNOTIFICATIONINTERFACE_H
 #define BITCOIN_ZMQ_ZMQNOTIFICATIONINTERFACE_H
 
+#include <consensus/validation.h>
 #include <validationinterface.h>
 #include <string>
 #include <map>
@@ -31,6 +32,7 @@ protected:
     void BlockConnected(const std::shared_ptr<const CBlock>& pblock, const CBlockIndex* pindexConnected, const std::vector<CTransactionRef>& vtxConflicted) override;
     void BlockDisconnected(const std::shared_ptr<const CBlock>& pblock) override;
     void UpdatedBlockTip(const CBlockIndex *pindexNew, const CBlockIndex *pindexFork, bool fInitialDownload) override;
+    void BlockChecked(const CBlock& block, const CValidationState& state) override;
 
 private:
     CZMQNotificationInterface();

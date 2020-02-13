@@ -94,10 +94,13 @@ static void WalletShowInfo(CWallet* wallet_instance)
 
     tfm::format(std::cout, "Wallet info\n===========\n");
     tfm::format(std::cout, "Encrypted: %s\n", wallet_instance->IsCrypted() ? "yes" : "no");
-    tfm::format(std::cout, "HD (hd seed available): %s\n", wallet_instance->GetHDChain().seed_id.IsNull() ? "no" : "yes");
+    tfm::format(std::cout, "Base HD (hd seed available): %s\n", wallet_instance->GetHDChain().seed_id.IsNull() ? "no" : "yes");
+    tfm::format(std::cout, "Zec HD (hd seed available): %s\n", wallet_instance->GetZecHDChain().seedFp.IsNull() ? "no" : "yes");
     tfm::format(std::cout, "Keypool Size: %u\n", wallet_instance->GetKeyPoolSize());
     tfm::format(std::cout, "Transactions: %zu\n", wallet_instance->mapWallet.size());
-    tfm::format(std::cout, "Address Book: %zu\n", wallet_instance->mapAddressBook.size());
+    tfm::format(std::cout, "Transparent Address Book: %zu\n", wallet_instance->mapAddressBook.size());
+    tfm::format(std::cout, "Sprout Address Book: %zu\n", wallet_instance->mapSproutAddressBook.size());
+    tfm::format(std::cout, "Sapling Address Book: %zu\n", wallet_instance->mapSaplingAddressBook.size());
 }
 
 bool ExecuteWalletToolFunc(const std::string& command, const std::string& name)

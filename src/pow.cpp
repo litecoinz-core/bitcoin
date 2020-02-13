@@ -29,25 +29,23 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
     if (params.fPowAllowMinDifficultyBlocks)
     {
         // Special difficulty rule for testnet:
-        // If the new block's timestamp is more than 2* 10 minutes
+        // If the new block's timestamp is more than 6 * 2.5 minutes
         // then allow mining of a min-difficulty block.
-        if (pblock->GetBlockTime() > pindexLast->GetBlockTime() + params.nPowTargetSpacing*2)
+        if (pblock && pblock->GetBlockTime() > pindexLast->GetBlockTime() + params.nPowTargetSpacing * 6)
             return nProofOfWorkLimit;
     }
-    else
-    {
-        // Reset the difficulty after the algo fork for testnet and regtest
-        if (Params().NetworkIDString() != CBaseChainParams::MAIN) {
-            if (((pindexLast->nHeight + 1) >= params.nEquihashForkHeight) && (pindexLast->nHeight < params.nEquihashForkHeight + params.nPowAveragingWindow)) {
-                LogPrint(BCLog::POW, "Reset the difficulty for the algorithm change: %d\n", nProofOfWorkLimit);
-                return nProofOfWorkLimit;
-            }
-        } else {
-            // Reset the difficulty after the algo fork
-            if (((pindexLast->nHeight + 1) >= 95005) && (pindexLast->nHeight < params.nEquihashForkHeight + params.nPowAveragingWindow)) {
-                LogPrint(BCLog::POW, "Reset the difficulty for the algorithm change: %d\n", nProofOfWorkLimit);
-                return nProofOfWorkLimit;
-            }
+
+    // Reset the difficulty after the algo fork for testnet and regtest
+    if (Params().NetworkIDString() != CBaseChainParams::MAIN) {
+        if (((pindexLast->nHeight + 1) >= params.nEquihashForkHeight) && (pindexLast->nHeight < params.nEquihashForkHeight + params.nPowAveragingWindow)) {
+            LogPrint(BCLog::POW, "Reset the difficulty for the algorithm change: %d\n", nProofOfWorkLimit);
+            return nProofOfWorkLimit;
+        }
+    } else {
+        // Reset the difficulty after the algo fork
+        if (((pindexLast->nHeight + 1) >= 95005) && (pindexLast->nHeight < params.nEquihashForkHeight + params.nPowAveragingWindow)) {
+            LogPrint(BCLog::POW, "Reset the difficulty for the algorithm change: %d\n", nProofOfWorkLimit);
+            return nProofOfWorkLimit;
         }
     }
 

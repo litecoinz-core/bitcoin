@@ -72,6 +72,7 @@ private:
     const int64_t nTime;            //!< Local time when entering the mempool
     const unsigned int entryHeight; //!< Chain height when entering the mempool
     const bool spendsCoinbase;      //!< keep track of transactions that spend a coinbase
+    uint32_t nBranchId;             //!< Branch ID this transaction is known to commit to, cached for efficiency
     const int64_t sigOpCost;        //!< Total sigop cost
     int64_t feeDelta;          //!< Used for determining the priority of the transaction for mining in a block
     LockPoints lockPoints;     //!< Track the height and time at which tx was final
@@ -92,7 +93,7 @@ private:
 public:
     CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee,
                     int64_t _nTime, unsigned int _entryHeight,
-                    bool spendsCoinbase,
+                    bool spendsCoinbase, uint32_t nBranchId,
                     int64_t nSigOpsCost, LockPoints lp);
 
     const CTransaction& GetTx() const { return *this->tx; }
@@ -122,6 +123,7 @@ public:
     CAmount GetModFeesWithDescendants() const { return nModFeesWithDescendants; }
 
     bool GetSpendsCoinbase() const { return spendsCoinbase; }
+    uint32_t GetValidatedBranchId() const { return nBranchId; }
 
     uint64_t GetCountWithAncestors() const { return nCountWithAncestors; }
     uint64_t GetSizeWithAncestors() const { return nSizeWithAncestors; }
@@ -129,6 +131,9 @@ public:
     int64_t GetSigOpCostWithAncestors() const { return nSigOpCostWithAncestors; }
 
     mutable size_t vTxHashesIdx; //!< Index in mempool's vTxHashes
+
+    // Returns true if a transaction has been recently evicted
+    bool IsRecentlyEvicted(const uint256& txId);
 };
 
 // Helpers for modifying CTxMemPool::mapTx, which is a boost multi_index.
@@ -447,6 +452,10 @@ private:
     uint64_t totalTxSize;      //!< sum of all mempool tx's virtual sizes. Differs from serialized tx size since witness data is discounted. Defined in BIP 141.
     uint64_t cachedInnerUsage; //!< sum of dynamic memory usage of all the map elements (NOT the maps themselves)
 
+    std::map<uint256, const CTransaction*> mapSproutNullifiers;
+    std::map<uint256, const CTransaction*> mapSaplingNullifiers;
+    void checkNullifiers(ShieldedType type) const;
+
     mutable int64_t lastRollingFeeUpdate;
     mutable bool blockSinceLastRollingFeeBump;
     mutable double rollingMinimumFeeRate; //!< minimum fee to get into the pool, decreases exponentially
@@ -575,6 +584,9 @@ public:
     void removeForReorg(const CCoinsViewCache* pcoins, unsigned int nMemPoolHeight, int flags) EXCLUSIVE_LOCKS_REQUIRED(cs, cs_main);
     void removeConflicts(const CTransaction& tx) EXCLUSIVE_LOCKS_REQUIRED(cs);
     void removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight) EXCLUSIVE_LOCKS_REQUIRED(cs);
+    void removeWithAnchor(const uint256 &invalidRoot, ShieldedType type) EXCLUSIVE_LOCKS_REQUIRED(cs);
+    void removeWithoutBranchId(uint32_t nMemPoolBranchId) EXCLUSIVE_LOCKS_REQUIRED(cs);
+    void removeExpired(unsigned int nBlockHeight) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     void clear();
     void _clear() EXCLUSIVE_LOCKS_REQUIRED(cs); //lock free
@@ -593,6 +605,8 @@ public:
     void PrioritiseTransaction(const uint256& hash, const CAmount& nFeeDelta);
     void ApplyDelta(const uint256 hash, CAmount &nFeeDelta) const;
     void ClearPrioritisation(const uint256 hash);
+
+    bool nullifierExists(const uint256& nullifier, ShieldedType type) const;
 
     /** Get the transaction in the pool that spends the same prevout */
     const CTransaction* GetConflictTx(const COutPoint& prevout) const EXCLUSIVE_LOCKS_REQUIRED(cs);
@@ -755,6 +769,7 @@ protected:
 public:
     CCoinsViewMemPool(CCoinsView* baseIn, const CTxMemPool& mempoolIn);
     bool GetCoin(const COutPoint &outpoint, Coin &coin) const override;
+    bool GetNullifier(const uint256 &txid, ShieldedType type) const override;
 };
 
 /**
