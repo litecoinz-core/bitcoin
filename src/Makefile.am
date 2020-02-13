@@ -714,7 +714,7 @@ zcash_libzcash_a_SOURCES = \
   zcash/circuit/prfs.tcc \
   zcash/circuit/utils.tcc
 
-zcash_libzcash_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) -DBINARY_OUTPUT -DCURVE_ALT_BN128 -DMONTGOMERY_OUTPUT -DBOOST_SPIRIT_THREADSAFE
+zcash_libzcash_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 zcash_libzcash_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 #
 
