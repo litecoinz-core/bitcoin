@@ -3772,9 +3772,8 @@ CWallet::Balance CWallet::GetShieldedBalance(const int min_depth, bool avoid_reu
 
         std::vector<SproutNoteEntry> sproutEntries;
         std::vector<SaplingNoteEntry> saplingEntries;
-        std::set<libzcash::PaymentAddress> noFilter;
 
-        GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, noFilter, min_depth, INT_MAX, avoid_reuse);
+        GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, nullptr, min_depth, INT_MAX, avoid_reuse);
         for (auto & entry : sproutEntries) {
             ret.m_mine_shielded += CAmount(entry.note.value());
         }
@@ -3785,7 +3784,7 @@ CWallet::Balance CWallet::GetShieldedBalance(const int min_depth, bool avoid_reu
         sproutEntries.clear();
         saplingEntries.clear();
 
-        GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, noFilter, 0, 0, avoid_reuse);
+        GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, nullptr, 0, 0, avoid_reuse);
         for (auto & entry : sproutEntries) {
             ret.m_mine_shielded_pending += CAmount(entry.note.value());
         }
@@ -3854,9 +3853,12 @@ CAmount CWallet::GetBalanceZaddr(std::string address, int min_depth, int max_dep
     std::set<libzcash::PaymentAddress> filterAddresses;
     if (address.length() > 0) {
         filterAddresses.insert(DecodePaymentAddress(address));
+        GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, &filterAddresses, min_depth, max_depth, avoid_reuse);
     }
-
-    GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, filterAddresses, min_depth, max_depth, avoid_reuse);
+    else
+    {
+        GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, nullptr, min_depth, max_depth, avoid_reuse);
+    }
 
     for (auto & entry : sproutEntries) {
         balance += CAmount(entry.note.value());
@@ -7138,9 +7140,12 @@ void CWallet::GetFilteredNotes(
 
     if (address.length() > 0) {
         filterAddresses.insert(DecodePaymentAddress(address));
+        GetFilteredNotes(locked_chain, sproutEntries, saplingEntries, &filterAddresses, minDepth, INT_MAX, ignoreSpent, requireSpendingKey);
     }
-
-    GetFilteredNotes(locked_chain, sproutEntries, saplingEntries, filterAddresses, minDepth, INT_MAX, ignoreSpent, requireSpendingKey);
+    else
+    {
+        GetFilteredNotes(locked_chain, sproutEntries, saplingEntries, nullptr, minDepth, INT_MAX, ignoreSpent, requireSpendingKey);
+    }
 }
 
 /**
@@ -7152,7 +7157,7 @@ void CWallet::GetFilteredNotes(
     interfaces::Chain::Lock& locked_chain,
     std::vector<SproutNoteEntry>& sproutEntries,
     std::vector<SaplingNoteEntry>& saplingEntries,
-    std::set<libzcash::PaymentAddress>& filterAddresses,
+    std::set<libzcash::PaymentAddress>* filterAddresses,
     int minDepth,
     int maxDepth,
     bool ignoreSpent,
@@ -7178,7 +7183,7 @@ void CWallet::GetFilteredNotes(
             libzcash::SproutPaymentAddress pa = nd.address;
 
             // skip notes which belong to a different payment address in the wallet
-            if (!(filterAddresses.empty() || filterAddresses.count(pa))) {
+            if (filterAddresses && !filterAddresses->count(pa)) {
                 continue;
             }
 
@@ -7246,7 +7251,7 @@ void CWallet::GetFilteredNotes(
             auto pa = maybe_pa.get();
 
             // skip notes which belong to a different payment address in the wallet
-            if (!(filterAddresses.empty() || filterAddresses.count(pa))) {
+            if (filterAddresses && !filterAddresses->count(pa)) {
                 continue;
             }
 

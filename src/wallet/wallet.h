@@ -1805,7 +1805,7 @@ public:
     void GetFilteredNotes(interfaces::Chain::Lock& locked_chain,
                           std::vector<SproutNoteEntry>& sproutEntries,
                           std::vector<SaplingNoteEntry>& saplingEntries,
-                          std::set<libzcash::PaymentAddress>& filterAddresses,
+                          std::set<libzcash::PaymentAddress>* filterAddresses,
                           int minDepth=1,
                           int maxDepth=INT_MAX,
                           bool ignoreSpent=true,

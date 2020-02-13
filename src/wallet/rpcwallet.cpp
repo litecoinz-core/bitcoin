@@ -3252,7 +3252,7 @@ static UniValue z_listunspent(const JSONRPCRequest& request)
     if (zaddrs.size() > 0) {
         std::vector<SproutNoteEntry> sproutEntries;
         std::vector<SaplingNoteEntry> saplingEntries;
-        pwallet->GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, zaddrs, nMinDepth, nMaxDepth, true, !fIncludeWatchonly, false);
+        pwallet->GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, &zaddrs, nMinDepth, nMaxDepth, true, !fIncludeWatchonly, false);
         std::set<std::pair<libzcash::PaymentAddress, uint256>> nullifierSet = pwallet->GetNullifiersForAddresses(zaddrs);
 
         for (auto & entry : sproutEntries) {
@@ -5544,7 +5544,7 @@ UniValue z_mergetoaddress(const JSONRPCRequest& request)
         // Get available notes
         std::vector<SproutNoteEntry> sproutEntries;
         std::vector<SaplingNoteEntry> saplingEntries;
-        pwallet->GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, zaddrs);
+        pwallet->GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, &zaddrs);
 
         // If Sapling is not active, do not allow sending from a sapling addresses.
         if (!saplingActive && saplingEntries.size() > 0) {
@@ -5996,10 +5996,9 @@ UniValue z_getmigrationstatus(const JSONRPCRequest& request)
     {
         std::vector<SproutNoteEntry> sproutEntries;
         std::vector<SaplingNoteEntry> saplingEntries;
-        std::set<libzcash::PaymentAddress> noFilter;
         // Here we are looking for any and all Sprout notes for which we have the spending key, including those
         // which are locked and/or only exist in the mempool, as they should be included in the unmigrated amount.
-        pwallet->GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, noFilter, 0, INT_MAX, true, true, false);
+        pwallet->GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, nullptr, 0, INT_MAX, true, true, false);
         CAmount unmigratedAmount = 0;
         for (const auto& sproutEntry : sproutEntries) {
             unmigratedAmount += sproutEntry.note.value();
