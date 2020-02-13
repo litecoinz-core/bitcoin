@@ -33,12 +33,18 @@ public:
         ReceivingTab = 1
     };
 
+    enum Filter {
+        All = 0,
+        Transparent = 1,
+        Shielded = 2
+    };
+
     enum Mode {
         ForSelection, /**< Open address book to pick address */
         ForEditing  /**< Open address book for editing */
     };
 
-    explicit AddressBookPage(const PlatformStyle *platformStyle, Mode mode, Tabs tab, QWidget *parent = nullptr);
+    explicit AddressBookPage(const PlatformStyle *platformStyle, Mode mode, Tabs tab, Filter filter, QWidget *parent = nullptr);
     ~AddressBookPage();
 
     void setModel(AddressTableModel *model);
@@ -52,6 +58,7 @@ private:
     AddressTableModel *model;
     Mode mode;
     Tabs tab;
+    Filter filter;
     QString returnValue;
     AddressBookSortFilterProxyModel *proxyModel;
     QMenu *contextMenu;

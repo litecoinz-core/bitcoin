@@ -1699,6 +1699,8 @@ public:
     bool SetSaplingAddressBook(const libzcash::PaymentAddress& address, const std::string& strName, const std::string& purpose);
 
     bool DelAddressBook(const CTxDestination& address);
+    bool DelSproutAddressBook(const libzcash::PaymentAddress& address);
+    bool DelSaplingAddressBook(const libzcash::PaymentAddress& address);
 
     const std::string& GetLabelName(const CScript& scriptPubKey) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
@@ -1743,7 +1745,7 @@ public:
      * @note called with lock cs_wallet held.
      */
     boost::signals2::signal<void (CWallet *wallet, const libzcash::PaymentAddress
-            &address, const std::string &label,
+            &address, const std::string &label, bool isMine,
             const std::string &purpose,
             ChangeType status)> NotifySproutAddressBookChanged;
 
@@ -1752,7 +1754,7 @@ public:
      * @note called with lock cs_wallet held.
      */
     boost::signals2::signal<void (CWallet *wallet, const libzcash::PaymentAddress
-            &address, const std::string &label,
+            &address, const std::string &label, bool isMine,
             const std::string &purpose,
             ChangeType status)> NotifySaplingAddressBookChanged;
 

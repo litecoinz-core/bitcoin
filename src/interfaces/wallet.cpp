@@ -140,9 +140,25 @@ public:
     {
         return m_wallet->SetAddressBook(dest, name, purpose);
     }
+    bool setSproutAddressBook(const libzcash::PaymentAddress& dest, const std::string& name, const std::string& purpose) override
+    {
+        return m_wallet->SetSproutAddressBook(dest, name, purpose);
+    }
+    bool setSaplingAddressBook(const libzcash::PaymentAddress& dest, const std::string& name, const std::string& purpose) override
+    {
+        return m_wallet->SetSaplingAddressBook(dest, name, purpose);
+    }
     bool delAddressBook(const CTxDestination& dest) override
     {
         return m_wallet->DelAddressBook(dest);
+    }
+    bool delSproutAddressBook(const libzcash::PaymentAddress& dest) override
+    {
+        return m_wallet->DelSproutAddressBook(dest);
+    }
+    bool delSaplingAddressBook(const libzcash::PaymentAddress& dest) override
+    {
+        return m_wallet->DelSaplingAddressBook(dest);
     }
     bool getAddress(const CTxDestination& dest,
         std::string* name,
@@ -165,11 +181,71 @@ public:
         }
         return true;
     }
+    bool getSproutAddress(const libzcash::PaymentAddress& dest,
+        std::string* name,
+        isminetype* is_mine,
+        std::string* purpose) override
+    {
+        LOCK(m_wallet->cs_wallet);
+        auto it = m_wallet->mapSproutAddressBook.find(dest);
+        if (it == m_wallet->mapSproutAddressBook.end()) {
+            return false;
+        }
+        if (name) {
+            *name = it->second.name;
+        }
+        if (is_mine) {
+            *is_mine = IsMine(*m_wallet, dest);
+        }
+        if (purpose) {
+            *purpose = it->second.purpose;
+        }
+        return true;
+    }
+    bool getSaplingAddress(const libzcash::PaymentAddress& dest,
+        std::string* name,
+        isminetype* is_mine,
+        std::string* purpose) override
+    {
+        LOCK(m_wallet->cs_wallet);
+        auto it = m_wallet->mapSaplingAddressBook.find(dest);
+        if (it == m_wallet->mapSaplingAddressBook.end()) {
+            return false;
+        }
+        if (name) {
+            *name = it->second.name;
+        }
+        if (is_mine) {
+            *is_mine = IsMine(*m_wallet, dest);
+        }
+        if (purpose) {
+            *purpose = it->second.purpose;
+        }
+        return true;
+    }
     std::vector<WalletAddress> getAddresses() override
     {
         LOCK(m_wallet->cs_wallet);
         std::vector<WalletAddress> result;
         for (const auto& item : m_wallet->mapAddressBook) {
+            result.emplace_back(item.first, IsMine(*m_wallet, item.first), item.second.name, item.second.purpose);
+        }
+        return result;
+    }
+    std::vector<WalletShieldedAddress> getSproutAddresses() override
+    {
+        LOCK(m_wallet->cs_wallet);
+        std::vector<WalletShieldedAddress> result;
+        for (const auto& item : m_wallet->mapSproutAddressBook) {
+            result.emplace_back(item.first, IsMine(*m_wallet, item.first), item.second.name, item.second.purpose);
+        }
+        return result;
+    }
+    std::vector<WalletShieldedAddress> getSaplingAddresses() override
+    {
+        LOCK(m_wallet->cs_wallet);
+        std::vector<WalletShieldedAddress> result;
+        for (const auto& item : m_wallet->mapSaplingAddressBook) {
             result.emplace_back(item.first, IsMine(*m_wallet, item.first), item.second.name, item.second.purpose);
         }
         return result;
@@ -496,14 +572,14 @@ public:
     std::unique_ptr<Handler> handleSproutAddressBookChanged(SproutAddressBookChangedFn fn) override
     {
         return MakeHandler(m_wallet->NotifySproutAddressBookChanged.connect(
-            [fn](CWallet*, const libzcash::PaymentAddress& address, const std::string& label,
-                const std::string& purpose, ChangeType status) { fn(address, label, purpose, status); }));
+            [fn](CWallet*, const libzcash::PaymentAddress& address, const std::string& label, bool is_mine,
+                const std::string& purpose, ChangeType status) { fn(address, label, is_mine, purpose, status); }));
     }
     std::unique_ptr<Handler> handleSaplingAddressBookChanged(SaplingAddressBookChangedFn fn) override
     {
         return MakeHandler(m_wallet->NotifySaplingAddressBookChanged.connect(
-            [fn](CWallet*, const libzcash::PaymentAddress& address, const std::string& label,
-                const std::string& purpose, ChangeType status) { fn(address, label, purpose, status); }));
+            [fn](CWallet*, const libzcash::PaymentAddress& address, const std::string& label, bool is_mine,
+                const std::string& purpose, ChangeType status) { fn(address, label, is_mine, purpose, status); }));
     }
     std::unique_ptr<Handler> handleTransactionChanged(TransactionChangedFn fn) override
     {

@@ -30,7 +30,7 @@ public:
         EditSendingAddress
     };
 
-    explicit EditAddressDialog(Mode mode, QWidget *parent = nullptr);
+    explicit EditAddressDialog(QString addressbook, Mode mode, QWidget *parent = nullptr);
     ~EditAddressDialog();
 
     void setModel(AddressTableModel *model);
@@ -50,6 +50,7 @@ private:
 
     Ui::EditAddressDialog *ui;
     QDataWidgetMapper *mapper;
+    QString addressbook;
     Mode mode;
     AddressTableModel *model;
 

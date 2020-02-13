@@ -156,7 +156,7 @@ void ReceiveCoinsDialog::on_receiveButton_clicked()
             address_type = OutputType::P2SH_SEGWIT;
         }
     }
-    address = model->getAddressTableModel()->addRow(AddressTableModel::Receive, label, "", address_type);
+    address = model->getAddressTableModel()->addRow(AddressTableModel::Receive, AddressTableModel::Base, label, "", address_type);
     SendCoinsRecipient info(address, label,
         ui->reqAmount->value(), ui->reqMessage->text());
     ReceiveRequestDialog *dialog = new ReceiveRequestDialog(this);

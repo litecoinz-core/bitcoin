@@ -35,6 +35,7 @@ namespace interfaces {
 
 class Handler;
 struct WalletAddress;
+struct WalletShieldedAddress;
 struct WalletBalances;
 struct WalletTx;
 struct WalletTxOut;
@@ -100,18 +101,36 @@ public:
 
     //! Add or update address.
     virtual bool setAddressBook(const CTxDestination& dest, const std::string& name, const std::string& purpose) = 0;
+    virtual bool setSproutAddressBook(const libzcash::PaymentAddress& dest, const std::string& name, const std::string& purpose) = 0;
+    virtual bool setSaplingAddressBook(const libzcash::PaymentAddress& dest, const std::string& name, const std::string& purpose) = 0;
 
     // Remove address.
     virtual bool delAddressBook(const CTxDestination& dest) = 0;
+    virtual bool delSproutAddressBook(const libzcash::PaymentAddress& dest) = 0;
+    virtual bool delSaplingAddressBook(const libzcash::PaymentAddress& dest) = 0;
 
     //! Look up address in wallet, return whether exists.
     virtual bool getAddress(const CTxDestination& dest,
         std::string* name,
         isminetype* is_mine,
         std::string* purpose) = 0;
+    virtual bool getSproutAddress(const libzcash::PaymentAddress& dest,
+        std::string* name,
+        isminetype* is_mine,
+        std::string* purpose) = 0;
+    virtual bool getSaplingAddress(const libzcash::PaymentAddress& dest,
+        std::string* name,
+        isminetype* is_mine,
+        std::string* purpose) = 0;
 
-    //! Get wallet address list.
+    //! Get wallet transparent address list.
     virtual std::vector<WalletAddress> getAddresses() = 0;
+
+    //! Get wallet sprout address list.
+    virtual std::vector<WalletShieldedAddress> getSproutAddresses() = 0;
+
+    //! Get wallet sapling address list.
+    virtual std::vector<WalletShieldedAddress> getSaplingAddresses() = 0;
 
     //! Add scripts to key store so old so software versions opening the wallet
     //! database can detect payments to newer address types.
@@ -297,6 +316,7 @@ public:
     //! Register handler for sprout address book changed messages.
     using SproutAddressBookChangedFn = std::function<void(const libzcash::PaymentAddress& address,
         const std::string& label,
+        bool is_mine,
         const std::string& purpose,
         ChangeType status)>;
     virtual std::unique_ptr<Handler> handleSproutAddressBookChanged(SproutAddressBookChangedFn fn) = 0;
@@ -304,6 +324,7 @@ public:
     //! Register handler for sapling address book changed messages.
     using SaplingAddressBookChangedFn = std::function<void(const libzcash::PaymentAddress& address,
         const std::string& label,
+        bool is_mine,
         const std::string& purpose,
         ChangeType status)>;
     virtual std::unique_ptr<Handler> handleSaplingAddressBookChanged(SaplingAddressBookChangedFn fn) = 0;
@@ -330,6 +351,20 @@ struct WalletAddress
     std::string purpose;
 
     WalletAddress(CTxDestination dest, isminetype is_mine, std::string name, std::string purpose)
+        : dest(std::move(dest)), is_mine(is_mine), name(std::move(name)), purpose(std::move(purpose))
+    {
+    }
+};
+
+//! Information about one wallet shielded address.
+struct WalletShieldedAddress
+{
+    libzcash::PaymentAddress dest;
+    isminetype is_mine;
+    std::string name;
+    std::string purpose;
+
+    WalletShieldedAddress(libzcash::PaymentAddress dest, isminetype is_mine, std::string name, std::string purpose)
         : dest(std::move(dest)), is_mine(is_mine), name(std::move(name)), purpose(std::move(purpose))
     {
     }

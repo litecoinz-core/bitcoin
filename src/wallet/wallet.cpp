@@ -4943,7 +4943,8 @@ bool CWallet::SetSproutAddressBookWithDB(WalletBatch& batch, const libzcash::Pay
         if (!strPurpose.empty()) /* update purpose only if requested */
             mapSproutAddressBook[address].purpose = strPurpose;
     }
-    NotifySproutAddressBookChanged(this, address, strName, strPurpose, (fUpdated ? CT_UPDATED : CT_NEW) );
+    NotifySproutAddressBookChanged(this, address, strName, ::IsMine(*this, address) != ISMINE_NO,
+                                   strPurpose, (fUpdated ? CT_UPDATED : CT_NEW) );
     if (!strPurpose.empty() && !batch.WriteSproutPurpose(EncodePaymentAddress(address), strPurpose))
         return false;
     return batch.WriteSproutName(EncodePaymentAddress(address), strName);
@@ -4960,7 +4961,8 @@ bool CWallet::SetSaplingAddressBookWithDB(WalletBatch& batch, const libzcash::Pa
         if (!strPurpose.empty()) /* update purpose only if requested */
             mapSaplingAddressBook[address].purpose = strPurpose;
     }
-    NotifySaplingAddressBookChanged(this, address, strName, strPurpose, (fUpdated ? CT_UPDATED : CT_NEW) );
+    NotifySaplingAddressBookChanged(this, address, strName, ::IsMine(*this, address) != ISMINE_NO,
+                                    strPurpose, (fUpdated ? CT_UPDATED : CT_NEW) );
     if (!strPurpose.empty() && !batch.WriteSaplingPurpose(EncodePaymentAddress(address), strPurpose))
         return false;
     return batch.WriteSaplingName(EncodePaymentAddress(address), strName);
@@ -5002,6 +5004,32 @@ bool CWallet::DelAddressBook(const CTxDestination& address)
 
     WalletBatch(*database).ErasePurpose(EncodeDestination(address));
     return WalletBatch(*database).EraseName(EncodeDestination(address));
+}
+
+bool CWallet::DelSproutAddressBook(const libzcash::PaymentAddress& address)
+{
+    {
+        LOCK(cs_wallet);
+        mapSproutAddressBook.erase(address);
+    }
+
+    NotifySproutAddressBookChanged(this, address, "", ::IsMine(*this, address) != ISMINE_NO, "", CT_DELETED);
+
+    WalletBatch(*database).EraseSproutPurpose(EncodePaymentAddress(address));
+    return WalletBatch(*database).EraseSproutName(EncodePaymentAddress(address));
+}
+
+bool CWallet::DelSaplingAddressBook(const libzcash::PaymentAddress& address)
+{
+    {
+        LOCK(cs_wallet);
+        mapSaplingAddressBook.erase(address);
+    }
+
+    NotifySaplingAddressBookChanged(this, address, "", ::IsMine(*this, address) != ISMINE_NO, "", CT_DELETED);
+
+    WalletBatch(*database).EraseSaplingPurpose(EncodePaymentAddress(address));
+    return WalletBatch(*database).EraseSaplingName(EncodePaymentAddress(address));
 }
 
 const std::string& CWallet::GetLabelName(const CScript& scriptPubKey) const

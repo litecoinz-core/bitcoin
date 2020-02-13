@@ -23,11 +23,13 @@
 class AddressBookSortFilterProxyModel final : public QSortFilterProxyModel
 {
     const QString m_type;
+    const QString m_filter;
 
 public:
-    AddressBookSortFilterProxyModel(const QString& type, QObject* parent)
+    AddressBookSortFilterProxyModel(const QString& type, const QString filter, QObject* parent)
         : QSortFilterProxyModel(parent)
         , m_type(type)
+        , m_filter(filter)
     {
         setDynamicSortFilter(true);
         setFilterCaseSensitivity(Qt::CaseInsensitive);
@@ -44,6 +46,11 @@ protected:
             return false;
         }
 
+        if (m_filter != AddressTableModel::All) {
+            if (model->data(label, AddressTableModel::FilterRole).toString() != m_filter)
+                return false;
+        }
+
         auto address = model->index(row, AddressTableModel::Address, parent);
 
         if (filterRegExp().indexIn(model->data(address).toString()) < 0 &&
@@ -55,12 +62,13 @@ protected:
     }
 };
 
-AddressBookPage::AddressBookPage(const PlatformStyle *platformStyle, Mode _mode, Tabs _tab, QWidget *parent) :
+AddressBookPage::AddressBookPage(const PlatformStyle *platformStyle, Mode _mode, Tabs _tab, Filter _filter, QWidget *parent) :
     QDialog(parent),
     ui(new Ui::AddressBookPage),
     model(nullptr),
     mode(_mode),
-    tab(_tab)
+    tab(_tab),
+    filter(_filter)
 {
     ui->setupUi(this);
 
@@ -152,7 +160,14 @@ void AddressBookPage::setModel(AddressTableModel *_model)
         return;
 
     auto type = tab == ReceivingTab ? AddressTableModel::Receive : AddressTableModel::Send;
-    proxyModel = new AddressBookSortFilterProxyModel(type, this);
+
+    QString addressbook = AddressTableModel::All;
+    if (filter == Transparent)
+        addressbook = AddressTableModel::Transparent;
+    else if (filter == Shielded)
+        addressbook = AddressTableModel::Shielded;
+
+    proxyModel = new AddressBookSortFilterProxyModel(type, addressbook, this);
     proxyModel->setSourceModel(_model);
 
     connect(ui->searchLineEdit, &QLineEdit::textChanged, proxyModel, &QSortFilterProxyModel::setFilterWildcard);
@@ -195,6 +210,7 @@ void AddressBookPage::onEditAction()
         return;
 
     EditAddressDialog dlg(
+        AddressTableModel::Base,
         tab == SendingTab ?
         EditAddressDialog::EditSendingAddress :
         EditAddressDialog::EditReceivingAddress, this);
@@ -213,7 +229,7 @@ void AddressBookPage::on_newAddress_clicked()
         return;
     }
 
-    EditAddressDialog dlg(EditAddressDialog::NewSendingAddress, this);
+    EditAddressDialog dlg(nullptr, EditAddressDialog::NewSendingAddress, this);
     dlg.setModel(model);
     if(dlg.exec())
     {

@@ -30,6 +30,9 @@ typedef uint8_t isminefilter;
 
 isminetype IsMine(const CWallet& wallet, const CScript& scriptPubKey);
 isminetype IsMine(const CWallet& wallet, const CTxDestination& dest);
+isminetype IsMine(const CWallet& keystore, const libzcash::SproutPaymentAddress& address);
+isminetype IsMine(const CWallet& keystore, const libzcash::SaplingPaymentAddress& address);
+isminetype IsMine(const CWallet& keystore, const libzcash::PaymentAddress& address);
 
 /**
  * Cachable amount subdivided into watchonly and spendable parts.
