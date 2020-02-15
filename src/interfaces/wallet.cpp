@@ -540,6 +540,10 @@ public:
         if (reason) *reason = fee_calc.reason;
         return result;
     }
+    CAmount getCustomFee(const CInputControl& input_control) override
+    {
+        return GetCustomFee(*m_wallet, input_control);
+    }
     unsigned int getConfirmTarget() override { return m_wallet->m_confirm_target; }
     bool hdEnabled() override { return m_wallet->IsHDEnabled(); }
     bool canGetAddresses() override { return m_wallet->CanGetAddresses(); }

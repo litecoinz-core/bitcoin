@@ -7,6 +7,7 @@
 
 #include <util/system.h>
 #include <wallet/coincontrol.h>
+#include <wallet/inputcontrol.h>
 #include <wallet/wallet.h>
 
 
@@ -19,6 +20,16 @@ CAmount GetRequiredFee(const CWallet& wallet, unsigned int nTxBytes)
 CAmount GetMinimumFee(const CWallet& wallet, unsigned int nTxBytes, const CCoinControl& coin_control, FeeCalculation* feeCalc)
 {
     return GetMinimumFeeRate(wallet, coin_control, feeCalc).GetFee(nTxBytes);
+}
+
+CAmount GetCustomFee(const CWallet& wallet, const CInputControl& input_control)
+{
+    CAmount result;
+    if (input_control.m_fee)
+        result = *(input_control.m_fee);
+    else
+        result = 10000;
+    return result;
 }
 
 CFeeRate GetRequiredFeeRate(const CWallet& wallet)

@@ -9,6 +9,7 @@
 #include <amount.h>
 
 class CCoinControl;
+class CInputControl;
 class CFeeRate;
 class CWallet;
 struct FeeCalculation;
@@ -24,6 +25,11 @@ CAmount GetRequiredFee(const CWallet& wallet, unsigned int nTxBytes);
  * and the required fee
  */
 CAmount GetMinimumFee(const CWallet& wallet, unsigned int nTxBytes, const CCoinControl& coin_control, FeeCalculation* feeCalc);
+
+/**
+ * Return the custom absolute fee based on CInputContol
+ */
+CAmount GetCustomFee(const CWallet& wallet, const CInputControl& input_control);
 
 /**
  * Return the minimum required feerate taking into account the

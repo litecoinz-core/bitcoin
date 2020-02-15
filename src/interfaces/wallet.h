@@ -21,6 +21,7 @@
 #include <vector>
 
 class CCoinControl;
+class CInputControl;
 class CFeeRate;
 class CKey;
 class CWallet;
@@ -268,6 +269,9 @@ public:
         const CCoinControl& coin_control,
         int* returned_target,
         FeeReason* reason) = 0;
+
+    //! Get custom fee.
+    virtual CAmount getCustomFee(const CInputControl& input_control) = 0;
 
     //! Get tx confirm target.
     virtual unsigned int getConfirmTarget() = 0;

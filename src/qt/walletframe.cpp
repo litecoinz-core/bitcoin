@@ -130,6 +130,13 @@ void WalletFrame::gotoOverviewPage()
         i.value()->gotoOverviewPage();
 }
 
+void WalletFrame::gotoShieldCoinbasePage()
+{
+    QMap<WalletModel*, WalletView*>::const_iterator i;
+    for (i = mapWalletViews.constBegin(); i != mapWalletViews.constEnd(); ++i)
+        i.value()->gotoShieldCoinbasePage();
+}
+
 void WalletFrame::gotoHistoryPage()
 {
     QMap<WalletModel*, WalletView*>::const_iterator i;

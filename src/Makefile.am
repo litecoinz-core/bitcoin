@@ -266,6 +266,7 @@ BITCOIN_CORE_H = \
   wallet/asyncrpcoperation_sendmany.h \
   wallet/asyncrpcoperation_shieldcoinbase.h \
   wallet/coincontrol.h \
+  wallet/inputcontrol.h \
   wallet/crypter.h \
   wallet/db.h \
   wallet/feebumper.h \
@@ -385,6 +386,7 @@ libbitcoin_wallet_a_SOURCES = \
   wallet/asyncrpcoperation_sendmany.cpp \
   wallet/asyncrpcoperation_shieldcoinbase.cpp \
   wallet/coincontrol.cpp \
+  wallet/inputcontrol.cpp \
   wallet/crypter.cpp \
   wallet/db.cpp \
   wallet/feebumper.cpp \

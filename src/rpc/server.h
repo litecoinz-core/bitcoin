@@ -166,6 +166,8 @@ bool IsDeprecatedRPCEnabled(const std::string& method);
 
 extern CRPCTable tableRPC;
 
+extern UniValue z_shieldcoinbase(const JSONRPCRequest& request); // in rpcwallet.cpp
+
 void StartRPC();
 void InterruptRPC();
 void StopRPC();
