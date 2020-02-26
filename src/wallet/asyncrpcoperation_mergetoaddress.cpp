@@ -429,8 +429,8 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
     {
         LOCK2(cs_main, pwallet->cs_wallet);
         for (auto t : sproutNoteInputs_) {
-            JSOutPoint jso = std::get<0>(t);
-            std::vector<JSOutPoint> vOutPoints = {jso};
+            SproutOutPoint jso = std::get<0>(t);
+            std::vector<SproutOutPoint> vOutPoints = {jso};
             uint256 inputAnchor;
             std::vector<boost::optional<SproutWitness>> vInputWitnesses;
             pwallet->GetSproutNoteWitnesses(vOutPoints, vInputWitnesses, inputAnchor);
@@ -576,13 +576,13 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
         //
         std::vector<libzcash::SproutNote> vInputNotes;
         std::vector<libzcash::SproutSpendingKey> vInputZKeys;
-        std::vector<JSOutPoint> vOutPoints;
+        std::vector<SproutOutPoint> vOutPoints;
         std::vector<boost::optional<SproutWitness>> vInputWitnesses;
         uint256 inputAnchor;
         int numInputsNeeded = (jsChange > 0) ? 1 : 0;
         while (numInputsNeeded++ < ZC_NUM_JS_INPUTS && zInputsDeque.size() > 0) {
             MergeToAddressInputSproutNote t = zInputsDeque.front();
-            JSOutPoint jso = std::get<0>(t);
+            SproutOutPoint jso = std::get<0>(t);
             libzcash::SproutNote note = std::get<1>(t);
             CAmount noteFunds = std::get<2>(t);
             libzcash::SproutSpendingKey zkey = std::get<3>(t);
@@ -727,7 +727,7 @@ UniValue AsyncRPCOperation_mergetoaddress::perform_joinsplit(MergeToAddressJSInf
     return perform_joinsplit(info, witnesses, anchor);
 }
 
-UniValue AsyncRPCOperation_mergetoaddress::perform_joinsplit(MergeToAddressJSInfo& info, std::vector<JSOutPoint>& outPoints)
+UniValue AsyncRPCOperation_mergetoaddress::perform_joinsplit(MergeToAddressJSInfo& info, std::vector<SproutOutPoint>& outPoints)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();

@@ -137,6 +137,11 @@ std::string COutPoint::ToString() const
     return strprintf("COutPoint(%s, %u)", hash.ToString().substr(0,10), n);
 }
 
+std::string SproutOutPoint::ToString() const
+{
+    return strprintf("SproutOutPoint(%s, %d, %d)", hash.ToString().substr(0,10), js, n);
+}
+
 std::string SaplingOutPoint::ToString() const
 {
     return strprintf("SaplingOutPoint(%s, %u)", hash.ToString().substr(0, 10), n);

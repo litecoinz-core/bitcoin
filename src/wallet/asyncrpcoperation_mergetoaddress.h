@@ -27,8 +27,8 @@
 // Input UTXO is a tuple of txid, vout, amount, script
 typedef std::tuple<COutPoint, CAmount, CScript> MergeToAddressInputUTXO;
 
-// Input JSOP is a tuple of JSOutpoint, note, amount, spending key
-typedef std::tuple<JSOutPoint, libzcash::SproutNote, CAmount, libzcash::SproutSpendingKey> MergeToAddressInputSproutNote;
+// Input JSOP is a tuple of SproutOutPoint, note, amount, spending key
+typedef std::tuple<SproutOutPoint, libzcash::SproutNote, CAmount, libzcash::SproutSpendingKey> MergeToAddressInputSproutNote;
 
 typedef std::tuple<SaplingOutPoint, libzcash::SaplingNote, CAmount, libzcash::SaplingExpandedSpendingKey> MergeToAddressInputSaplingNote;
 
@@ -45,7 +45,7 @@ struct MergeToAddressJSInfo {
     CAmount vpub_new = 0;
 };
 
-// A struct to help us track the witness and anchor for a given JSOutPoint
+// A struct to help us track the witness and anchor for a given SproutOutPoint
 struct MergeToAddressWitnessAnchorData {
     boost::optional<SproutWitness> witness;
     uint256 anchor;
@@ -102,7 +102,7 @@ private:
     uint256 joinSplitPubKey_;
     unsigned char joinSplitPrivKey_[crypto_sign_SECRETKEYBYTES];
 
-    // The key is the result string from calling JSOutPoint::ToString()
+    // The key is the result string from calling SproutOutPoint::ToString()
     std::unordered_map<std::string, MergeToAddressWitnessAnchorData> jsopWitnessAnchorMap;
 
     std::array<unsigned char, ZC_MEMO_SIZE> get_memo_from_hex_string(std::string s);
@@ -111,8 +111,8 @@ private:
     // JoinSplit without any input notes to spend
     UniValue perform_joinsplit(MergeToAddressJSInfo&);
 
-    // JoinSplit with input notes to spend (JSOutPoints))
-    UniValue perform_joinsplit(MergeToAddressJSInfo&, std::vector<JSOutPoint>&);
+    // JoinSplit with input notes to spend (SproutOutPoints))
+    UniValue perform_joinsplit(MergeToAddressJSInfo&, std::vector<SproutOutPoint>&);
 
     // JoinSplit where you have the witnesses and anchor
     UniValue perform_joinsplit(

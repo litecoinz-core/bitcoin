@@ -520,8 +520,8 @@ bool AsyncRPCOperation_sendmany::main_impl() {
     if (z_sprout_inputs_.size() > 0) {
         LOCK2(cs_main, pwallet->cs_wallet);
         for (auto t : z_sprout_inputs_) {
-            JSOutPoint jso = std::get<0>(t);
-            std::vector<JSOutPoint> vOutPoints = { jso };
+            SproutOutPoint jso = std::get<0>(t);
+            std::vector<SproutOutPoint> vOutPoints = { jso };
             uint256 inputAnchor;
             std::vector<boost::optional<SproutWitness>> vInputWitnesses;
             pwallet->GetSproutNoteWitnesses(vOutPoints, vInputWitnesses, inputAnchor);
@@ -713,13 +713,13 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         // Consume spendable non-change notes
         //
         std::vector<libzcash::SproutNote> vInputNotes;
-        std::vector<JSOutPoint> vOutPoints;
+        std::vector<SproutOutPoint> vOutPoints;
         std::vector<boost::optional<SproutWitness>> vInputWitnesses;
         uint256 inputAnchor;
         int numInputsNeeded = (jsChange>0) ? 1 : 0;
         while (numInputsNeeded++ < ZC_NUM_JS_INPUTS && zInputsDeque.size() > 0) {
             SendManyInputJSOP t = zInputsDeque.front();
-            JSOutPoint jso = std::get<0>(t);
+            SproutOutPoint jso = std::get<0>(t);
             libzcash::SproutNote note = std::get<1>(t);
             CAmount noteFunds = std::get<2>(t);
             zInputsDeque.pop_front();
@@ -1005,7 +1005,7 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(AsyncJoinSplitInfo& info)
     return perform_joinsplit(info, witnesses, anchor);
 }
 
-UniValue AsyncRPCOperation_sendmany::perform_joinsplit(AsyncJoinSplitInfo& info, std::vector<JSOutPoint> & outPoints)
+UniValue AsyncRPCOperation_sendmany::perform_joinsplit(AsyncJoinSplitInfo& info, std::vector<SproutOutPoint> & outPoints)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();

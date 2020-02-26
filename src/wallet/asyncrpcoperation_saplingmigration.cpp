@@ -147,7 +147,7 @@ bool AsyncRPCOperation_saplingmigration::main_impl() {
                 );
             libzcash::SproutSpendingKey sproutSk;
             pwallet->GetSproutSpendingKey(sproutEntry.address, sproutSk);
-            std::vector<JSOutPoint> vOutPoints = {sproutEntry.jsop};
+            std::vector<SproutOutPoint> vOutPoints = {sproutEntry.jsop};
             // Each migration transaction SHOULD specify an anchor at height N-10
             // for each Sprout JoinSplit description
             // TODO: the above functionality (in comment) is not implemented in zcashd

@@ -280,11 +280,6 @@ std::string COutput::ToString() const
     return strprintf("COutput(%s, %d, %d) [%s]", tx->GetHash().ToString(), i, nDepth, FormatMoney(tx->tx->vout[i].nValue));
 }
 
-std::string JSOutPoint::ToString() const
-{
-    return strprintf("JSOutPoint(%s, %d, %d)", hash.ToString().substr(0,10), js, n);
-}
-
 std::vector<CKeyID> GetAffectedKeys(const CScript& spk, const SigningProvider& provider)
 {
     std::vector<CScript> dummy;
@@ -1118,7 +1113,7 @@ std::set<std::pair<libzcash::PaymentAddress, uint256>> CWallet::GetNullifiersFor
 bool CWallet::IsNoteSproutChange(
         const std::set<std::pair<libzcash::PaymentAddress, uint256>> & nullifierSet,
         const libzcash::PaymentAddress & address,
-        const JSOutPoint & jsop)
+        const SproutOutPoint & jsop)
 {
     // A Note is marked as "change" if the address that received it
     // also spent Notes in the same transaction. This will catch,
@@ -1550,7 +1545,7 @@ void CWallet::IncrementNoteWitnesses(const CBlockIndex* pindex,
 
                 // If this is our note, witness it
                 if (txIsOurs) {
-                    JSOutPoint jsoutpt {hash, i, j};
+                    SproutOutPoint jsoutpt {hash, i, j};
                     ::WitnessNoteIfMine(mapWallet.at(hash).mapSproutNoteData, pindex->nHeight, nWitnessCacheSize, jsoutpt, sproutTree.witness());
                 }
             }
@@ -2111,7 +2106,7 @@ bool CWallet::UpdatedNoteData(const CWalletTx& wtxIn, CWalletTx& wtx)
     if (!unchangedSproutFlag) {
         auto tmp = wtxIn.mapSproutNoteData;
         // Ensure we keep any cached witnesses we may already have
-        for (const std::pair <JSOutPoint, SproutNoteData> nd : wtx.mapSproutNoteData) {
+        for (const std::pair <SproutOutPoint, SproutNoteData> nd : wtx.mapSproutNoteData) {
             if (tmp.count(nd.first) && nd.second.witnesses.size() > 0) {
                 tmp.at(nd.first).witnesses.assign(
                         nd.second.witnesses.cbegin(), nd.second.witnesses.cend());
@@ -2450,7 +2445,7 @@ mapSproutNoteData_t CWallet::FindMySproutNotes(const CTransaction &tx) const
             for (const NoteDecryptorMap::value_type& item : mapNoteDecryptors) {
                 try {
                     auto address = item.first;
-                    JSOutPoint jsoutpt {hash, i, j};
+                    SproutOutPoint jsoutpt {hash, i, j};
                     auto nullifier = GetSproutNoteNullifier(
                         tx.vJoinSplit[i],
                         address,
@@ -2543,7 +2538,7 @@ bool CWallet::IsSaplingNullifierFromMe(const uint256& nullifier) const
     return false;
 }
 
-void CWallet::GetSproutNoteWitnesses(std::vector<JSOutPoint> notes,
+void CWallet::GetSproutNoteWitnesses(std::vector<SproutOutPoint> notes,
                                      std::vector<boost::optional<SproutWitness>>& witnesses,
                                      uint256 &final_anchor)
 {
@@ -2551,7 +2546,7 @@ void CWallet::GetSproutNoteWitnesses(std::vector<JSOutPoint> notes,
     witnesses.resize(notes.size());
     boost::optional<uint256> rt;
     int i = 0;
-    for (JSOutPoint note : notes) {
+    for (SproutOutPoint note : notes) {
         if (mapWallet.count(note.hash) &&
                 mapWallet.at(note.hash).mapSproutNoteData.count(note) &&
                 mapWallet.at(note.hash).mapSproutNoteData[note].witnesses.size() > 0) {
@@ -3171,7 +3166,7 @@ void CWalletTx::GetAmounts(std::list<COutputEntry>& listReceived,
 
             // Check output side
             if (!fMyJSDesc) {
-                for (const std::pair<JSOutPoint, SproutNoteData> nd : this->mapSproutNoteData) {
+                for (const std::pair<SproutOutPoint, SproutNoteData> nd : this->mapSproutNoteData) {
                     if (nd.first.js < tx->vJoinSplit.size() && nd.first.n < tx->vJoinSplit[nd.first.js].ciphertexts.size()) {
                         fMyJSDesc = true;
                         break;
@@ -6969,7 +6964,7 @@ bool CWallet::GetSaplingSpendingKey(const libzcash::SaplingFullViewingKey &fvk, 
 void CWalletTx::SetSproutNoteData(mapSproutNoteData_t &noteData)
 {
     mapSproutNoteData.clear();
-    for (const std::pair<JSOutPoint, SproutNoteData> nd : noteData) {
+    for (const std::pair<SproutOutPoint, SproutNoteData> nd : noteData) {
         if (nd.first.js < tx->vJoinSplit.size() &&
                 nd.first.n < tx->vJoinSplit[nd.first.js].ciphertexts.size()) {
             // Store the address and nullifier for the Note
@@ -7054,13 +7049,13 @@ void CWallet::WitnessNoteCommitment(std::vector<uint256> commitments,
 
 // Note Locking Operations
 
-void CWallet::LockNote(const JSOutPoint& output)
+void CWallet::LockNote(const SproutOutPoint& output)
 {
     AssertLockHeld(cs_wallet); // setLockedSproutNotes
     setLockedSproutNotes.insert(output);
 }
 
-void CWallet::UnlockNote(const JSOutPoint& output)
+void CWallet::UnlockNote(const SproutOutPoint& output)
 {
     AssertLockHeld(cs_wallet); // setLockedSproutNotes
     setLockedSproutNotes.erase(output);
@@ -7072,19 +7067,19 @@ void CWallet::UnlockAllSproutNotes()
     setLockedSproutNotes.clear();
 }
 
-bool CWallet::IsLockedNote(const JSOutPoint& outpt) const
+bool CWallet::IsLockedNote(const SproutOutPoint& outpt) const
 {
     AssertLockHeld(cs_wallet); // setLockedSproutNotes
 
     return (setLockedSproutNotes.count(outpt) > 0);
 }
 
-void CWallet::ListLockedSproutNotes(std::vector<JSOutPoint>& vOutpts) const
+void CWallet::ListLockedSproutNotes(std::vector<SproutOutPoint>& vOutpts) const
 {
     AssertLockHeld(cs_wallet);
-    for (std::set<JSOutPoint>::iterator it = setLockedSproutNotes.begin();
+    for (std::set<SproutOutPoint>::iterator it = setLockedSproutNotes.begin();
          it != setLockedSproutNotes.end(); it++) {
-        JSOutPoint outpt = (*it);
+        SproutOutPoint outpt = (*it);
         vOutpts.push_back(outpt);
     }
 }
@@ -7178,7 +7173,7 @@ void CWallet::GetFilteredNotes(
         }
 
         for (auto & pair : wtx.mapSproutNoteData) {
-            JSOutPoint jsop = pair.first;
+            SproutOutPoint jsop = pair.first;
             SproutNoteData nd = pair.second;
             libzcash::SproutPaymentAddress pa = nd.address;
 

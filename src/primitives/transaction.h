@@ -348,6 +348,49 @@ public:
     }
 };
 
+/** A note outpoint */
+class SproutOutPoint
+{
+public:
+    // Transaction hash
+    uint256 hash;
+    // Index into CTransaction.vJoinSplit
+    uint64_t js;
+    // Index into JSDescription fields of length ZC_NUM_JS_OUTPUTS
+    uint8_t n;
+
+    SproutOutPoint() { SetNull(); }
+    SproutOutPoint(uint256 h, uint64_t js, uint8_t n) : hash {h}, js {js}, n {n} { }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(hash);
+        READWRITE(js);
+        READWRITE(n);
+    }
+
+    void SetNull() { hash.SetNull(); }
+    bool IsNull() const { return hash.IsNull(); }
+
+    friend bool operator<(const SproutOutPoint& a, const SproutOutPoint& b) {
+        return (a.hash < b.hash ||
+                (a.hash == b.hash && a.js < b.js) ||
+                (a.hash == b.hash && a.js == b.js && a.n < b.n));
+    }
+
+    friend bool operator==(const SproutOutPoint& a, const SproutOutPoint& b) {
+        return (a.hash == b.hash && a.js == b.js && a.n == b.n);
+    }
+
+    friend bool operator!=(const SproutOutPoint& a, const SproutOutPoint& b) {
+        return !(a == b);
+    }
+
+    std::string ToString() const;
+};
+
 /** An outpoint - a combination of a transaction hash and an index n into its vout */
 class COutPoint : public BaseOutPoint
 {

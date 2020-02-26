@@ -379,49 +379,6 @@ struct COutputEntry
     int vout;
 };
 
-/** A note outpoint */
-class JSOutPoint
-{
-public:
-    // Transaction hash
-    uint256 hash;
-    // Index into CTransaction.vJoinSplit
-    uint64_t js;
-    // Index into JSDescription fields of length ZC_NUM_JS_OUTPUTS
-    uint8_t n;
-
-    JSOutPoint() { SetNull(); }
-    JSOutPoint(uint256 h, uint64_t js, uint8_t n) : hash {h}, js {js}, n {n} { }
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(hash);
-        READWRITE(js);
-        READWRITE(n);
-    }
-
-    void SetNull() { hash.SetNull(); }
-    bool IsNull() const { return hash.IsNull(); }
-
-    friend bool operator<(const JSOutPoint& a, const JSOutPoint& b) {
-        return (a.hash < b.hash ||
-                (a.hash == b.hash && a.js < b.js) ||
-                (a.hash == b.hash && a.js == b.js && a.n < b.n));
-    }
-
-    friend bool operator==(const JSOutPoint& a, const JSOutPoint& b) {
-        return (a.hash == b.hash && a.js == b.js && a.n == b.n);
-    }
-
-    friend bool operator!=(const JSOutPoint& a, const JSOutPoint& b) {
-        return !(a == b);
-    }
-
-    std::string ToString() const;
-};
-
 class SproutNoteData
 {
 public:
@@ -528,13 +485,13 @@ public:
     }
 };
 
-typedef std::map<JSOutPoint, SproutNoteData> mapSproutNoteData_t;
+typedef std::map<SproutOutPoint, SproutNoteData> mapSproutNoteData_t;
 typedef std::map<SaplingOutPoint, SaplingNoteData> mapSaplingNoteData_t;
 
 /** Sprout note, its location in a transaction, and number of confirmations. */
 struct SproutNoteEntry
 {
-    JSOutPoint jsop;
+    SproutOutPoint jsop;
     libzcash::SproutPaymentAddress address;
     libzcash::SproutNote note;
     std::array<unsigned char, ZC_MEMO_SIZE> memo;
@@ -1272,7 +1229,7 @@ public:
      * - Restarting the node with -reindex (which operates on a locked wallet
      *   but with the now-cached nullifiers).
      */
-    std::map<uint256, JSOutPoint> mapSproutNullifiersToNotes GUARDED_BY(cs_wallet);
+    std::map<uint256, SproutOutPoint> mapSproutNullifiersToNotes GUARDED_BY(cs_wallet);
     std::map<uint256, SaplingOutPoint> mapSaplingNullifiersToNotes GUARDED_BY(cs_wallet);
 
     std::map<uint256, CWalletTx> mapWallet GUARDED_BY(cs_wallet);
@@ -1288,7 +1245,7 @@ public:
     std::map<libzcash::PaymentAddress, CAddressBookData> mapSaplingAddressBook GUARDED_BY(cs_wallet);
 
     std::set<COutPoint> setLockedCoins GUARDED_BY(cs_wallet);
-    std::set<JSOutPoint> setLockedSproutNotes GUARDED_BY(cs_wallet);
+    std::set<SproutOutPoint> setLockedSproutNotes GUARDED_BY(cs_wallet);
     std::set<SaplingOutPoint> setLockedSaplingNotes GUARDED_BY(cs_wallet);
 
     /** Registered interfaces::Chain::Notifications handler. */
@@ -1345,11 +1302,11 @@ public:
     void UnlockAllCoins() EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     void ListLockedCoins(std::vector<COutPoint>& vOutpts) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
-    bool IsLockedNote(const JSOutPoint& outpt) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
-    void LockNote(const JSOutPoint& output) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
-    void UnlockNote(const JSOutPoint& output) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    bool IsLockedNote(const SproutOutPoint& outpt) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    void LockNote(const SproutOutPoint& output) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    void UnlockNote(const SproutOutPoint& output) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     void UnlockAllSproutNotes() EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
-    void ListLockedSproutNotes(std::vector<JSOutPoint>& vOutpts) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    void ListLockedSproutNotes(std::vector<SproutOutPoint>& vOutpts) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     bool IsLockedNote(const SaplingOutPoint& outpt) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     void LockNote(const SaplingOutPoint& output) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
@@ -1658,7 +1615,7 @@ public:
     std::pair<mapSaplingNoteData_t, SaplingIncomingViewingKeyMap> FindMySaplingNotes(const CTransaction& tx) const;
     bool IsSproutNullifierFromMe(const uint256& nullifier) const;
     bool IsSaplingNullifierFromMe(const uint256& nullifier) const;
-    void GetSproutNoteWitnesses(std::vector<JSOutPoint> notes, std::vector<boost::optional<SproutWitness>>& witnesses, uint256 &final_anchor);
+    void GetSproutNoteWitnesses(std::vector<SproutOutPoint> notes, std::vector<boost::optional<SproutWitness>>& witnesses, uint256 &final_anchor);
     void GetSaplingNoteWitnesses(std::vector<SaplingOutPoint> notes, std::vector<boost::optional<SaplingWitness>>& witnesses, uint256 &final_anchor);
 
     isminetype IsMine(const CTxIn& txin) const;
@@ -1684,7 +1641,7 @@ public:
     /** Saves witness caches and best block locator to disk. */
     void ChainStateFlushed(const CBlockLocator& loc) override;
     std::set<std::pair<libzcash::PaymentAddress, uint256>> GetNullifiersForAddresses(const std::set<libzcash::PaymentAddress>& addresses);
-    bool IsNoteSproutChange(const std::set<std::pair<libzcash::PaymentAddress, uint256>>& nullifierSet, const libzcash::PaymentAddress& address, const JSOutPoint& entry);
+    bool IsNoteSproutChange(const std::set<std::pair<libzcash::PaymentAddress, uint256>>& nullifierSet, const libzcash::PaymentAddress& address, const SproutOutPoint& entry);
     bool IsNoteSaplingChange(const std::set<std::pair<libzcash::PaymentAddress, uint256>>& nullifierSet, const libzcash::PaymentAddress& address, const SaplingOutPoint& entry);
     /** Sapling migration */
     void RunSaplingMigration(int blockHeight);

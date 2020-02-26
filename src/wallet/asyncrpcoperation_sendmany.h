@@ -30,8 +30,8 @@ typedef std::tuple<std::string, CAmount, std::string> SendManyRecipient;
 // Input UTXO is a tuple (quadruple) of txid, vout, amount, coinbase)
 typedef std::tuple<uint256, int, CAmount, bool> SendManyInputUTXO;
 
-// Input JSOP is a tuple of JSOutpoint, note and amount
-typedef std::tuple<JSOutPoint, libzcash::SproutNote, CAmount> SendManyInputJSOP;
+// Input JSOP is a tuple of SproutOutPoint, note and amount
+typedef std::tuple<SproutOutPoint, libzcash::SproutNote, CAmount> SendManyInputJSOP;
 
 // Package of info which is passed to perform_joinsplit methods.
 struct AsyncJoinSplitInfo
@@ -43,7 +43,7 @@ struct AsyncJoinSplitInfo
     CAmount vpub_new = 0;
 };
 
-// A struct to help us track the witness and anchor for a given JSOutPoint
+// A struct to help us track the witness and anchor for a given SproutOutPoint
 struct WitnessAnchorData {
 	boost::optional<SproutWitness> witness;
 	uint256 anchor;
@@ -98,7 +98,7 @@ private:
     uint256 joinSplitPubKey_;
     unsigned char joinSplitPrivKey_[crypto_sign_SECRETKEYBYTES];
 
-    // The key is the result string from calling JSOutPoint::ToString()
+    // The key is the result string from calling SproutOutPoint::ToString()
     std::unordered_map<std::string, WitnessAnchorData> jsopWitnessAnchorMap;
 
     std::vector<SendManyInputUTXO> t_inputs_;
@@ -117,8 +117,8 @@ private:
     // JoinSplit without any input notes to spend
     UniValue perform_joinsplit(AsyncJoinSplitInfo &);
 
-    // JoinSplit with input notes to spend (JSOutPoints))
-    UniValue perform_joinsplit(AsyncJoinSplitInfo &, std::vector<JSOutPoint> & );
+    // JoinSplit with input notes to spend (SproutOutPoints))
+    UniValue perform_joinsplit(AsyncJoinSplitInfo &, std::vector<SproutOutPoint> & );
 
     // JoinSplit where you have the witnesses and anchor
     UniValue perform_joinsplit(

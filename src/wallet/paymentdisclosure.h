@@ -9,10 +9,8 @@
 #include <clientversion.h>
 #include <serialize.h>
 #include <streams.h>
-#include <version.h>
-
-// For JSOutPoint
 #include <wallet/wallet.h>
+#include <version.h>
 
 #include <array>
 #include <cstdint>
@@ -31,7 +29,7 @@
 
 #define PAYMENT_DISCLOSURE_BLOB_STRING_PREFIX    "zpd:"
 
-typedef JSOutPoint PaymentDisclosureKey;
+typedef SproutOutPoint PaymentDisclosureKey;
 
 struct PaymentDisclosureInfo {
     uint8_t version;          // 0 = experimental, 1 = first production version, etc.
