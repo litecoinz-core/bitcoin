@@ -547,7 +547,7 @@ void ShieldCoinbaseDialog::useMaxUtxosChecked(int state)
 // Input Control: button inputs -> show actual input control dialog
 void ShieldCoinbaseDialog::inputControlButtonClicked()
 {
-    InputControlDialog dlg(platformStyle, true, true);
+    InputControlDialog dlg(platformStyle, true, true, false);
     dlg.setModel(model);
     dlg.exec();
     inputControlUpdateLabels();

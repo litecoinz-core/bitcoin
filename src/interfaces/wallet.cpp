@@ -93,6 +93,55 @@ WalletTxOut MakeWalletTxOut(interfaces::Chain::Lock& locked_chain,
     return result;
 }
 
+//! Construct wallet SproutNote struct.
+WalletSproutNote MakeWalletSproutNote(interfaces::Chain::Lock& locked_chain,
+    CWallet& wallet,
+    const CWalletTx& wtx,
+    libzcash::SproutPaymentAddress address,
+    libzcash::SproutNote note,
+    SproutOutPoint jsop,
+    SproutNoteData nd,
+    std::array<unsigned char, ZC_MEMO_SIZE> memo,
+    uint64_t js,
+    uint8_t n,
+    int depth) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
+{
+    WalletSproutNote result;
+    result.address = address;
+    result.note = note;
+    result.jsop = jsop;
+    result.nd = nd;
+    result.memo = memo;
+    result.time = wtx.GetTxTime();
+    result.depth_in_main_chain = depth;
+    result.is_spent = wallet.IsSproutSpent(locked_chain, *nd.nullifier);
+    return result;
+}
+
+//! Construct wallet SaplingNote struct.
+WalletSaplingNote MakeWalletSaplingNote(interfaces::Chain::Lock& locked_chain,
+    CWallet& wallet,
+    const CWalletTx& wtx,
+    libzcash::SaplingPaymentAddress address,
+    libzcash::SaplingNote note,
+    SaplingOutPoint op,
+    SaplingNoteData nd,
+    std::array<unsigned char, ZC_MEMO_SIZE> memo,
+    uint32_t n,
+    int depth) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
+{
+    WalletSaplingNote result;
+    result.address = address;
+    result.note = note;
+    result.op = op;
+    result.nd = nd;
+    result.memo = memo;
+    result.time = wtx.GetTxTime();
+    result.depth_in_main_chain = depth;
+    result.is_spent = wallet.IsSaplingSpent(locked_chain, *nd.nullifier);
+    return result;
+}
+
 class WalletImpl : public Wallet
 {
 public:
@@ -505,6 +554,34 @@ public:
             for (const auto& coin : entry.second) {
                 group.emplace_back(COutPoint(coin.tx->GetHash(), coin.i),
                     MakeWalletTxOut(*locked_chain, *m_wallet, *coin.tx, coin.i, coin.nDepth));
+            }
+        }
+        return result;
+    }
+    SproutNotesList listSproutNotes() override
+    {
+        auto locked_chain = m_wallet->chain().lock();
+        LOCK(m_wallet->cs_wallet);
+        SproutNotesList result;
+        for (const auto& entry : m_wallet->ListSproutNotes(*locked_chain)) {
+            auto& group = result[entry.first];
+            for (const auto& note : entry.second) {
+                group.emplace_back(SproutOutPoint(note.tx->GetHash(), note.js, note.n),
+                    MakeWalletSproutNote(*locked_chain, *m_wallet, *note.tx, note.address, note.note, note.jsop, note.nd, note.memo, note.js, note.n, note.nDepth));
+            }
+        }
+        return result;
+    }
+    SaplingNotesList listSaplingNotes() override
+    {
+        auto locked_chain = m_wallet->chain().lock();
+        LOCK(m_wallet->cs_wallet);
+        SaplingNotesList result;
+        for (const auto& entry : m_wallet->ListSaplingNotes(*locked_chain)) {
+            auto& group = result[entry.first];
+            for (const auto& note : entry.second) {
+                group.emplace_back(SaplingOutPoint(note.tx->GetHash(), note.n),
+                    MakeWalletSaplingNote(*locked_chain, *m_wallet, *note.tx, note.address, note.note, note.op, note.nd, note.memo, note.n, note.nDepth));
             }
         }
         return result;

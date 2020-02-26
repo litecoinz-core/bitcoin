@@ -280,6 +280,16 @@ std::string COutput::ToString() const
     return strprintf("COutput(%s, %d, %d) [%s]", tx->GetHash().ToString(), i, nDepth, FormatMoney(tx->tx->vout[i].nValue));
 }
 
+std::string SproutOutput::ToString() const
+{
+    return strprintf("SproutOutput(%s, %d, %d) [%s]", tx->GetHash().ToString(), n, nDepth, FormatMoney(note.value()));
+}
+
+std::string SaplingOutput::ToString() const
+{
+    return strprintf("SaplingOutput(%s, %d, %d) [%s]", tx->GetHash().ToString(), n, nDepth, FormatMoney(note.value()));
+}
+
 std::vector<CKeyID> GetAffectedKeys(const CScript& spk, const SigningProvider& provider)
 {
     std::vector<CScript> dummy;
@@ -4006,6 +4016,191 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, bool fOnlyCo
     }
 }
 
+void CWallet::AvailableSproutNotes(interfaces::Chain::Lock& locked_chain, std::vector<SproutOutput>& vSproutNotes, const CAmount& nMinimumAmount, const CAmount& nMaximumAmount, const CAmount& nMinimumSumAmount, const uint64_t nMaximumCount) const
+{
+    AssertLockHeld(cs_wallet);
+
+    vSproutNotes.clear();
+    CAmount nTotal = 0;
+    const int min_depth = 1;
+    const int max_depth = DEFAULT_MAX_DEPTH;
+
+    for (const auto& entry : mapWallet)
+    {
+        const CWalletTx& wtx = entry.second;
+
+        if (!locked_chain.checkFinalTx(*wtx.tx)) {
+            continue;
+        }
+
+        if (wtx.IsImmatureCoinBase(locked_chain))
+            continue;
+
+        int nDepth = wtx.GetDepthInMainChain(locked_chain);
+        if (nDepth < 0)
+            continue;
+
+        // We should not consider coins which aren't at least in our mempool
+        // It's possible for these to be conflicted via ancestors which we may never be able to detect
+        if (nDepth == 0 && !wtx.InMempool())
+            continue;
+
+        if (nDepth < min_depth || nDepth > max_depth) {
+            continue;
+        }
+
+        for (auto & pair : wtx.mapSproutNoteData) {
+            SproutOutPoint jsop = pair.first;
+            SproutNoteData nd = pair.second;
+            libzcash::SproutPaymentAddress address = nd.address;
+
+            int i = jsop.js; // Index into CTransaction.vJoinSplit
+            int j = jsop.n;  // Index into JSDescription.ciphertexts
+
+            if (IsLockedNote(jsop))
+                continue;
+
+            if (nd.nullifier && IsSproutSpent(locked_chain, *nd.nullifier))
+                continue;
+
+            if (!HaveSproutSpendingKey(address)) {
+                continue;
+            }
+
+            // Get cached decryptor
+            ZCNoteDecryption decryptor;
+            if (!GetNoteDecryptor(address, decryptor)) {
+                // Note decryptors are created when the wallet is loaded, so it should always exist
+                throw std::runtime_error(strprintf("Could not find note decryptor for payment address %s", EncodePaymentAddress(address)));
+            }
+
+            // determine amount of funds in the note
+            libzcash::SproutNotePlaintext plaintext;
+            auto hSig = wtx.tx->vJoinSplit[i].h_sig(*pzcashParams, wtx.tx->joinSplitPubKey);
+            try {
+                plaintext = libzcash::SproutNotePlaintext::decrypt(
+                        decryptor,
+                        wtx.tx->vJoinSplit[i].ciphertexts[j],
+                        wtx.tx->vJoinSplit[i].ephemeralKey,
+                        hSig,
+                        (unsigned char) j);
+            } catch (const libzcash::note_decryption_failed &err) {
+                // Couldn't decrypt with this spending key
+                throw std::runtime_error(strprintf("Could not decrypt note for payment address %s", EncodePaymentAddress(address)));
+            } catch (const std::exception &exc) {
+                // Unexpected failure
+                throw std::runtime_error(strprintf("Error while decrypting note for payment address %s: %s", EncodePaymentAddress(address), exc.what()));
+            }
+
+            CAmount nValue = plaintext.note(address).value();
+            if (nValue < nMinimumAmount || nValue > nMaximumAmount)
+                continue;
+
+            vSproutNotes.push_back(SproutOutput(&wtx, jsop.js, jsop.n, address, plaintext.note(address), jsop, nd, plaintext.memo(), nDepth));
+
+            // Checks the sum amount of all UTXO's.
+            if (nMinimumSumAmount != MAX_MONEY) {
+                nTotal += nValue;
+
+                if (nTotal >= nMinimumSumAmount) {
+                    return;
+                }
+            }
+
+            // Checks the maximum number of UTXO's.
+            if (nMaximumCount > 0 && vSproutNotes.size() >= nMaximumCount) {
+                return;
+            }
+        }
+    }
+}
+
+void CWallet::AvailableSaplingNotes(interfaces::Chain::Lock& locked_chain, std::vector<SaplingOutput>& vSaplingNotes, const CAmount& nMinimumAmount, const CAmount& nMaximumAmount, const CAmount& nMinimumSumAmount, const uint64_t nMaximumCount) const
+{
+    AssertLockHeld(cs_wallet);
+
+    vSaplingNotes.clear();
+    CAmount nTotal = 0;
+    const int min_depth = 1;
+    const int max_depth = DEFAULT_MAX_DEPTH;
+
+    for (const auto& entry : mapWallet)
+    {
+        const CWalletTx& wtx = entry.second;
+
+        if (!locked_chain.checkFinalTx(*wtx.tx)) {
+            continue;
+        }
+
+        if (wtx.IsImmatureCoinBase(locked_chain))
+            continue;
+
+        int nDepth = wtx.GetDepthInMainChain(locked_chain);
+        if (nDepth < 0)
+            continue;
+
+        // We should not consider coins which aren't at least in our mempool
+        // It's possible for these to be conflicted via ancestors which we may never be able to detect
+        if (nDepth == 0 && !wtx.InMempool())
+            continue;
+
+        if (nDepth < min_depth || nDepth > max_depth) {
+            continue;
+        }
+
+        for (auto & pair : wtx.mapSaplingNoteData) {
+            SaplingOutPoint op = pair.first;
+            SaplingNoteData nd = pair.second;
+
+            if (IsLockedNote(op))
+                continue;
+
+            if (nd.nullifier && IsSaplingSpent(locked_chain, *nd.nullifier))
+                continue;
+
+            auto maybe_pt = libzcash::SaplingNotePlaintext::decrypt(
+                wtx.tx->vShieldedOutput[op.n].encCiphertext,
+                nd.ivk,
+                wtx.tx->vShieldedOutput[op.n].ephemeralKey,
+                wtx.tx->vShieldedOutput[op.n].cm);
+            assert(static_cast<bool>(maybe_pt));
+            auto notePt = maybe_pt.get();
+
+            auto maybe_pa = nd.ivk.address(notePt.d);
+            assert(static_cast<bool>(maybe_pa));
+            libzcash::SaplingPaymentAddress address = maybe_pa.get();
+
+            libzcash::SaplingIncomingViewingKey ivk;
+            libzcash::SaplingFullViewingKey fvk;
+            if (!(GetSaplingIncomingViewingKey(address, ivk) && GetSaplingFullViewingKey(ivk, fvk) && HaveSaplingSpendingKey(fvk))) {
+                continue;
+            }
+
+            auto note = notePt.note(nd.ivk).get();
+
+            CAmount nValue = note.value();
+            if (nValue < nMinimumAmount || nValue > nMaximumAmount)
+                continue;
+
+            vSaplingNotes.push_back(SaplingOutput(&wtx, op.n, address, note, op, nd, notePt.memo(), nDepth));
+
+            // Checks the sum amount of all UTXO's.
+            if (nMinimumSumAmount != MAX_MONEY) {
+                nTotal += nValue;
+
+                if (nTotal >= nMinimumSumAmount) {
+                    return;
+                }
+            }
+
+            // Checks the maximum number of UTXO's.
+            if (nMaximumCount > 0 && vSaplingNotes.size() >= nMaximumCount) {
+                return;
+            }
+        }
+    }
+}
+
 std::map<CTxDestination, std::vector<COutput>> CWallet::ListCoins(interfaces::Chain::Lock& locked_chain, bool fOnlyCoinbase, bool fIncludeCoinbase) const
 {
     AssertLockHeld(cs_wallet);
@@ -4037,6 +4232,50 @@ std::map<CTxDestination, std::vector<COutput>> CWallet::ListCoins(interfaces::Ch
                         &it->second, output.n, depth, true /* spendable */, true /* solvable */, false /* safe */);
                 }
             }
+        }
+    }
+
+    return result;
+}
+
+std::map<libzcash::SproutPaymentAddress, std::vector<SproutOutput>> CWallet::ListSproutNotes(interfaces::Chain::Lock& locked_chain) const
+{
+    AssertLockHeld(cs_wallet);
+
+    std::map<libzcash::SproutPaymentAddress, std::vector<SproutOutput>> result;
+    std::vector<SproutOutput> availableNotes;
+
+    AvailableSproutNotes(locked_chain, availableNotes);
+
+    for (const SproutOutput& note : availableNotes) {
+        libzcash::SproutPaymentAddress address = note.address;
+        bool hasSproutSpendingKey = HaveSproutSpendingKey(boost::get<libzcash::SproutPaymentAddress>(note.address));
+        if (hasSproutSpendingKey) {
+            result[address].emplace_back(std::move(note));
+        }
+    }
+
+    return result;
+}
+
+std::map<libzcash::SaplingPaymentAddress, std::vector<SaplingOutput>> CWallet::ListSaplingNotes(interfaces::Chain::Lock& locked_chain) const
+{
+    AssertLockHeld(cs_wallet);
+
+    std::map<libzcash::SaplingPaymentAddress, std::vector<SaplingOutput>> result;
+    std::vector<SaplingOutput> availableNotes;
+
+    AvailableSaplingNotes(locked_chain, availableNotes);
+
+    for (const SaplingOutput& note : availableNotes) {
+        libzcash::SaplingPaymentAddress address = note.address;
+        libzcash::SaplingIncomingViewingKey ivk;
+        libzcash::SaplingFullViewingKey fvk;
+        GetSaplingIncomingViewingKey(boost::get<libzcash::SaplingPaymentAddress>(note.address), ivk);
+        GetSaplingFullViewingKey(ivk, fvk);
+        bool hasSaplingSpendingKey = HaveSaplingSpendingKey(fvk);
+        if (hasSaplingSpendingKey) {
+            result[address].emplace_back(std::move(note));
         }
     }
 

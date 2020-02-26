@@ -33,6 +33,7 @@ class TransactionTableModel;
 class WalletModelTransaction;
 
 class CCoinControl;
+class CInputControl;
 class CKeyID;
 class COutPoint;
 class COutput;
@@ -101,6 +102,9 @@ public:
 
     // prepare transaction for getting txfee before sending coins
     SendCoinsReturn prepareTransaction(WalletModelTransaction &transaction, const CCoinControl& coinControl);
+
+    // prepare shielded transaction
+    SendCoinsReturn prepareShieldedTransaction(WalletModelTransaction &transaction, const CInputControl& inputControl);
 
     // Send coins to a list of recipients
     SendCoinsReturn sendCoins(WalletModelTransaction &transaction);

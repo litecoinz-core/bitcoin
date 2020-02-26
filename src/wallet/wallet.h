@@ -109,6 +109,8 @@ static const size_t HD_WALLET_SEED_LENGTH = 32;
 
 class CCoinControl;
 class COutput;
+class SproutOutput;
+class SaplingOutput;
 class CScript;
 class CWalletTx;
 struct FeeCalculation;
@@ -870,6 +872,47 @@ public:
     }
 };
 
+class SproutOutput
+{
+public:
+    const CWalletTx *tx;
+    uint64_t js;
+    uint8_t n;
+    libzcash::SproutPaymentAddress address;
+    libzcash::SproutNote note;
+    SproutOutPoint jsop;
+    SproutNoteData nd;
+    std::array<unsigned char, ZC_MEMO_SIZE> memo;
+    int nDepth;
+
+    SproutOutput(const CWalletTx *txIn, int jsIn, int nIn, libzcash::SproutPaymentAddress addressIn, libzcash::SproutNote noteIn, SproutOutPoint jsopIn, SproutNoteData ndIn, std::array<unsigned char, ZC_MEMO_SIZE> memoIn, int nDepthIn)
+    {
+        tx = txIn; js = jsIn; n = nIn; address = addressIn; note = noteIn; jsop = jsopIn; nd = ndIn; memo = memoIn; nDepth = nDepthIn;
+    }
+
+    std::string ToString() const;
+};
+
+class SaplingOutput
+{
+public:
+    const CWalletTx *tx;
+    uint32_t n;
+    libzcash::SaplingPaymentAddress address;
+    libzcash::SaplingNote note;
+    SaplingOutPoint op;
+    SaplingNoteData nd;
+    std::array<unsigned char, ZC_MEMO_SIZE> memo;
+    int nDepth;
+
+    SaplingOutput(const CWalletTx *txIn, int nIn, libzcash::SaplingPaymentAddress addressIn, libzcash::SaplingNote noteIn, SaplingOutPoint opIn, SaplingNoteData ndIn, std::array<unsigned char, ZC_MEMO_SIZE> memoIn, int nDepthIn)
+    {
+        tx = txIn; n = nIn; address = addressIn; note = noteIn; op = opIn; nd = ndIn; memo = memoIn; nDepth = nDepthIn;
+    }
+
+    std::string ToString() const;
+};
+
 struct CoinSelectionParams
 {
     bool use_bnb = true;
@@ -1268,9 +1311,29 @@ public:
     void AvailableCoins(interfaces::Chain::Lock& locked_chain, bool fOnlyCoinbase, bool fIncludeCoinbase, std::vector<COutput>& vCoins, bool fOnlySafe = true, const CCoinControl* coinControl = nullptr, const CAmount& nMinimumAmount = 1, const CAmount& nMaximumAmount = MAX_MONEY, const CAmount& nMinimumSumAmount = MAX_MONEY, const uint64_t nMaximumCount = 0) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /**
+     * populate vNotes with vector of available SproutOutput.
+     */
+    void AvailableSproutNotes(interfaces::Chain::Lock& locked_chain, std::vector<SproutOutput>& vSproutNotes, const CAmount& nMinimumAmount = 1, const CAmount& nMaximumAmount = MAX_MONEY, const CAmount& nMinimumSumAmount = MAX_MONEY, const uint64_t nMaximumCount = 0) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+
+    /**
+     * populate vNotes with vector of available SaplingOutput.
+     */
+    void AvailableSaplingNotes(interfaces::Chain::Lock& locked_chain, std::vector<SaplingOutput>& vSaplingNotes, const CAmount& nMinimumAmount = 1, const CAmount& nMaximumAmount = MAX_MONEY, const CAmount& nMinimumSumAmount = MAX_MONEY, const uint64_t nMaximumCount = 0) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+
+    /**
      * Return list of available coins and locked coins grouped by non-change output address.
      */
     std::map<CTxDestination, std::vector<COutput>> ListCoins(interfaces::Chain::Lock& locked_chain, bool fOnlyCoinbase, bool fIncludeCoinbase) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+
+    /**
+     * Return list of available sprout notes grouped by non-change output address.
+     */
+    std::map<libzcash::SproutPaymentAddress, std::vector<SproutOutput>> ListSproutNotes(interfaces::Chain::Lock& locked_chain) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+
+    /**
+     * Return list of available sapling notes grouped by non-change output address.
+     */
+    std::map<libzcash::SaplingPaymentAddress, std::vector<SaplingOutput>> ListSaplingNotes(interfaces::Chain::Lock& locked_chain) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /**
      * Find non-change parent output.

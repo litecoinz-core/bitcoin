@@ -19,6 +19,7 @@ class ShieldCoinbaseDialog;
 class TransactionView;
 class WalletModel;
 class AddressBookPage;
+class ZSendCoinsDialog;
 
 QT_BEGIN_NAMESPACE
 class QModelIndex;
@@ -63,6 +64,7 @@ private:
     QWidget *transactionsPage;
     ReceiveCoinsDialog *receiveCoinsPage;
     SendCoinsDialog *sendCoinsPage;
+    ZSendCoinsDialog *zsendCoinsPage;
     AddressBookPage *usedSendingAddressesPage;
     AddressBookPage *usedReceivingAddressesPage;
 
@@ -82,6 +84,8 @@ public Q_SLOTS:
     void gotoReceiveCoinsPage();
     /** Switch to send coins page */
     void gotoSendCoinsPage(QString addr = "");
+    /** Switch to z-send coins page */
+    void gotoZSendCoinsPage(QString addr = "");
 
     /** Show Sign/Verify Message dialog and switch to sign message tab */
     void gotoSignMessageTab(QString addr = "");

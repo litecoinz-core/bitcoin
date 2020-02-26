@@ -10,6 +10,7 @@
 #include <script/standard.h>           // For CTxDestination
 #include <support/allocators/secure.h> // For SecureString
 #include <ui_interface.h>              // For ChangeType
+#include <wallet/wallet.h>             // For SproutNoteData and SaplingNoteData
 
 #include <functional>
 #include <map>
@@ -25,6 +26,8 @@ class CInputControl;
 class CFeeRate;
 class CKey;
 class CWallet;
+class SproutNoteData;
+class SaplingNoteData;
 enum isminetype : unsigned int;
 enum class FeeReason;
 typedef uint8_t isminefilter;
@@ -40,6 +43,8 @@ struct WalletShieldedAddress;
 struct WalletBalances;
 struct WalletTx;
 struct WalletTxOut;
+struct WalletSproutNote;
+struct WalletSaplingNote;
 struct WalletTxStatus;
 
 using WalletOrderForm = std::vector<std::pair<std::string, std::string>>;
@@ -258,6 +263,16 @@ public:
     using CoinsList = std::map<CTxDestination, std::vector<std::tuple<COutPoint, WalletTxOut>>>;
     virtual CoinsList listCoins(bool fOnlyCoinbase, bool fIncludeCoinbase) = 0;
 
+    //! Return Sprout GetFilteredNotes grouped by wallet address.
+    //! (put change in one group with wallet address)
+    using SproutNotesList = std::map<libzcash::SproutPaymentAddress, std::vector<std::tuple<SproutOutPoint, WalletSproutNote>>>;
+    virtual SproutNotesList listSproutNotes() = 0;
+
+    //! Return Sapling GetFilteredNotes grouped by wallet address.
+    //! (put change in one group with wallet address)
+    using SaplingNotesList = std::map<libzcash::SaplingPaymentAddress, std::vector<std::tuple<SaplingOutPoint, WalletSaplingNote>>>;
+    virtual SaplingNotesList listSaplingNotes() = 0;
+
     //! Return wallet transaction output information.
     virtual std::vector<WalletTxOut> getCoins(const std::vector<COutPoint>& outputs) = 0;
 
@@ -452,6 +467,32 @@ struct WalletTxStatus
 struct WalletTxOut
 {
     CTxOut txout;
+    int64_t time;
+    int depth_in_main_chain = -1;
+    bool is_spent = false;
+};
+
+//! Wallet transaction sprout note.
+struct WalletSproutNote
+{
+    libzcash::SproutPaymentAddress address;
+    libzcash::SproutNote note;
+    SproutOutPoint jsop;
+    SproutNoteData nd;
+    std::array<unsigned char, ZC_MEMO_SIZE> memo;
+    int64_t time;
+    int depth_in_main_chain = -1;
+    bool is_spent = false;
+};
+
+//! Wallet transaction sapling note.
+struct WalletSaplingNote
+{
+    libzcash::SaplingPaymentAddress address;
+    libzcash::SaplingNote note;
+    SaplingOutPoint op;
+    SaplingNoteData nd;
+    std::array<unsigned char, ZC_MEMO_SIZE> memo;
     int64_t time;
     int depth_in_main_chain = -1;
     bool is_spent = false;

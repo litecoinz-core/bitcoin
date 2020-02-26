@@ -4768,7 +4768,7 @@ static UniValue z_getnewaddress(const JSONRPCRequest& request)
 #define CTXIN_SPEND_DUST_SIZE   148
 #define CTXOUT_REGULAR_SIZE     34
 
-static UniValue z_sendmany(const JSONRPCRequest& request)
+UniValue z_sendmany(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();

@@ -22,6 +22,7 @@
 #include <ui_interface.h>
 #include <util/system.h> // for GetBoolArg
 #include <wallet/coincontrol.h>
+#include <wallet/inputcontrol.h>
 #include <wallet/wallet.h>
 
 #include <stdint.h>
@@ -224,6 +225,57 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         if (nFeeRequired > m_wallet->getDefaultMaxTxFee()) {
             return AbsurdFee;
         }
+    }
+
+    return SendCoinsReturn(OK);
+}
+
+WalletModel::SendCoinsReturn WalletModel::prepareShieldedTransaction(WalletModelTransaction &transaction, const CInputControl& inputControl)
+{
+    CAmount total = 0;
+    QList<SendCoinsRecipient> recipients = transaction.getRecipients();
+
+    if(recipients.empty())
+    {
+        return OK;
+    }
+
+    QSet<QString> setAddress; // Used to detect duplicates
+    int nAddresses = 0;
+
+    // Pre-check input data for validity
+    for (const SendCoinsRecipient &rcp : recipients)
+    {
+        // User-entered litecoinz address / amount:
+        if((!validateAddress(rcp.address)) && (!validatePaymentAddress(rcp.address)))
+        {
+            return InvalidAddress;
+        }
+        if(rcp.amount <= 0)
+        {
+            return InvalidAmount;
+        }
+        setAddress.insert(rcp.address);
+        ++nAddresses;
+
+        total += rcp.amount;
+    }
+    if(setAddress.size() != nAddresses)
+    {
+        return DuplicateAddress;
+    }
+
+    CAmount nBalance = inputControl.GetInputBalance();
+    if(total > nBalance)
+    {
+        return AmountExceedsBalance;
+    }
+
+    CAmount nFeeRequired = 10000;
+    transaction.setTransactionFee(nFeeRequired);
+    if((total + nFeeRequired) > nBalance)
+    {
+        return SendCoinsReturn(AmountWithFeeExceedsBalance);
     }
 
     return SendCoinsReturn(OK);
