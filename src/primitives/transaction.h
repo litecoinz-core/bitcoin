@@ -530,6 +530,112 @@ public:
     std::string ToString() const;
 };
 
+class SproutNoteData
+{
+public:
+    libzcash::SproutPaymentAddress address;
+
+    /**
+     * Cached note nullifier. May not be set if the wallet was not unlocked when
+     * this was SproutNoteData was created. If not set, we always assume that the
+     * note has not been spent.
+     *
+     * It's okay to cache the nullifier in the wallet, because we are storing
+     * the spending key there too, which could be used to derive this.
+     * If the wallet is encrypted, this means that someone with access to the
+     * locked wallet cannot spend notes, but can connect received notes to the
+     * transactions they are spent in. This is the same security semantics as
+     * for transparent addresses.
+     */
+    boost::optional<uint256> nullifier;
+
+    /**
+     * Cached incremental witnesses for spendable Notes.
+     * Beginning of the list is the most recent witness.
+     */
+    std::list<SproutWitness> witnesses;
+
+    /**
+     * Block height corresponding to the most current witness.
+     *
+     * When we first create a SproutNoteData in CWallet::FindMySproutNotes, this is set to
+     * -1 as a placeholder. The next time CWallet::ChainTip is called, we can
+     * determine what height the witness cache for this note is valid for (even
+     * if no witnesses were cached), and so can set the correct value in
+     * CWallet::IncrementNoteWitnesses and CWallet::DecrementNoteWitnesses.
+     */
+    int witnessHeight;
+
+    SproutNoteData() : address(), nullifier(), witnessHeight {-1} { }
+    SproutNoteData(libzcash::SproutPaymentAddress a) :
+            address {a}, nullifier(), witnessHeight {-1} { }
+    SproutNoteData(libzcash::SproutPaymentAddress a, uint256 n) :
+            address {a}, nullifier {n}, witnessHeight {-1} { }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(address);
+        READWRITE(nullifier);
+        READWRITE(witnesses);
+        READWRITE(witnessHeight);
+    }
+
+    friend bool operator<(const SproutNoteData& a, const SproutNoteData& b) {
+        return (a.address < b.address ||
+                (a.address == b.address && a.nullifier < b.nullifier));
+    }
+
+    friend bool operator==(const SproutNoteData& a, const SproutNoteData& b) {
+        return (a.address == b.address && a.nullifier == b.nullifier);
+    }
+
+    friend bool operator!=(const SproutNoteData& a, const SproutNoteData& b) {
+        return !(a == b);
+    }
+};
+
+class SaplingNoteData
+{
+public:
+    /**
+     * We initialize the height to -1 for the same reason as we do in SproutNoteData.
+     * See the comment in that class for a full description.
+     */
+    SaplingNoteData() : witnessHeight {-1}, nullifier() { }
+    SaplingNoteData(libzcash::SaplingIncomingViewingKey ivk) : ivk {ivk}, witnessHeight {-1}, nullifier() { }
+    SaplingNoteData(libzcash::SaplingIncomingViewingKey ivk, uint256 n) : ivk {ivk}, witnessHeight {-1}, nullifier(n) { }
+
+    libzcash::SaplingIncomingViewingKey ivk;
+    int witnessHeight;
+    boost::optional<uint256> nullifier;
+
+    std::list<SaplingWitness> witnesses;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        int nVersion = s.GetVersion();
+        if (!(s.GetType() & SER_GETHASH)) {
+            READWRITE(nVersion);
+        }
+        READWRITE(ivk);
+        READWRITE(nullifier);
+        READWRITE(witnesses);
+        READWRITE(witnessHeight);
+    }
+
+    friend bool operator==(const SaplingNoteData& a, const SaplingNoteData& b) {
+        return (a.ivk == b.ivk && a.nullifier == b.nullifier && a.witnessHeight == b.witnessHeight);
+    }
+
+    friend bool operator!=(const SaplingNoteData& a, const SaplingNoteData& b) {
+        return !(a == b);
+    }
+};
+
 // Overwinter version group id
 static constexpr uint32_t OVERWINTER_VERSION_GROUP_ID = 0x03C48270;
 static_assert(OVERWINTER_VERSION_GROUP_ID != 0, "version group id must be non-zero as specified in ZIP 202");

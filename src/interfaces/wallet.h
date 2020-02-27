@@ -10,7 +10,6 @@
 #include <script/standard.h>           // For CTxDestination
 #include <support/allocators/secure.h> // For SecureString
 #include <ui_interface.h>              // For ChangeType
-#include <wallet/wallet.h>             // For SproutNoteData and SaplingNoteData
 
 #include <functional>
 #include <map>
