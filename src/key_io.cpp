@@ -141,7 +141,7 @@ public:
     {
         CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
         ss << zaddr;
-        std::vector<unsigned char> data = m_params.Base58Prefix(CChainParams::ZCPAYMENT_ADDRESS);
+        std::vector<unsigned char> data = m_params.Base58Prefix(CChainParams::SPROUT_PAYMENT_ADDRESS);
         data.insert(data.end(), ss.begin(), ss.end());
         return EncodeBase58Check(data);
     }
@@ -174,7 +174,7 @@ public:
     {
         CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
         ss << vk;
-        std::vector<unsigned char> data = m_params.Base58Prefix(CChainParams::ZCVIEWING_KEY);
+        std::vector<unsigned char> data = m_params.Base58Prefix(CChainParams::SPROUT_VIEWING_KEY);
         data.insert(data.end(), ss.begin(), ss.end());
         std::string ret = EncodeBase58Check(data);
         memory_cleanse(data.data(), data.size());
@@ -196,7 +196,7 @@ public:
     {
         CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
         ss << zkey;
-        std::vector<unsigned char> data = m_params.Base58Prefix(CChainParams::ZCSPENDING_KEY);
+        std::vector<unsigned char> data = m_params.Base58Prefix(CChainParams::SPROUT_SPENDING_KEY);
         data.insert(data.end(), ss.begin(), ss.end());
         std::string ret = EncodeBase58Check(data);
         memory_cleanse(data.data(), data.size());
@@ -381,7 +381,7 @@ libzcash::PaymentAddress DecodePaymentAddress(const std::string& str)
         libzcash::SproutPaymentAddress,
         libzcash::SaplingPaymentAddress>(
             str,
-            std::make_pair(CChainParams::ZCPAYMENT_ADDRESS, libzcash::SerializedSproutPaymentAddressSize),
+            std::make_pair(CChainParams::SPROUT_PAYMENT_ADDRESS, libzcash::SerializedSproutPaymentAddressSize),
             std::make_pair(CChainParams::SAPLING_PAYMENT_ADDRESS, ConvertedSaplingPaymentAddressSize)
         );
 }
@@ -400,7 +400,7 @@ libzcash::ViewingKey DecodeViewingKey(const std::string& str)
     return DecodeAny<libzcash::ViewingKey,
         libzcash::SproutViewingKey>(
             str,
-            std::make_pair(CChainParams::ZCVIEWING_KEY, libzcash::SerializedSproutViewingKeySize),
+            std::make_pair(CChainParams::SPROUT_VIEWING_KEY, libzcash::SerializedSproutViewingKeySize),
             boost::none
         );
 }
@@ -416,7 +416,7 @@ libzcash::SpendingKey DecodeSpendingKey(const std::string& str)
         libzcash::SproutSpendingKey,
         libzcash::SaplingExtendedSpendingKey>(
             str,
-            std::make_pair(CChainParams::ZCSPENDING_KEY, libzcash::SerializedSproutSpendingKeySize),
+            std::make_pair(CChainParams::SPROUT_SPENDING_KEY, libzcash::SerializedSproutSpendingKeySize),
             std::make_pair(CChainParams::SAPLING_EXTENDED_SPEND_KEY, ConvertedSaplingExtendedSpendingKeySize)
         );
 }

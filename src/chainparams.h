@@ -55,9 +55,9 @@ public:
         EXT_PUBLIC_KEY,
         EXT_SECRET_KEY,
 
-        ZCPAYMENT_ADDRESS,
-        ZCSPENDING_KEY,
-        ZCVIEWING_KEY,
+        SPROUT_PAYMENT_ADDRESS,
+        SPROUT_SPENDING_KEY,
+        SPROUT_VIEWING_KEY,
 
         MAX_BASE58_TYPES
     };
