@@ -3261,7 +3261,7 @@ static UniValue z_listunspent(const JSONRPCRequest& request)
             obj.pushKV("jsindex", (int)entry.jsop.js );
             obj.pushKV("jsoutindex", (int)entry.jsop.n);
             obj.pushKV("confirmations", entry.confirmations);
-            bool hasSproutSpendingKey = pwallet->HaveSproutSpendingKey(boost::get<libzcash::SproutPaymentAddress>(entry.address));
+            bool hasSproutSpendingKey = HaveSpendingKeyForPaymentAddress(pwallet)(entry.address);
             obj.pushKV("spendable", hasSproutSpendingKey);
             obj.pushKV("address", EncodePaymentAddress(entry.address));
 
@@ -3284,11 +3284,7 @@ static UniValue z_listunspent(const JSONRPCRequest& request)
             obj.pushKV("txid", entry.op.hash.ToString());
             obj.pushKV("outindex", (int)entry.op.n);
             obj.pushKV("confirmations", entry.confirmations);
-            libzcash::SaplingIncomingViewingKey ivk;
-            libzcash::SaplingFullViewingKey fvk;
-            pwallet->GetSaplingIncomingViewingKey(boost::get<libzcash::SaplingPaymentAddress>(entry.address), ivk);
-            pwallet->GetSaplingFullViewingKey(ivk, fvk);
-            bool hasSaplingSpendingKey = pwallet->HaveSaplingSpendingKey(fvk);
+            bool hasSaplingSpendingKey = HaveSpendingKeyForPaymentAddress(pwallet)(entry.address);
             obj.pushKV("spendable", hasSaplingSpendingKey);
             obj.pushKV("address", EncodePaymentAddress(entry.address));
 
@@ -5882,7 +5878,7 @@ UniValue z_listaddresses(const JSONRPCRequest& request)
         std::set<libzcash::SproutPaymentAddress> addresses;
         pwallet->GetSproutPaymentAddresses(addresses);
         for (auto addr : addresses) {
-            if (fIncludeWatchonly || pwallet->HaveSproutSpendingKey(addr)) {
+            if (fIncludeWatchonly || HaveSpendingKeyForPaymentAddress(pwallet)(addr)) {
                 ret.push_back(EncodePaymentAddress(addr));
             }
         }
@@ -5890,14 +5886,8 @@ UniValue z_listaddresses(const JSONRPCRequest& request)
     {
         std::set<libzcash::SaplingPaymentAddress> addresses;
         pwallet->GetSaplingPaymentAddresses(addresses);
-        libzcash::SaplingIncomingViewingKey ivk;
-        libzcash::SaplingFullViewingKey fvk;
         for (auto addr : addresses) {
-            if (fIncludeWatchonly || (
-                pwallet->GetSaplingIncomingViewingKey(addr, ivk) &&
-                pwallet->GetSaplingFullViewingKey(ivk, fvk) &&
-                pwallet->HaveSaplingSpendingKey(fvk)
-            )) {
+            if (fIncludeWatchonly || HaveSpendingKeyForPaymentAddress(pwallet)(addr)) {
                 ret.push_back(EncodePaymentAddress(addr));
             }
         }

@@ -7,7 +7,6 @@
 #include <rpc/request.h>
 #include <wallet/wallet.h>
 #include <zcash/Address.hpp>
-#include <zcash/zip32.h>
 
 #include <univalue.h>
 

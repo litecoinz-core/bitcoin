@@ -205,9 +205,9 @@ isminetype IsMine(const CWallet& keystore, const libzcash::SproutPaymentAddress&
 isminetype IsMine(const CWallet& keystore, const libzcash::SaplingPaymentAddress& address)
 {
     libzcash::SaplingIncomingViewingKey ivk;
-    libzcash::SaplingFullViewingKey fvk;
+    libzcash::SaplingExtendedFullViewingKey extfvk;
 
-    if (keystore.GetSaplingIncomingViewingKey(address, ivk) && keystore.GetSaplingFullViewingKey(ivk, fvk) && keystore.HaveSaplingSpendingKey(fvk))
+    if (keystore.GetSaplingIncomingViewingKey(address, ivk) && keystore.GetSaplingFullViewingKey(ivk, extfvk) && keystore.HaveSaplingSpendingKey(extfvk))
         return ISMINE_SPENDABLE;
     if (keystore.HaveSaplingIncomingViewingKey(address))
         return ISMINE_WATCH_ONLY;

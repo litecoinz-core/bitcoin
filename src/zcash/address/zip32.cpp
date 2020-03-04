@@ -2,7 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <zcash/zip32.h>
+#include <zcash/address/zip32.h>
 
 #include <hash.h>
 #include <random.h>
@@ -163,8 +163,4 @@ libzcash::SaplingPaymentAddress SaplingExtendedSpendingKey::DefaultAddress() con
     return ToXFVK().DefaultAddress();
 }
 
-}
-
-bool IsValidSpendingKey(const libzcash::SpendingKey& zkey) {
-    return zkey.which() != 0;
 }

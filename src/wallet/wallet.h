@@ -27,7 +27,6 @@
 #include <wallet/walletutil.h>
 
 #include <zcash/Address.hpp>
-#include <zcash/zip32.h>
 
 #include <algorithm>
 #include <atomic>
@@ -1373,7 +1372,7 @@ public:
     //! Generates new Sapling key
     libzcash::SaplingPaymentAddress GenerateNewSaplingZKey() EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds Sapling spending key to the store, and saves it to disk
-    bool AddSaplingZKey(const libzcash::SaplingExtendedSpendingKey &key, const libzcash::SaplingPaymentAddress &defaultAddr);
+    bool AddSaplingZKey(const libzcash::SaplingExtendedSpendingKey &key);
     //! Adds spending key to the store, without saving it to disk (used by LoadWallet)
     bool LoadSaplingZKey(const libzcash::SaplingExtendedSpendingKey &key);
     //! Load spending key metadata (used by LoadWallet)
@@ -1381,8 +1380,7 @@ public:
     //! Adds an encrypted spending key to the store, without saving it to disk (used by LoadWallet)
     bool LoadCryptedSaplingZKey(const libzcash::SaplingExtendedFullViewingKey &extfvk, const std::vector<unsigned char> &vchCryptedSecret);
     bool AddCryptedSaplingSpendingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk,
-                                      const std::vector<unsigned char> &vchCryptedSecret,
-                                      const libzcash::SaplingPaymentAddress &defaultAddr);
+                                      const std::vector<unsigned char> &vchCryptedSecret);
     //! Adds a Sapling incoming viewing key to the store, and saves it to disk.
     bool AddSaplingIncomingViewingKey(const libzcash::SaplingIncomingViewingKey &ivk, const libzcash::SaplingPaymentAddress &addr);
     //! Adds a Sapling payment address -> incoming viewing key map entry,
@@ -1860,11 +1858,10 @@ public:
 
     //! Sapling
     virtual bool AddCryptedSaplingSpendingKeyInner(const libzcash::SaplingExtendedFullViewingKey &extfvk,
-                                                   const std::vector<unsigned char> &vchCryptedSecret,
-                                                   const libzcash::SaplingPaymentAddress &defaultAddr);
-    bool AddSaplingSpendingKey(const libzcash::SaplingExtendedSpendingKey &sk, const libzcash::SaplingPaymentAddress &defaultAddr);
-    bool HaveSaplingSpendingKey(const libzcash::SaplingFullViewingKey &fvk) const;
-    bool GetSaplingSpendingKey(const libzcash::SaplingFullViewingKey &fvk, libzcash::SaplingExtendedSpendingKey &skOut) const;
+                                                   const std::vector<unsigned char> &vchCryptedSecret);
+    bool AddSaplingSpendingKey(const libzcash::SaplingExtendedSpendingKey &sk);
+    bool HaveSaplingSpendingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk) const;
+    bool GetSaplingSpendingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk, libzcash::SaplingExtendedSpendingKey &skOut) const;
 };
 
 /**

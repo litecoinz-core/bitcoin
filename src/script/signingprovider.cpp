@@ -267,33 +267,33 @@ void FillableSigningProvider::GetSproutPaymentAddresses(std::set<libzcash::Sprou
     }
 }
 
-bool FillableSigningProvider::AddSaplingSpendingKey(const libzcash::SaplingExtendedSpendingKey &sk, const libzcash::SaplingPaymentAddress &defaultAddr)
+bool FillableSigningProvider::AddSaplingSpendingKey(const libzcash::SaplingExtendedSpendingKey &sk)
 {
     LOCK(cs_KeyStore);
-    auto fvk = sk.expsk.full_viewing_key();
+    auto extfvk = sk.ToXFVK();
 
-    // if SaplingFullViewingKey is not in SaplingFullViewingKeyMap, add it
-    if (!AddSaplingFullViewingKey(fvk, defaultAddr)) {
+    // if extfvk is not in SaplingFullViewingKeyMap, add it
+    if (!AddSaplingFullViewingKey(extfvk)) {
         return false;
     }
 
-    mapSaplingSpendingKeys[fvk] = sk;
+    mapSaplingSpendingKeys[extfvk] = sk;
 
     return true;
 }
 
-bool FillableSigningProvider::HaveSaplingSpendingKey(const libzcash::SaplingFullViewingKey &fvk) const
+bool FillableSigningProvider::HaveSaplingSpendingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk) const
 {
     LOCK(cs_KeyStore);
-    return mapSaplingSpendingKeys.count(fvk) > 0;
+    return mapSaplingSpendingKeys.count(extfvk) > 0;
 }
 
-bool FillableSigningProvider::GetSaplingSpendingKey(const libzcash::SaplingFullViewingKey &fvk, libzcash::SaplingExtendedSpendingKey& skOut) const
+bool FillableSigningProvider::GetSaplingSpendingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk, libzcash::SaplingExtendedSpendingKey &skOut) const
 {
     {
         LOCK(cs_KeyStore);
 
-        SaplingSpendingKeyMap::const_iterator mi = mapSaplingSpendingKeys.find(fvk);
+        SaplingSpendingKeyMap::const_iterator mi = mapSaplingSpendingKeys.find(extfvk);
         if (mi != mapSaplingSpendingKeys.end())
         {
             skOut = mi->second;
@@ -303,13 +303,13 @@ bool FillableSigningProvider::GetSaplingSpendingKey(const libzcash::SaplingFullV
     return false;
 }
 
-bool FillableSigningProvider::AddSaplingFullViewingKey(const libzcash::SaplingFullViewingKey &fvk, const libzcash::SaplingPaymentAddress &defaultAddr)
+bool FillableSigningProvider::AddSaplingFullViewingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk)
 {
     LOCK(cs_KeyStore);
-    auto ivk = fvk.in_viewing_key();
-    mapSaplingFullViewingKeys[ivk] = fvk;
+    auto ivk = extfvk.fvk.in_viewing_key();
+    mapSaplingFullViewingKeys[ivk] = extfvk;
 
-    return FillableSigningProvider::AddSaplingIncomingViewingKey(ivk, defaultAddr);
+    return FillableSigningProvider::AddSaplingIncomingViewingKey(ivk, extfvk.DefaultAddress());
 }
 
 bool FillableSigningProvider::HaveSaplingFullViewingKey(const libzcash::SaplingIncomingViewingKey &ivk) const
@@ -318,12 +318,12 @@ bool FillableSigningProvider::HaveSaplingFullViewingKey(const libzcash::SaplingI
     return mapSaplingFullViewingKeys.count(ivk) > 0;
 }
 
-bool FillableSigningProvider::GetSaplingFullViewingKey(const libzcash::SaplingIncomingViewingKey &ivk, libzcash::SaplingFullViewingKey& fvkOut) const
+bool FillableSigningProvider::GetSaplingFullViewingKey(const libzcash::SaplingIncomingViewingKey &ivk, libzcash::SaplingExtendedFullViewingKey &extfvkOut) const
 {
     LOCK(cs_KeyStore);
     SaplingFullViewingKeyMap::const_iterator mi = mapSaplingFullViewingKeys.find(ivk);
     if (mi != mapSaplingFullViewingKeys.end()) {
-        fvkOut = mi->second;
+        extfvkOut = mi->second;
         return true;
     }
     return false;
@@ -359,10 +359,10 @@ bool FillableSigningProvider::GetSaplingIncomingViewingKey(const libzcash::Sapli
 bool FillableSigningProvider::GetSaplingExtendedSpendingKey(const libzcash::SaplingPaymentAddress &addr, libzcash::SaplingExtendedSpendingKey &extskOut) const
 {
     libzcash::SaplingIncomingViewingKey ivk;
-    libzcash::SaplingFullViewingKey fvk;
+    libzcash::SaplingExtendedFullViewingKey extfvk;
 
     LOCK(cs_KeyStore);
-    return GetSaplingIncomingViewingKey(addr, ivk) && GetSaplingFullViewingKey(ivk, fvk) && GetSaplingSpendingKey(fvk, extskOut);
+    return GetSaplingIncomingViewingKey(addr, ivk) && GetSaplingFullViewingKey(ivk, extfvk) && GetSaplingSpendingKey(extfvk, extskOut);
 }
 
 void FillableSigningProvider::GetSaplingPaymentAddresses(std::set<libzcash::SaplingPaymentAddress> &setAddress) const
