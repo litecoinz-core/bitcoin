@@ -24,14 +24,49 @@
 // Default transaction fee if caller does not specify one.
 #define ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE   10000
 
-// A recipient is a tuple of address, amount, memo (optional if zaddr)
-typedef std::tuple<std::string, CAmount, std::string> SendManyRecipient;
+class SendManyRecipient {
+public:
+    std::string address;
+    CAmount amount;
+    std::string memo;
 
-// Input UTXO is a tuple (quadruple) of txid, vout, amount, coinbase)
-typedef std::tuple<uint256, int, CAmount, bool> SendManyInputUTXO;
+    SendManyRecipient(std::string address_, CAmount amount_, std::string memo_ = "")
+    {
+        address = address_;
+        amount = amount_;
+        memo = memo_;
+    }
+};
 
-// Input JSOP is a tuple of SproutOutPoint, note and amount
-typedef std::tuple<SproutOutPoint, libzcash::SproutNote, CAmount> SendManyInputJSOP;
+class SendManyInputUTXO {
+public:
+    uint256 txid;
+    int vout;
+    CAmount amount;
+    bool coinbase;
+
+    SendManyInputUTXO(uint256 txid_, int vout_, CAmount amount_, bool coinbase_)
+    {
+        txid = txid_;
+        vout = vout_;
+        amount = amount_;
+        coinbase = coinbase_;
+    }
+};
+
+class SendManyInputJSOP {
+public:
+    SproutOutPoint outpoint;
+    libzcash::SproutNote note;
+    CAmount amount;
+
+    SendManyInputJSOP(SproutOutPoint outpoint_, libzcash::SproutNote note_, CAmount amount_)
+    {
+        outpoint = outpoint_;
+        note = note_;
+        amount = amount_;
+    }
+};
 
 // Package of info which is passed to perform_joinsplit methods.
 struct AsyncJoinSplitInfo
