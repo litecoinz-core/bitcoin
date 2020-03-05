@@ -5140,6 +5140,11 @@ UniValue z_shieldcoinbase(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, unknown address format: ") + destaddress );
     }
 
+    auto res = DecodePaymentAddress(destaddress);
+    bool noSproutAddrs = true;
+    bool toSapling = boost::get<libzcash::SaplingPaymentAddress>(&res) != nullptr;
+    noSproutAddrs = noSproutAddrs && toSapling;
+
     // Convert fee from currency format to zatoshis
     CAmount nFee = SHIELD_COINBASE_DEFAULT_MINERS_FEE;
     if (!request.params[2].isNull()) {
@@ -5257,7 +5262,10 @@ UniValue z_shieldcoinbase(const JSONRPCRequest& request)
     contextInfo.pushKV("fee", ValueFromAmount(nFee));
 
     // Builder (used if Sapling addresses are involved)
-    TransactionBuilder builder = TransactionBuilder(Params().GetConsensus(), nextBlockHeight, pwallet);
+    boost::optional<TransactionBuilder> builder;
+    if (noSproutAddrs) {
+        builder = TransactionBuilder(Params().GetConsensus(), nextBlockHeight, pwallet);
+    }
 
     // Contextual transaction we will build on
     // (used if no Sapling addresses are involved)
