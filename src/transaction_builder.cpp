@@ -588,7 +588,7 @@ void TransactionBuilder::CreateJSDescriptions()
 
                 jsInputValue += plaintext.value();
 
-                LogPrint(BCLog::ZRPCUNSAFE, "spending change (amount=%s)\n", FormatMoney(plaintext.value()));
+                LogPrint(BCLog::ZRPC, "spending change (amount=%s)\n", FormatMoney(plaintext.value()));
 
             } catch (const std::exception& e) {
                 throw JSDescException("Error decrypting output note of previous JoinSplit");
@@ -668,7 +668,7 @@ void TransactionBuilder::CreateJSDescriptions()
         if (jsChange > 0) {
             vjsout[1] = libzcash::JSOutput(changeAddress, jsChange);
 
-            LogPrint(BCLog::ZRPCUNSAFE, "generating note for change (amount=%s)\n", FormatMoney(jsChange));
+            LogPrint(BCLog::ZRPC, "generating note for change (amount=%s)\n", FormatMoney(jsChange));
         }
 
         std::array<size_t, ZC_NUM_JS_INPUTS> inputMap;
@@ -695,7 +695,7 @@ void TransactionBuilder::CreateJSDescription(
     std::array<size_t, ZC_NUM_JS_INPUTS>& inputMap,
     std::array<size_t, ZC_NUM_JS_OUTPUTS>& outputMap)
 {
-    LogPrint(BCLog::ZRPCUNSAFE, "CreateJSDescription: creating joinsplit at index %d (vpub_old=%s, vpub_new=%s, in[0]=%s, in[1]=%s, out[0]=%s, out[1]=%s)\n",
+    LogPrint(BCLog::ZRPC, "CreateJSDescription: creating joinsplit at index %d (vpub_old=%s, vpub_new=%s, in[0]=%s, in[1]=%s, out[0]=%s, out[1]=%s)\n",
         mtx.vJoinSplit.size(),
         FormatMoney(vpub_old), FormatMoney(vpub_new),
         FormatMoney(vjsin[0].note.value()), FormatMoney(vjsin[1].note.value()),

@@ -113,11 +113,7 @@ AsyncRPCOperation_mergetoaddress::AsyncRPCOperation_mergetoaddress(
     }
 
     // Log the context info i.e. the call parameters to z_mergetoaddress
-    if (LogAcceptCategory(BCLog::ZRPCUNSAFE)) {
-        LogPrint(BCLog::ZRPCUNSAFE, "%s: z_mergetoaddress initialized (params=%s)\n", getId(), contextInfo.write());
-    } else {
-        LogPrint(BCLog::ZRPC, "%s: z_mergetoaddress initialized\n", getId());
-    }
+    LogPrint(BCLog::ZRPC, "%s: z_mergetoaddress initialized (params=%s)\n", getId(), contextInfo.write());
 
     // Lock UTXOs
     lock_utxos(pwallet);
@@ -256,14 +252,13 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
         tx_ = MakeTransactionRef(std::move(rawTx));
     }
 
-    LogPrint(isPureTaddrOnlyTx ? BCLog::ZRPC : BCLog::ZRPCUNSAFE, "%s: spending %s to send %s with fee %s\n",
-             getId(), FormatMoney(targetAmount), FormatMoney(sendAmount), FormatMoney(minersFee));
+    LogPrint(BCLog::ZRPC, "%s: spending %s to send %s with fee %s\n", getId(), FormatMoney(targetAmount), FormatMoney(sendAmount), FormatMoney(minersFee));
     LogPrint(BCLog::ZRPC, "%s: transparent input: %s\n", getId(), FormatMoney(t_inputs_total));
-    LogPrint(BCLog::ZRPCUNSAFE, "%s: private input: %s\n", getId(), FormatMoney(z_inputs_total));
+    LogPrint(BCLog::ZRPC, "%s: private input: %s\n", getId(), FormatMoney(z_inputs_total));
     if (isToTaddr_) {
         LogPrint(BCLog::ZRPC, "%s: transparent output: %s\n", getId(), FormatMoney(sendAmount));
     } else {
-        LogPrint(BCLog::ZRPCUNSAFE, "%s: private output: %s\n", getId(), FormatMoney(sendAmount));
+        LogPrint(BCLog::ZRPC, "%s: private output: %s\n", getId(), FormatMoney(sendAmount));
     }
     LogPrint(BCLog::ZRPC, "%s: fee: %s\n", getId(), FormatMoney(minersFee));
 
@@ -561,7 +556,7 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
 
                 jsInputValue += plaintext.value();
 
-                LogPrint(BCLog::ZRPCUNSAFE, "%s: spending change (amount=%s)\n",
+                LogPrint(BCLog::ZRPC, "%s: spending change (amount=%s)\n",
                          getId(),
                          FormatMoney(plaintext.value()));
 
@@ -615,7 +610,7 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
                 wtxHeight = pindex->nHeight;
                 wtxDepth = wtx.GetDepthInMainChain(*locked_chain);
             }
-            LogPrint(BCLog::ZRPCUNSAFE, "%s: spending note (txid=%s, vJoinSplit=%d, jsoutindex=%d, amount=%s, height=%d, confirmations=%d)\n",
+            LogPrint(BCLog::ZRPC, "%s: spending note (txid=%s, vJoinSplit=%d, jsoutindex=%d, amount=%s, height=%d, confirmations=%d)\n",
                      getId(),
                      jso.hash.ToString().substr(0, 10),
                      jso.js,
@@ -692,7 +687,7 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
             }
             info.vjsout.push_back(jso);
 
-            LogPrint(BCLog::ZRPCUNSAFE, "%s: generating note for %s (amount=%s)\n",
+            LogPrint(BCLog::ZRPC, "%s: generating note for %s (amount=%s)\n",
                      getId(),
                      outputType,
                      FormatMoney(jsChange));
@@ -781,7 +776,7 @@ UniValue AsyncRPCOperation_mergetoaddress::perform_joinsplit(
 
     CMutableTransaction mtx(*tx_);
 
-    LogPrint(BCLog::ZRPCUNSAFE, "%s: creating joinsplit at index %d (vpub_old=%s, vpub_new=%s, in[0]=%s, in[1]=%s, out[0]=%s, out[1]=%s)\n",
+    LogPrint(BCLog::ZRPC, "%s: creating joinsplit at index %d (vpub_old=%s, vpub_new=%s, in[0]=%s, in[1]=%s, out[0]=%s, out[1]=%s)\n",
              getId(),
              tx_->vJoinSplit.size(),
              FormatMoney(info.vpub_old), FormatMoney(info.vpub_new),

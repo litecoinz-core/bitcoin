@@ -76,11 +76,7 @@ AsyncRPCOperation_shieldcoinbase::AsyncRPCOperation_shieldcoinbase(
     }
 
     // Log the context info i.e. the call parameters to z_shieldcoinbase
-    if (LogAcceptCategory(BCLog::ZRPCUNSAFE)) {
-        LogPrint(BCLog::ZRPCUNSAFE, "%s: z_shieldcoinbase initialized (params=%s)\n", getId(), contextInfo.write());
-    } else {
-        LogPrint(BCLog::ZRPC, "%s: z_shieldcoinbase initialized\n", getId());
-    }
+    LogPrint(BCLog::ZRPC, "%s: z_shieldcoinbase initialized (params=%s)\n", getId(), contextInfo.write());
 
     // Enable payment disclosure if requested
     paymentDisclosureMode = gArgs.GetBoolArg("-paymentdisclosure", false);
@@ -185,10 +181,9 @@ bool AsyncRPCOperation_shieldcoinbase::main_impl() {
 
     CAmount sendAmount = t_inputs_total - minersFee;
 
-    LogPrint(BCLog::ZRPC, "%s: spending %s to send %s with fee %s\n",
-            getId(), FormatMoney(t_inputs_total), FormatMoney(sendAmount), FormatMoney(minersFee));
+    LogPrint(BCLog::ZRPC, "%s: spending %s to send %s with fee %s\n", getId(), FormatMoney(t_inputs_total), FormatMoney(sendAmount), FormatMoney(minersFee));
     LogPrint(BCLog::ZRPC, "%s: transparent input: %s (to choose from)\n", getId(), FormatMoney(t_inputs_total));
-    LogPrint(BCLog::ZRPCUNSAFE, "%s: private output: %s\n", getId(), FormatMoney(sendAmount));
+    LogPrint(BCLog::ZRPC, "%s: private output: %s\n", getId(), FormatMoney(sendAmount));
     LogPrint(BCLog::ZRPC, "%s: fee: %s\n", getId(), FormatMoney(minersFee));
 
     /**
@@ -303,7 +298,7 @@ UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(
 
     CMutableTransaction mtx(*tx_);
 
-    LogPrint(BCLog::ZRPCUNSAFE, "%s: creating joinsplit at index %d (vpub_old=%s, vpub_new=%s, in[0]=%s, in[1]=%s, out[0]=%s, out[1]=%s)\n",
+    LogPrint(BCLog::ZRPC, "%s: creating joinsplit at index %d (vpub_old=%s, vpub_new=%s, in[0]=%s, in[1]=%s, out[0]=%s, out[1]=%s)\n",
              getId(),
              tx_->vJoinSplit.size(),
              FormatMoney(info.vpub_old), FormatMoney(info.vpub_new),

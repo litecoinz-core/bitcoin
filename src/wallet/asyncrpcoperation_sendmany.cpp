@@ -116,11 +116,7 @@ AsyncRPCOperation_sendmany::AsyncRPCOperation_sendmany(
     }
 
     // Log the context info i.e. the call parameters to z_sendmany
-    if (LogAcceptCategory(BCLog::ZRPCUNSAFE)) {
-        LogPrint(BCLog::ZRPCUNSAFE, "%s: z_sendmany initialized (params=%s)\n", getId(), contextInfo.write());
-    } else {
-        LogPrint(BCLog::ZRPC, "%s: z_sendmany initialized\n", getId());
-    }
+    LogPrint(BCLog::ZRPC, "%s: z_sendmany initialized (params=%s)\n", getId(), contextInfo.write());
 
     // Enable payment disclosure if requested
     paymentDisclosureMode = gArgs.GetBoolArg("-paymentdisclosure", false);
@@ -335,12 +331,11 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         }
     }
 
-    LogPrint((isfromtaddr_) ? BCLog::ZRPC : BCLog::ZRPCUNSAFE, "%s: spending %s to send %s with fee %s\n",
-            getId(), FormatMoney(targetAmount), FormatMoney(sendAmount), FormatMoney(minersFee));
+    LogPrint(BCLog::ZRPC, "%s: spending %s to send %s with fee %s\n", getId(), FormatMoney(targetAmount), FormatMoney(sendAmount), FormatMoney(minersFee));
     LogPrint(BCLog::ZRPC, "%s: transparent input: %s (to choose from)\n", getId(), FormatMoney(t_inputs_total));
-    LogPrint(BCLog::ZRPCUNSAFE, "%s: private input: %s (to choose from)\n", getId(), FormatMoney(z_inputs_total));
+    LogPrint(BCLog::ZRPC, "%s: private input: %s (to choose from)\n", getId(), FormatMoney(z_inputs_total));
     LogPrint(BCLog::ZRPC, "%s: transparent output: %s\n", getId(), FormatMoney(t_outputs_total));
-    LogPrint(BCLog::ZRPCUNSAFE, "%s: private output: %s\n", getId(), FormatMoney(z_outputs_total));
+    LogPrint(BCLog::ZRPC, "%s: private output: %s\n", getId(), FormatMoney(z_outputs_total));
     LogPrint(BCLog::ZRPC, "%s: fee: %s\n", getId(), FormatMoney(minersFee));
 
 
@@ -698,7 +693,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
 
                 jsInputValue += plaintext.value();
 
-                LogPrint(BCLog::ZRPCUNSAFE, "%s: spending change (amount=%s)\n",
+                LogPrint(BCLog::ZRPC, "%s: spending change (amount=%s)\n",
                     getId(),
                     FormatMoney(plaintext.value())
                     );
@@ -750,7 +745,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
                 wtxHeight = pindex->nHeight;
                 wtxDepth = wtx.GetDepthInMainChain(*locked_chain);
             }
-            LogPrint(BCLog::ZRPCUNSAFE, "%s: spending note (txid=%s, vJoinSplit=%d, jsoutindex=%d, amount=%s, height=%d, confirmations=%d)\n",
+            LogPrint(BCLog::ZRPC, "%s: spending note (txid=%s, vJoinSplit=%d, jsoutindex=%d, amount=%s, height=%d, confirmations=%d)\n",
                      getId(),
                      jso.hash.ToString().substr(0, 10),
                      jso.js,
@@ -854,7 +849,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         if (jsChange>0) {
             info.vjsout.push_back(libzcash::JSOutput(boost::get<libzcash::SproutPaymentAddress>(frompaymentaddress_), jsChange));
 
-            LogPrint(BCLog::ZRPCUNSAFE, "%s: generating note for change (amount=%s)\n",
+            LogPrint(BCLog::ZRPC, "%s: generating note for change (amount=%s)\n",
                     getId(),
                     FormatMoney(jsChange)
                     );
@@ -956,7 +951,7 @@ bool AsyncRPCOperation_sendmany::find_unspent_notes() {
     for (SproutNoteEntry & entry : sproutEntries) {
         z_sprout_inputs_.push_back(SendManyInputJSOP(entry.jsop, entry.note, CAmount(entry.note.value())));
         std::string data(entry.memo.begin(), entry.memo.end());
-        LogPrint(BCLog::ZRPCUNSAFE, "%s: found unspent Sprout note (txid=%s, vJoinSplit=%d, jsoutindex=%d, amount=%s, memo=%s)\n",
+        LogPrint(BCLog::ZRPC, "%s: found unspent Sprout note (txid=%s, vJoinSplit=%d, jsoutindex=%d, amount=%s, memo=%s)\n",
             getId(),
             entry.jsop.hash.ToString().substr(0, 10),
             entry.jsop.js,
@@ -969,7 +964,7 @@ bool AsyncRPCOperation_sendmany::find_unspent_notes() {
     for (auto entry : saplingEntries) {
         z_sapling_inputs_.push_back(entry);
         std::string data(entry.memo.begin(), entry.memo.end());
-        LogPrint(BCLog::ZRPCUNSAFE, "%s: found unspent Sapling note (txid=%s, vShieldedSpend=%d, amount=%s, memo=%s)\n",
+        LogPrint(BCLog::ZRPC, "%s: found unspent Sapling note (txid=%s, vShieldedSpend=%d, amount=%s, memo=%s)\n",
             getId(),
             entry.op.hash.ToString().substr(0, 10),
             entry.op.n,
@@ -1055,7 +1050,7 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
 
     CMutableTransaction mtx(*tx_);
 
-    LogPrint(BCLog::ZRPCUNSAFE, "%s: creating joinsplit at index %d (vpub_old=%s, vpub_new=%s, in[0]=%s, in[1]=%s, out[0]=%s, out[1]=%s)\n",
+    LogPrint(BCLog::ZRPC, "%s: creating joinsplit at index %d (vpub_old=%s, vpub_new=%s, in[0]=%s, in[1]=%s, out[0]=%s, out[1]=%s)\n",
              getId(),
              tx_->vJoinSplit.size(),
              FormatMoney(info.vpub_old), FormatMoney(info.vpub_new),
