@@ -5845,6 +5845,219 @@ UniValue z_gettotalbalance(const JSONRPCRequest& request)
     return result;
 }
 
+UniValue z_viewtransaction(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    RPCHelpMan{"z_viewtransaction",
+                "\nGet detailed shielded information about in-wallet transaction <txid>\n",
+                {
+                    {"txid", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction id"},
+                },
+                 RPCResult{
+            "{\n"
+            "  \"txid\" : \"transactionid\",   (string) The transaction id\n"
+            "  \"spends\" : [\n"
+            "    {\n"
+            "      \"type\" : \"sprout|sapling\",      (string) The type of address\n"
+            "      \"js\" : n,                       (numeric, sprout) the index of the JSDescription within vJoinSplit\n"
+            "      \"jsSpend\" : n,                  (numeric, sprout) the index of the spend within the JSDescription\n"
+            "      \"spend\" : n,                    (numeric, sapling) the index of the spend within vShieldedSpend\n"
+            "      \"txidPrev\" : \"transactionid\",   (string) The id for the transaction this note was created in\n"
+            "      \"jsPrev\" : n,                   (numeric, sprout) the index of the JSDescription within vJoinSplit\n"
+            "      \"jsOutputPrev\" : n,             (numeric, sprout) the index of the output within the JSDescription\n"
+            "      \"outputPrev\" : n,               (numeric, sapling) the index of the output within the vShieldedOutput\n"
+            "      \"address\" : \"zcashaddress\",     (string) The Zcash address involved in the transaction\n"
+            "      \"value\" : x.xxx                 (numeric) The amount in " + CURRENCY_UNIT + "\n"
+            "      \"valueZat\" : xxxx               (numeric) The amount in zatoshis\n"
+            "    }\n"
+            "    ,...\n"
+            "  ],\n"
+            "  \"outputs\" : [\n"
+            "    {\n"
+            "      \"type\" : \"sprout|sapling\",      (string) The type of address\n"
+            "      \"js\" : n,                       (numeric, sprout) the index of the JSDescription within vJoinSplit\n"
+            "      \"jsOutput\" : n,                 (numeric, sprout) the index of the output within the JSDescription\n"
+            "      \"output\" : n,                   (numeric, sapling) the index of the output within the vShieldedOutput\n"
+            "      \"address\" : \"zcashaddress\",     (string) The Zcash address involved in the transaction\n"
+            "      \"outgoing\" : true|false         (boolean, sapling) True if the output is not for an address in the wallet\n"
+            "      \"value\" : x.xxx                 (numeric) The amount in " + CURRENCY_UNIT + "\n"
+            "      \"valueZat\" : xxxx               (numeric) The amount in zatoshis\n"
+            "      \"memo\" : \"hexmemo\",             (string) Hexademical string representation of the memo field\n"
+            "      \"memoStr\" : \"memo\",             (string) Only returned if memo contains valid UTF-8 text.\n"
+            "    }\n"
+            "    ,...\n"
+            "  ],\n"
+            "}\n"
+                 },
+                RPCExamples{
+            "\nList of Sprout and Sapling shielded addresses:\n"
+            + HelpExampleCli("z_viewtransaction", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"") +
+            "\nAs a JSON-RPC call\n"
+            + HelpExampleRpc("z_viewtransaction", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"")
+                },
+    }.Check(request);
+
+    LOCK(pwallet->cs_wallet);
+
+    uint256 hash;
+    hash.SetHex(request.params[0].get_str());
+
+    UniValue entry(UniValue::VOBJ);
+    if (!pwallet->mapWallet.count(hash))
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid or non-wallet transaction id");
+
+    const CWalletTx& wtx = pwallet->mapWallet.at(hash);
+
+    entry.pushKV("txid", hash.GetHex());
+
+    UniValue spends(UniValue::VARR);
+    UniValue outputs(UniValue::VARR);
+
+    auto addMemo = [](UniValue &entry, std::array<unsigned char, ZC_MEMO_SIZE> &memo) {
+        entry.pushKV("memo", HexStr(memo));
+    };
+
+    // Sprout spends
+    for (size_t i = 0; i < wtx.tx->vJoinSplit.size(); ++i) {
+        for (size_t j = 0; j < wtx.tx->vJoinSplit[i].nullifiers.size(); ++j) {
+            auto nullifier = wtx.tx->vJoinSplit[i].nullifiers[j];
+
+            // Fetch the note that is being spent, if ours
+            auto res = pwallet->mapSproutNullifiersToNotes.find(nullifier);
+            if (res == pwallet->mapSproutNullifiersToNotes.end()) {
+                continue;
+            }
+            auto jsop = res->second;
+            auto wtxPrev = pwallet->mapWallet.at(jsop.hash);
+
+            auto decrypted = wtxPrev.DecryptSproutNote(jsop);
+            auto notePt = decrypted.first;
+            auto pa = decrypted.second;
+
+            UniValue entry(UniValue::VOBJ);
+            entry.pushKV("type", ADDR_TYPE_SPROUT);
+            entry.pushKV("js", (int)i);
+            entry.pushKV("jsSpend", (int)j);
+            entry.pushKV("txidPrev", jsop.hash.GetHex());
+            entry.pushKV("jsPrev", (int)jsop.js);
+            entry.pushKV("jsOutputPrev", (int)jsop.n);
+            entry.pushKV("address", EncodePaymentAddress(pa));
+            entry.pushKV("value", ValueFromAmount(notePt.value()));
+            entry.pushKV("valueZat", notePt.value());
+            spends.push_back(entry);
+        }
+    }
+
+    // Sprout outputs
+    for (auto & pair : wtx.mapSproutNoteData) {
+        SproutOutPoint jsop = pair.first;
+
+        auto decrypted = wtx.DecryptSproutNote(jsop);
+        auto notePt = decrypted.first;
+        auto pa = decrypted.second;
+        auto memo = notePt.memo();
+
+        UniValue entry(UniValue::VOBJ);
+        entry.pushKV("type", ADDR_TYPE_SPROUT);
+        entry.pushKV("js", (int)jsop.js);
+        entry.pushKV("jsOutput", (int)jsop.n);
+        entry.pushKV("address", EncodePaymentAddress(pa));
+        entry.pushKV("value", ValueFromAmount(notePt.value()));
+        entry.pushKV("valueZat", notePt.value());
+        addMemo(entry, memo);
+        outputs.push_back(entry);
+    }
+
+    // Collect OutgoingViewingKeys for recovering output information
+    std::set<uint256> ovks;
+    {
+        // Generate the common ovk for recovering t->z outputs.
+        HDSeed seed = pwallet->GetZecHDSeedForRPC(pwallet);
+        ovks.insert(ovkForShieldingFromTaddr(seed));
+    }
+
+    // Sapling spends
+    for (size_t i = 0; i < wtx.tx->vShieldedSpend.size(); ++i) {
+        auto spend = wtx.tx->vShieldedSpend[i];
+
+        // Fetch the note that is being spent
+        auto res = pwallet->mapSaplingNullifiersToNotes.find(spend.nullifier);
+        if (res == pwallet->mapSaplingNullifiersToNotes.end()) {
+            continue;
+        }
+        auto op = res->second;
+        auto wtxPrev = pwallet->mapWallet.at(op.hash);
+
+        auto decrypted = wtxPrev.DecryptSaplingNote(op).get();
+        auto notePt = decrypted.first;
+        auto pa = decrypted.second;
+
+        // Store the OutgoingViewingKey for recovering outputs
+        libzcash::SaplingExtendedFullViewingKey extfvk;
+        assert(pwallet->GetSaplingFullViewingKey(wtxPrev.mapSaplingNoteData.at(op).ivk, extfvk));
+        ovks.insert(extfvk.fvk.ovk);
+
+        UniValue entry(UniValue::VOBJ);
+        entry.pushKV("type", ADDR_TYPE_SAPLING);
+        entry.pushKV("spend", (int)i);
+        entry.pushKV("txidPrev", op.hash.GetHex());
+        entry.pushKV("outputPrev", (int)op.n);
+        entry.pushKV("address", EncodePaymentAddress(pa));
+        entry.pushKV("value", ValueFromAmount(notePt.value()));
+        entry.pushKV("valueZat", notePt.value());
+        spends.push_back(entry);
+    }
+
+    // Sapling outputs
+    for (uint32_t i = 0; i < wtx.tx->vShieldedOutput.size(); ++i) {
+        auto op = SaplingOutPoint(hash, i);
+
+        libzcash::SaplingNotePlaintext notePt;
+        libzcash::SaplingPaymentAddress pa;
+        bool isOutgoing;
+
+        auto decrypted = wtx.DecryptSaplingNote(op);
+        if (decrypted) {
+            notePt = decrypted->first;
+            pa = decrypted->second;
+            isOutgoing = false;
+        } else {
+            // Try recovering the output
+            auto recovered = wtx.RecoverSaplingNote(op, ovks);
+            if (recovered) {
+                notePt = recovered->first;
+                pa = recovered->second;
+                isOutgoing = true;
+            } else {
+                // Unreadable
+                continue;
+            }
+        }
+        auto memo = notePt.memo();
+
+        UniValue entry(UniValue::VOBJ);
+        entry.pushKV("type", ADDR_TYPE_SAPLING);
+        entry.pushKV("output", (int)op.n);
+        entry.pushKV("outgoing", isOutgoing);
+        entry.pushKV("address", EncodePaymentAddress(pa));
+        entry.pushKV("value", ValueFromAmount(notePt.value()));
+        entry.pushKV("valueZat", notePt.value());
+        addMemo(entry, memo);
+        outputs.push_back(entry);
+    }
+
+    entry.pushKV("spends", spends);
+    entry.pushKV("outputs", outputs);
+
+    return entry;
+}
+
 UniValue z_listaddresses(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -6164,6 +6377,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "z_listreceivedbyaddress",          &z_listreceivedbyaddress,       {"address", "minconf"} },
     { "wallet",             "z_setmigration",                   &z_setmigration,                {"enabled"} },
     { "wallet",             "z_getmigrationstatus",             &z_getmigrationstatus,          {} },
+    { "wallet",             "z_viewtransaction",                &z_viewtransaction,             {"txid"} },
 
     { "disclosure",         "z_getpaymentdisclosure",           &z_getpaymentdisclosure,        {"txid","js_index","output_index","message"} },
     { "disclosure",         "z_validatepaymentdisclosure",      &z_validatepaymentdisclosure,   {"paymentdisclosure"} },

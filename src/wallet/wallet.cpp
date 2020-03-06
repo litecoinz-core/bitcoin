@@ -7224,6 +7224,98 @@ void CWalletTx::SetSaplingNoteData(mapSaplingNoteData_t &noteData)
     }
 }
 
+std::pair<libzcash::SproutNotePlaintext, libzcash::SproutPaymentAddress> CWalletTx::DecryptSproutNote(SproutOutPoint jsop) const
+{
+    LOCK(pwallet->cs_wallet);
+
+    auto nd = this->mapSproutNoteData.at(jsop);
+    libzcash::SproutPaymentAddress pa = nd.address;
+
+    // Get cached decryptor
+    ZCNoteDecryption decryptor;
+    if (!pwallet->GetNoteDecryptor(pa, decryptor)) {
+        // Note decryptors are created when the wallet is loaded, so it should always exist
+        throw std::runtime_error(strprintf("Could not find note decryptor for payment address %s", EncodePaymentAddress(pa)));
+    }
+
+    const CTransactionRef tx = this->tx;
+    auto hSig = tx->vJoinSplit[jsop.js].h_sig(*pzcashParams, tx->joinSplitPubKey);
+    try {
+        libzcash::SproutNotePlaintext plaintext = libzcash::SproutNotePlaintext::decrypt(
+                decryptor,
+                tx->vJoinSplit[jsop.js].ciphertexts[jsop.n],
+                tx->vJoinSplit[jsop.js].ephemeralKey,
+                hSig,
+                (unsigned char) jsop.n);
+
+        return std::make_pair(plaintext, pa);
+    } catch (const libzcash::note_decryption_failed &err) {
+        // Couldn't decrypt with this spending key
+        throw std::runtime_error(strprintf("Could not decrypt note for payment address %s", EncodePaymentAddress(pa)));
+    } catch (const std::exception &exc) {
+        // Unexpected failure
+        throw std::runtime_error(strprintf("Error while decrypting note for payment address %s: %s", EncodePaymentAddress(pa), exc.what()));
+    }
+}
+
+boost::optional<std::pair<libzcash::SaplingNotePlaintext, libzcash::SaplingPaymentAddress>> CWalletTx::DecryptSaplingNote(SaplingOutPoint op) const
+{
+    // Check whether we can decrypt this SaplingOutPoint
+    if (this->mapSaplingNoteData.count(op) == 0) {
+        return boost::none;
+    }
+
+    const CTransactionRef tx = this->tx;
+    auto output = tx->vShieldedOutput[op.n];
+    auto nd = this->mapSaplingNoteData.at(op);
+
+    auto maybe_pt = libzcash::SaplingNotePlaintext::decrypt(
+        output.encCiphertext,
+        nd.ivk,
+        output.ephemeralKey,
+        output.cm);
+    assert(static_cast<bool>(maybe_pt));
+    auto notePt = maybe_pt.get();
+
+    auto maybe_pa = nd.ivk.address(notePt.d);
+    assert(static_cast<bool>(maybe_pa));
+    auto pa = maybe_pa.get();
+
+    return std::make_pair(notePt, pa);
+}
+
+boost::optional<std::pair<libzcash::SaplingNotePlaintext, libzcash::SaplingPaymentAddress>> CWalletTx::RecoverSaplingNote(SaplingOutPoint op, std::set<uint256>& ovks) const
+{
+    const CTransactionRef tx = this->tx;
+    auto output = tx->vShieldedOutput[op.n];
+
+    for (auto ovk : ovks) {
+        auto outPt = libzcash::SaplingOutgoingPlaintext::decrypt(
+            output.outCiphertext,
+            ovk,
+            output.cv,
+            output.cm,
+            output.ephemeralKey);
+        if (!outPt) {
+            continue;
+        }
+
+        auto maybe_pt = libzcash::SaplingNotePlaintext::decrypt(
+            output.encCiphertext,
+            output.ephemeralKey,
+            outPt->esk,
+            outPt->pk_d,
+            output.cm);
+        assert(static_cast<bool>(maybe_pt));
+        auto notePt = maybe_pt.get();
+
+        return std::make_pair(notePt, libzcash::SaplingPaymentAddress(notePt.d, outPt->pk_d));
+    }
+
+    // Couldn't recover with any of the provided OutgoingViewingKeys
+    return boost::none;
+}
+
 void CWallet::WitnessNoteCommitment(std::vector<uint256> commitments,
                                     std::vector<boost::optional<SproutWitness>>& witnesses,
                                     uint256 &final_anchor)
