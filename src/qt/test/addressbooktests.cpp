@@ -64,7 +64,7 @@ void TestAddAddressesToSendBook()
         CKey key;
         key.MakeNewKey(true);
         CTxDestination dest(GetDestinationForKey(
-            key.GetPubKey(), wallet->m_default_address_type));
+            key.GetPubKey(), wallet->GetDefaultAddressType()));
 
         return std::make_pair(dest, QString::fromStdString(EncodeDestination(dest)));
     };

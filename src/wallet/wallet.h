@@ -1773,6 +1773,12 @@ public:
     /* Returns true if the wallet can give out new addresses. This means it has keys in the keypool or can generate new keys */
     bool CanGetAddresses(bool internal = false);
 
+    /* Return the current default address type */
+    OutputType GetDefaultAddressType();
+
+    /* Return the current default change address type */
+    OutputType GetDefaultChangeType();
+
     /* Generates a new HD seed (will not be activated) */
     CPubKey GenerateNewSeed();
 

@@ -2927,6 +2927,22 @@ bool CWallet::CanGetAddresses(bool internal)
     return keypool_has_keys;
 }
 
+OutputType CWallet::GetDefaultAddressType()
+{
+    if(::ChainActive().Height() > Params().GetConsensus().SegwitHeight)
+        return m_default_address_type;
+    else
+        return OutputType::LEGACY;
+}
+
+OutputType CWallet::GetDefaultChangeType()
+{
+    if(::ChainActive().Height() > Params().GetConsensus().SegwitHeight)
+        return m_default_change_type;
+    else
+        return OutputType::LEGACY;
+}
+
 void CWallet::SetWalletFlag(uint64_t flags)
 {
     LOCK(cs_wallet);

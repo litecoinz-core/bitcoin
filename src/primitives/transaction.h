@@ -652,34 +652,94 @@ struct CMutableTransaction;
  * - std::vector<CTxIn> vin
  * - std::vector<CTxOut> vout
  * - uint32_t nLockTime
+ * - std::vector<JSDescription> vJoinSplit
+ *
+ * Overwinter transaction serialization format:
+ * - int32_t nVersion
+ * - uint32_t nVersionGroupId
+ * - std::vector<CTxIn> vin
+ * - std::vector<CTxOut> vout
+ * - uint32_t nLockTime
+ * - uint32_t nExpiryHeigh
+ * - std::vector<JSDescription> vJoinSplit
+ *
+ * Sapling transaction serialization format:
+ * - int32_t nVersion
+ * - uint32_t nVersionGroupId
+ * - std::vector<CTxIn> vin
+ * - std::vector<CTxOut> vout
+ * - uint32_t nLockTime
+ * - uint32_t nExpiryHeigh
+ * - CAmount valueBalance
+ * - std::vector<SpendDescription> vShieldedSpend
+ * - std::vector<OutputDescription> vShieldedOutput
+ * - std::vector<JSDescription> vJoinSplit
+ * - std::array<unsigned char, 64> bindingSig
  *
  * Extended transaction serialization format:
  * - int32_t nVersion
  * - unsigned char dummy = 0x00
  * - unsigned char flags (!= 0)
+ * - uint32_t nVersionGroupId
  * - std::vector<CTxIn> vin
  * - std::vector<CTxOut> vout
  * - if (flags & 1):
  *   - CTxWitness wit;
  * - uint32_t nLockTime
+ * - uint32_t nExpiryHeigh
+ * - CAmount valueBalance
+ * - std::vector<SpendDescription> vShieldedSpend
+ * - std::vector<OutputDescription> vShieldedOutput
+ * - std::vector<JSDescription> vJoinSplit
+ * - std::array<unsigned char, 64> bindingSig
  */
 template<typename Stream, typename TxType>
 inline void UnserializeTransaction(TxType& tx, Stream& s) {
+    const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
+    unsigned char flags = 0;
     uint32_t header;
+
     s >> header;
-    tx.fOverwintered = header >> 31;
     tx.nVersion = header & 0x7FFFFFFF;
-    if (tx.fOverwintered)
+    tx.fOverwintered = header >> 31;
+
+    if (tx.fOverwintered) {
+        /* Try to read the nVersionGroupId. In case the dummy is there, this will be read as an 0 value. */
         s >> tx.nVersionGroupId;
+        if (tx.nVersionGroupId == 0 && fAllowWitness) {
+            /* We read a dummy nVersionGroupId. */
+            s >> flags;
+            /* Read real nVersionGroupId. */
+            s >> tx.nVersionGroupId;
+        }
+    }
+
     bool isOverwinterV3 = tx.fOverwintered && tx.nVersionGroupId == OVERWINTER_VERSION_GROUP_ID && tx.nVersion == OVERWINTER_TX_VERSION;
     bool isSaplingV4 = tx.fOverwintered && tx.nVersionGroupId == SAPLING_VERSION_GROUP_ID && tx.nVersion == SAPLING_TX_VERSION;
+
     if (tx.fOverwintered && !(isOverwinterV3 || isSaplingV4))
         throw std::ios_base::failure("UnserializeTransaction() Unknown transaction format");
+
     tx.vin.clear();
     tx.vout.clear();
-    /* Try to read the vin. In case the dummy is there, this will be read as an empty vector. */
     s >> tx.vin;
     s >> tx.vout;
+
+    if ((flags & 1) && fAllowWitness) {
+        /* The witness flag is present, and we support witnesses. */
+        flags ^= 1;
+        for (size_t i = 0; i < tx.vin.size(); i++) {
+            s >> tx.vin[i].scriptWitness.stack;
+        }
+        if (!tx.HasWitness()) {
+            /* It's illegal to encode witnesses when all witness stacks are empty. */
+            throw std::ios_base::failure("Superfluous witness record");
+        }
+    }
+    if (flags) {
+        /* Unknown flag in the serialization */
+        throw std::ios_base::failure("Unknown transaction optional data");
+    }
     s >> tx.nLockTime;
     if (isOverwinterV3 || isSaplingV4)
         s >> tx.nExpiryHeight;
@@ -703,19 +763,45 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
 
 template<typename Stream, typename TxType>
 inline void SerializeTransaction(const TxType& tx, Stream& s) {
+    const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
+    unsigned char flags = 0;
+
     uint32_t header = tx.nVersion;
     if (tx.fOverwintered) {
         header |= 1 << 31;
     }
     s << header;
-    if (tx.fOverwintered)
+
+    if (tx.fOverwintered) {
+        // Consistency check
+        if (fAllowWitness) {
+            /* Check whether witnesses need to be serialized. */
+            if (tx.HasWitness()) {
+                flags |= 1;
+            }
+        }
+        if (flags) {
+            /* Use extended format in case witnesses are to be serialized. */
+            const uint32_t nVersionGroupIdDummy = 0;
+            s << nVersionGroupIdDummy;
+            s << flags;
+        }
         s << tx.nVersionGroupId;
+    }
+
     bool isOverwinterV3 = tx.fOverwintered && tx.nVersionGroupId == OVERWINTER_VERSION_GROUP_ID && tx.nVersion == OVERWINTER_TX_VERSION;
     bool isSaplingV4 = tx.fOverwintered && tx.nVersionGroupId == SAPLING_VERSION_GROUP_ID && tx.nVersion == SAPLING_TX_VERSION;
+
     if (tx.fOverwintered && !(isOverwinterV3 || isSaplingV4))
         throw std::ios_base::failure("SerializeTransaction() Unknown transaction format");
+
     s << tx.vin;
     s << tx.vout;
+    if (flags & 1) {
+        for (size_t i = 0; i < tx.vin.size(); i++) {
+            s << tx.vin[i].scriptWitness.stack;
+        }
+    }
     s << tx.nLockTime;
     if (isOverwinterV3 || isSaplingV4)
         s << tx.nExpiryHeight;

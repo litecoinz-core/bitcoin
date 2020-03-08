@@ -234,11 +234,15 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     if (!request.params[0].isNull())
         label = LabelFromValue(request.params[0]);
 
-    OutputType output_type = pwallet->m_default_address_type;
+    bool isSegwitEnabled = (::ChainActive().Height() > Params().GetConsensus().SegwitHeight);
+
+    OutputType output_type = pwallet->GetDefaultAddressType();
     if (!request.params[1].isNull()) {
         if (!ParseOutputType(request.params[1].get_str(), output_type)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[1].get_str()));
         }
+        if (!isSegwitEnabled && output_type != OutputType::LEGACY)
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Only legacy addresses are supported before segwit is active.");
     }
 
     CTxDestination dest;
@@ -280,7 +284,7 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: This wallet has no available keys");
     }
 
-    OutputType output_type = pwallet->m_default_change_type != OutputType::CHANGE_AUTO ? pwallet->m_default_change_type : pwallet->m_default_address_type;
+    OutputType output_type = pwallet->GetDefaultChangeType() != OutputType::CHANGE_AUTO ? pwallet->GetDefaultChangeType() : pwallet->GetDefaultAddressType();
     if (!request.params[0].isNull()) {
         if (!ParseOutputType(request.params[0].get_str(), output_type)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[0].get_str()));
@@ -1008,7 +1012,7 @@ static UniValue addmultisigaddress(const JSONRPCRequest& request)
         }
     }
 
-    OutputType output_type = pwallet->m_default_address_type;
+    OutputType output_type = pwallet->GetDefaultAddressType();
     if (!request.params[3].isNull()) {
         if (!ParseOutputType(request.params[3].get_str(), output_type)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[3].get_str()));
@@ -3356,7 +3360,7 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
             if (options.exists("changeAddress")) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot specify both changeAddress and address_type options");
             }
-            coinControl.m_change_type = pwallet->m_default_change_type;
+            coinControl.m_change_type = pwallet->GetDefaultChangeType();
             if (!ParseOutputType(options["change_type"].get_str(), *coinControl.m_change_type)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown change type '%s'", options["change_type"].get_str()));
             }
