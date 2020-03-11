@@ -11,7 +11,7 @@
 
 bool CCoinsView::GetSproutAnchorAt(const uint256 &rt, SproutMerkleTree &tree) const { return false; }
 bool CCoinsView::GetSaplingAnchorAt(const uint256 &rt, SaplingMerkleTree &tree) const { return false; }
-bool CCoinsView::GetNullifier(const uint256 &nullifier, ShieldedType type) const { return false; }
+bool CCoinsView::GetNullifier(const uint256 &nf, ShieldedType type) const { return false; }
 bool CCoinsView::GetCoin(const COutPoint &outpoint, Coin &coin) const { return false; }
 uint256 CCoinsView::GetBestBlock() const { return uint256(); }
 std::vector<uint256> CCoinsView::GetHeadBlocks() const { return std::vector<uint256>(); }
@@ -36,7 +36,7 @@ CCoinsViewBacked::CCoinsViewBacked(CCoinsView *viewIn) : base(viewIn) { }
 
 bool CCoinsViewBacked::GetSproutAnchorAt(const uint256 &rt, SproutMerkleTree &tree) const { return base->GetSproutAnchorAt(rt, tree); }
 bool CCoinsViewBacked::GetSaplingAnchorAt(const uint256 &rt, SaplingMerkleTree &tree) const { return base->GetSaplingAnchorAt(rt, tree); }
-bool CCoinsViewBacked::GetNullifier(const uint256 &nullifier, ShieldedType type) const { return base->GetNullifier(nullifier, type); }
+bool CCoinsViewBacked::GetNullifier(const uint256 &nf, ShieldedType type) const { return base->GetNullifier(nf, type); }
 bool CCoinsViewBacked::GetCoin(const COutPoint &outpoint, Coin &coin) const { return base->GetCoin(outpoint, coin); }
 bool CCoinsViewBacked::HaveCoin(const COutPoint &outpoint) const { return base->HaveCoin(outpoint); }
 uint256 CCoinsViewBacked::GetBestBlock() const { return base->GetBestBlock(); }
@@ -132,7 +132,7 @@ bool CCoinsViewCache::GetSaplingAnchorAt(const uint256 &rt, SaplingMerkleTree &t
     return true;
 }
 
-bool CCoinsViewCache::GetNullifier(const uint256 &nullifier, ShieldedType type) const {
+bool CCoinsViewCache::GetNullifier(const uint256 &nf, ShieldedType type) const {
     CNullifiersMap* cacheToUse;
     switch (type) {
         case SPROUT:
@@ -144,15 +144,15 @@ bool CCoinsViewCache::GetNullifier(const uint256 &nullifier, ShieldedType type) 
         default:
             throw std::runtime_error("Unknown shielded type");
     }
-    CNullifiersMap::iterator it = cacheToUse->find(nullifier);
+    CNullifiersMap::iterator it = cacheToUse->find(nf);
     if (it != cacheToUse->end())
         return it->second.entered;
 
     CNullifiersCacheEntry entry;
-    bool tmp = base->GetNullifier(nullifier, type);
+    bool tmp = base->GetNullifier(nf, type);
     entry.entered = tmp;
 
-    cacheToUse->insert(std::make_pair(nullifier, entry));
+    cacheToUse->insert(std::make_pair(nf, entry));
 
     return tmp;
 }

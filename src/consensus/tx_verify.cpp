@@ -167,7 +167,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
 
     // are the joinsplits' and sapling spends' requirements met in tx(valid anchors/nullifiers)?
     if (!inputs.HaveShieldedRequirements(tx)) {
-        return state.Invalid(ValidationInvalidReason::TX_MISSING_INPUTS, false, REJECT_INVALID, "bad-txns-shielded-requirements-not-met",
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-shielded-requirements-not-met",
                          strprintf("%s: shielded requirements not met", __func__));
     }
 

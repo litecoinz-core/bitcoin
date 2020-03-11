@@ -769,7 +769,7 @@ protected:
 public:
     CCoinsViewMemPool(CCoinsView* baseIn, const CTxMemPool& mempoolIn);
     bool GetCoin(const COutPoint &outpoint, Coin &coin) const override;
-    bool GetNullifier(const uint256 &txid, ShieldedType type) const override;
+    bool GetNullifier(const uint256 &nf, ShieldedType type) const override;
 };
 
 /**

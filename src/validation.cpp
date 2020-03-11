@@ -690,6 +690,10 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
             return false; // fMissingInputs and !state.IsInvalid() is used to detect this condition, don't set state.Invalid()
         }
     }
+    // are the joinsplits' and sapling spends' requirements met in tx(valid anchors/nullifiers)?
+    if (!m_view.HaveShieldedRequirements(tx))
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-shielded-requirements-not-met",
+                         strprintf("%s: shielded requirements not met", __func__));
 
     // Bring the best block into scope
     m_view.GetBestBlock();
@@ -2235,6 +2239,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!tx.IsCoinBase())
         {
             CAmount txfee = 0;
+
+            // are the joinsplits' and sapling spends' requirements met in tx(valid anchors/nullifiers)?
+            if (!view.HaveShieldedRequirements(tx))
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-shielded-requirements-not-met",
+                                 strprintf("%s: shielded requirements not met", __func__));
+
             if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, txfee, chainparams.GetConsensus())) {
                 if (!IsBlockReason(state.GetReason())) {
                     // CheckTxInputs may return MISSING_INPUTS or
