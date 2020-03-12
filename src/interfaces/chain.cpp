@@ -190,6 +190,12 @@ public:
     {
         m_notifications->BlockDisconnected(*block);
     }
+    void ChainTip(const std::shared_ptr<const CBlock>& block,
+        const CBlockIndex* pindex,
+        boost::optional<std::pair<SproutMerkleTree, SaplingMerkleTree>> added) override
+    {
+        m_notifications->ChainTip(*block, pindex, added);
+    }
     void UpdatedBlockTip(const CBlockIndex* index, const CBlockIndex* fork_index, bool is_ibd) override
     {
         m_notifications->UpdatedBlockTip();

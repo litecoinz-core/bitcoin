@@ -2651,17 +2651,13 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
 
     m_chain.SetTip(pindexDelete->pprev);
 
+    // Update cached incremental witnesses
+    GetMainSignals().ChainTip(pblock, pindexDelete, boost::none);
+
     UpdateTip(pindexDelete->pprev, chainparams);
-    // Get the current commitment tree
-    SproutMerkleTree newSproutTree;
-    SaplingMerkleTree newSaplingTree;
-    assert(CoinsTip().GetSproutAnchorAt(CoinsTip().GetBestAnchor(SPROUT), newSproutTree));
-    assert(CoinsTip().GetSaplingAnchorAt(CoinsTip().GetBestAnchor(SAPLING), newSaplingTree));
     // Let wallets know transactions went from 1-confirmed to
     // 0-confirmed or conflicted:
     GetMainSignals().BlockDisconnected(pblock);
-    // Update cached incremental witnesses
-    GetMainSignals().ChainTip(pindexDelete, pblock, newSproutTree, newSaplingTree, false);
     return true;
 }
 
@@ -2796,7 +2792,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     UpdateTip(pindexNew, chainparams);
 
     // Update cached incremental witnesses
-    GetMainSignals().ChainTip(pindexNew, pblock, oldSproutTree, oldSaplingTree, true);
+    GetMainSignals().ChainTip(pthisBlock, pindexNew, std::make_pair(oldSproutTree, oldSaplingTree));
 
     int64_t nTime6 = GetTimeMicros(); nTimePostConnect += nTime6 - nTime5; nTimeTotal += nTime6 - nTime1;
     LogPrint(BCLog::BENCH, "  - Connect postprocess: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime6 - nTime5) * MILLI, nTimePostConnect * MICRO, nTimePostConnect * MILLI / nBlocksTotal);

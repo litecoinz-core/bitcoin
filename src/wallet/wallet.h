@@ -1412,6 +1412,7 @@ public:
     void TransactionAddedToMempool(const CTransactionRef& tx) override;
     void BlockConnected(const CBlock& block, const std::vector<CTransactionRef>& vtxConflicted) override;
     void BlockDisconnected(const CBlock& block) override;
+    void ChainTip(const CBlock& block, const CBlockIndex *pindex, boost::optional<std::pair<SproutMerkleTree, SaplingMerkleTree>> added) override;
     void UpdatedBlockTip() override;
     int64_t RescanFromTime(int64_t startTime, const WalletRescanReserver& reserver, bool update);
 
@@ -1596,7 +1597,6 @@ public:
     bool IsAllFromMe(const CTransaction& tx, const isminefilter& filter) const;
     CAmount GetCredit(const CTransaction& tx, const isminefilter& filter) const;
     CAmount GetChange(const CTransaction& tx) const;
-    void ChainTip(const CBlockIndex *pindex, const CBlock *pblock, boost::optional<std::pair<SproutMerkleTree, SaplingMerkleTree>> added);
     /** Saves witness caches and best block locator to disk. */
     void ChainStateFlushed(const CBlockLocator& loc) override;
     std::set<std::pair<libzcash::PaymentAddress, uint256>> GetNullifiersForAddresses(const std::set<libzcash::PaymentAddress>& addresses);

@@ -959,28 +959,26 @@ bool CWallet::ChangeWalletPassphrase(const SecureString& strOldWalletPassphrase,
     return false;
 }
 
-void CWallet::ChainTipAdded(const CBlockIndex *pindex,
-                            const CBlock *pblock,
-                            SproutMerkleTree sproutTree,
-                            SaplingMerkleTree saplingTree)
+void CWallet::ChainTipAdded(const CBlockIndex *pindex, const CBlock *pblock, SproutMerkleTree sproutTree, SaplingMerkleTree saplingTree)
 {
     IncrementNoteWitnesses(pindex, pblock, sproutTree, saplingTree);
     UpdateSaplingNullifierNoteMapForBlock(pblock);
 }
 
-void CWallet::ChainTip(const CBlockIndex *pindex,
-                       const CBlock *pblock,
-                       boost::optional<std::pair<SproutMerkleTree, SaplingMerkleTree>> added)
+void CWallet::ChainTip(const CBlock& block, const CBlockIndex *pindex, boost::optional<std::pair<SproutMerkleTree, SaplingMerkleTree>> added)
 {
+    auto locked_chain = chain().lock();
+    LOCK(cs_wallet);
+
     if (added) {
-        ChainTipAdded(pindex, pblock, added->first, added->second);
-        if (!::ChainstateActive().IsInitialBlockDownload() && (pblock->GetBlockTime() > GetAdjustedTime() - 3 * 60 * 60))
+        ChainTipAdded(pindex, &block, added->first, added->second);
+        if (!::ChainstateActive().IsInitialBlockDownload() && (block.GetBlockTime() > GetAdjustedTime() - 3 * 60 * 60))
         {
             RunSaplingMigration(pindex->nHeight);
         }
     } else {
         DecrementNoteWitnesses(pindex);
-        UpdateSaplingNullifierNoteMapForBlock(pblock);
+        UpdateSaplingNullifierNoteMapForBlock(&block);
     }
 }
 
@@ -6394,6 +6392,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain& chain,
     int rescan_height = 0;
     if (!gArgs.GetBoolArg("-rescan", false))
     {
+        walletInstance->ClearNoteWitnessCache();
         WalletBatch batch(*walletInstance->database);
         CBlockLocator locator;
         if (batch.ReadBestBlock(locator)) {

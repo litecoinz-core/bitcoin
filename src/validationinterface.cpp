@@ -21,11 +21,11 @@ struct ValidationInterfaceConnections {
     boost::signals2::scoped_connection TransactionAddedToMempool;
     boost::signals2::scoped_connection BlockConnected;
     boost::signals2::scoped_connection BlockDisconnected;
+    boost::signals2::scoped_connection ChainTip;
     boost::signals2::scoped_connection TransactionRemovedFromMempool;
     boost::signals2::scoped_connection ChainStateFlushed;
     boost::signals2::scoped_connection BlockChecked;
     boost::signals2::scoped_connection NewPoWValidBlock;
-    boost::signals2::scoped_connection ChainTip;
 };
 
 struct MainSignalsInstance {
@@ -33,11 +33,11 @@ struct MainSignalsInstance {
     boost::signals2::signal<void (const CTransactionRef &)> TransactionAddedToMempool;
     boost::signals2::signal<void (const std::shared_ptr<const CBlock> &, const CBlockIndex *pindex, const std::vector<CTransactionRef>&)> BlockConnected;
     boost::signals2::signal<void (const std::shared_ptr<const CBlock> &)> BlockDisconnected;
+    boost::signals2::signal<void (const std::shared_ptr<const CBlock> &, const CBlockIndex *pindex, boost::optional<std::pair<SproutMerkleTree, SaplingMerkleTree>>)> ChainTip;
     boost::signals2::signal<void (const CTransactionRef &)> TransactionRemovedFromMempool;
     boost::signals2::signal<void (const CBlockLocator &)> ChainStateFlushed;
     boost::signals2::signal<void (const CBlock&, const CValidationState&)> BlockChecked;
     boost::signals2::signal<void (const CBlockIndex *, const std::shared_ptr<const CBlock>&)> NewPoWValidBlock;
-    boost::signals2::signal<void (const CBlockIndex *, const std::shared_ptr<const CBlock>&, SproutMerkleTree, SaplingMerkleTree, bool)> ChainTip;
 
     // We are not allowed to assume the scheduler only runs in one thread,
     // but must ensure all callbacks happen in-order, so we end up creating
@@ -97,11 +97,11 @@ void RegisterValidationInterface(CValidationInterface* pwalletIn) {
     conns.TransactionAddedToMempool = g_signals.m_internals->TransactionAddedToMempool.connect(std::bind(&CValidationInterface::TransactionAddedToMempool, pwalletIn, std::placeholders::_1));
     conns.BlockConnected = g_signals.m_internals->BlockConnected.connect(std::bind(&CValidationInterface::BlockConnected, pwalletIn, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
     conns.BlockDisconnected = g_signals.m_internals->BlockDisconnected.connect(std::bind(&CValidationInterface::BlockDisconnected, pwalletIn, std::placeholders::_1));
+    conns.ChainTip = g_signals.m_internals->ChainTip.connect(std::bind(&CValidationInterface::ChainTip, pwalletIn, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
     conns.TransactionRemovedFromMempool = g_signals.m_internals->TransactionRemovedFromMempool.connect(std::bind(&CValidationInterface::TransactionRemovedFromMempool, pwalletIn, std::placeholders::_1));
     conns.ChainStateFlushed = g_signals.m_internals->ChainStateFlushed.connect(std::bind(&CValidationInterface::ChainStateFlushed, pwalletIn, std::placeholders::_1));
     conns.BlockChecked = g_signals.m_internals->BlockChecked.connect(std::bind(&CValidationInterface::BlockChecked, pwalletIn, std::placeholders::_1, std::placeholders::_2));
     conns.NewPoWValidBlock = g_signals.m_internals->NewPoWValidBlock.connect(std::bind(&CValidationInterface::NewPoWValidBlock, pwalletIn, std::placeholders::_1, std::placeholders::_2));
-    conns.ChainTip = g_signals.m_internals->ChainTip.connect(std::bind(&CValidationInterface::ChainTip, pwalletIn, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
 }
 
 void UnregisterValidationInterface(CValidationInterface* pwalletIn) {
@@ -167,6 +167,12 @@ void CMainSignals::BlockDisconnected(const std::shared_ptr<const CBlock> &pblock
     });
 }
 
+void CMainSignals::ChainTip(const std::shared_ptr<const CBlock> &pblock, const CBlockIndex *pindex, boost::optional<std::pair<SproutMerkleTree, SaplingMerkleTree>> added) {
+    m_internals->m_schedulerClient.AddToProcessQueue([pblock, pindex, added, this] {
+        m_internals->ChainTip(pblock, pindex, added);
+    });
+}
+
 void CMainSignals::ChainStateFlushed(const CBlockLocator &locator) {
     m_internals->m_schedulerClient.AddToProcessQueue([locator, this] {
         m_internals->ChainStateFlushed(locator);
@@ -179,10 +185,4 @@ void CMainSignals::BlockChecked(const CBlock& block, const CValidationState& sta
 
 void CMainSignals::NewPoWValidBlock(const CBlockIndex *pindex, const std::shared_ptr<const CBlock> &block) {
     m_internals->NewPoWValidBlock(pindex, block);
-}
-
-void CMainSignals::ChainTip(const CBlockIndex *pindexNew, const std::shared_ptr<const CBlock> &pblock, SproutMerkleTree sproutTree, SaplingMerkleTree saplingTree, bool added) {
-    m_internals->m_schedulerClient.AddToProcessQueue([pindexNew, pblock, sproutTree, saplingTree, added, this] {
-        m_internals->ChainTip(pindexNew, pblock, sproutTree, saplingTree, added);
-    });
 }

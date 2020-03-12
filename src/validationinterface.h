@@ -116,6 +116,12 @@ protected:
      */
     virtual void BlockDisconnected(const std::shared_ptr<const CBlock> &block) {}
     /**
+     * Update cached incremental witnesses when the active block chain tip changes
+     *
+     * Called on a background thread.
+     */
+    virtual void ChainTip(const std::shared_ptr<const CBlock> &block, const CBlockIndex *pindex, boost::optional<std::pair<SproutMerkleTree, SaplingMerkleTree>>) {}
+    /**
      * Notifies listeners of the new active block chain on-disk.
      *
      * Prior to this callback, any updates are not guaranteed to persist on disk
@@ -146,8 +152,6 @@ protected:
     friend void ::RegisterValidationInterface(CValidationInterface*);
     friend void ::UnregisterValidationInterface(CValidationInterface*);
     friend void ::UnregisterAllValidationInterfaces();
-
-    virtual void ChainTip(const CBlockIndex*, const std::shared_ptr<const CBlock> &pblock, SproutMerkleTree, SaplingMerkleTree, bool) {}
 };
 
 struct MainSignalsInstance;
@@ -181,11 +185,10 @@ public:
     void TransactionAddedToMempool(const CTransactionRef &);
     void BlockConnected(const std::shared_ptr<const CBlock> &, const CBlockIndex *pindex, const std::shared_ptr<const std::vector<CTransactionRef>> &);
     void BlockDisconnected(const std::shared_ptr<const CBlock> &);
+    void ChainTip(const std::shared_ptr<const CBlock> &, const CBlockIndex *pindex, boost::optional<std::pair<SproutMerkleTree, SaplingMerkleTree>>);
     void ChainStateFlushed(const CBlockLocator &);
     void BlockChecked(const CBlock&, const CValidationState&);
     void NewPoWValidBlock(const CBlockIndex *, const std::shared_ptr<const CBlock>&);
-
-    void ChainTip(const CBlockIndex*, const std::shared_ptr<const CBlock>&, SproutMerkleTree, SaplingMerkleTree, bool);
 };
 
 CMainSignals& GetMainSignals();
