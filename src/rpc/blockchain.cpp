@@ -1279,6 +1279,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "{\n"
             "  \"chain\": \"xxxx\",              (string) current network name (main, test, regtest)\n"
             "  \"blocks\": xxxxxx,             (numeric) the height of the most-work fully-validated chain. The genesis block has height 0\n"
+            "  \"synced\": xx,                 (boolean) true if the blockchain is in sync\n"
             "  \"headers\": xxxxxx,            (numeric) the current number of headers we have validated\n"
             "  \"bestblockhash\": \"...\",       (string) the hash of the currently best block\n"
             "  \"difficulty\": xxxxxx,         (numeric) the current difficulty\n"
@@ -1342,6 +1343,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     obj.pushKV("chain",                 Params().NetworkIDString());
     obj.pushKV("blocks",                (int)::ChainActive().Height());
     obj.pushKV("headers",               pindexBestHeader ? pindexBestHeader->nHeight : -1);
+    obj.pushKV("synced",                !::ChainstateActive().IsInitialBlockDownload());
     obj.pushKV("bestblockhash",         tip->GetBlockHash().GetHex());
     obj.pushKV("difficulty",            (double)GetNetworkDifficulty(tip));
     obj.pushKV("mediantime",            (int64_t)tip->GetMedianTimePast());

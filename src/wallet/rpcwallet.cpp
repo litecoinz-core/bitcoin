@@ -4817,6 +4817,10 @@ UniValue z_sendmany(const JSONRPCRequest& request)
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
 
+    if (::ChainstateActive().IsInitialBlockDownload()) {
+        throw JSONRPCError(RPC_WALLET_NOT_INSYNC, "Blockchain is not fully synced, aborting to prevent linkability analysis!");
+    }
+
     // Check that the from address is valid.
     auto fromaddress = request.params[0].get_str();
     bool fromTaddr = false;
@@ -5127,6 +5131,10 @@ UniValue z_shieldcoinbase(const JSONRPCRequest& request)
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
 
+    if (::ChainstateActive().IsInitialBlockDownload()) {
+        throw JSONRPCError(RPC_WALLET_NOT_INSYNC, "Blockchain is not fully synced, aborting to prevent linkability analysis!");
+    }
+
     // Validate the from address
     auto fromaddress = request.params[0].get_str();
     bool isFromWildcard = fromaddress == "*";
@@ -5359,6 +5367,10 @@ UniValue z_mergetoaddress(const JSONRPCRequest& request)
 
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
+
+    if (::ChainstateActive().IsInitialBlockDownload()) {
+        throw JSONRPCError(RPC_WALLET_NOT_INSYNC, "Blockchain is not fully synced, aborting to prevent linkability analysis!");
+    }
 
     bool useAnyUTXO = false;
     bool useAnySprout = false;
