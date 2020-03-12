@@ -114,7 +114,8 @@ WalletSproutNote MakeWalletSproutNote(interfaces::Chain::Lock& locked_chain,
     result.memo = memo;
     result.time = wtx.GetTxTime();
     result.depth_in_main_chain = depth;
-    result.is_spent = wallet.IsSproutSpent(locked_chain, *nd.nullifier);
+    bool hasSproutSpendingKey = HaveSpendingKeyForPaymentAddress(&wallet)(address);
+    result.is_spent = hasSproutSpendingKey;
     return result;
 }
 
@@ -138,7 +139,8 @@ WalletSaplingNote MakeWalletSaplingNote(interfaces::Chain::Lock& locked_chain,
     result.memo = memo;
     result.time = wtx.GetTxTime();
     result.depth_in_main_chain = depth;
-    result.is_spent = wallet.IsSaplingSpent(locked_chain, *nd.nullifier);
+    bool hasSaplingSpendingKey = HaveSpendingKeyForPaymentAddress(&wallet)(address);
+    result.is_spent = hasSaplingSpendingKey;
     return result;
 }
 
