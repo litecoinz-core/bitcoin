@@ -361,9 +361,10 @@ def main():
 def run_tests(*, test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=False, args=None, combined_logs_len=0, failfast=False, runs_ci, use_term_control):
     args = args or []
 
-    # Warn if litecoinzd is already running (unix only)
+    # Warn if litecoinzd is already running
+    # pidof might fail or return an empty string if litecoinzd is not running
     try:
-        if subprocess.check_output(["pidof", "litecoinzd"]) is not None:
+        if subprocess.check_output(["pidof", "litecoinzd"]) not in [b'']:
             print("%sWARNING!%s There is already a litecoinzd process running on this system. Tests may fail unexpectedly due to resource contention!" % (BOLD[1], BOLD[0]))
     except (OSError, subprocess.SubprocessError):
         pass

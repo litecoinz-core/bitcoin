@@ -11,6 +11,7 @@
 #include <primitives/transaction.h>
 #include <script/script.h>
 #include <streams.h>
+#include <set>
 
 /// SerType used to serialize parameters in GCS filter encoding.
 static constexpr int GCS_SER_TYPE = SER_NETWORK;
@@ -221,15 +222,14 @@ bool BlockFilterTypeByName(const std::string& name, BlockFilterType& filter_type
     return false;
 }
 
-const std::vector<BlockFilterType>& AllBlockFilterTypes()
+const std::set<BlockFilterType>& AllBlockFilterTypes()
 {
-    static std::vector<BlockFilterType> types;
+    static std::set<BlockFilterType> types;
 
     static std::once_flag flag;
     std::call_once(flag, []() {
-            types.reserve(g_filter_types.size());
             for (auto entry : g_filter_types) {
-                types.push_back(entry.first);
+                types.insert(entry.first);
             }
         });
 
