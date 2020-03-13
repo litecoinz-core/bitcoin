@@ -107,7 +107,7 @@ chain for " target " development."))
                                   (base-gcc (make-gcc-rpath-link
                                              (make-ssp-fixed-gcc gcc-9))))
   "Convienience wrapper around MAKE-CROSS-TOOLCHAIN with default values
-desirable for building Litecoinz Core release binaries."
+desirable for building LitecoinZ Core release binaries."
   (make-cross-toolchain target
                    base-gcc-for-libc
                    base-kernel-headers

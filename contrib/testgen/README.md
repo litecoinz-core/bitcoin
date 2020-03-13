@@ -1,6 +1,6 @@
 ### TestGen ###
 
-Utilities to generate test vectors for the data-driven Litecoinz tests.
+Utilities to generate test vectors for the data-driven LitecoinZ tests.
 
 Usage:
 

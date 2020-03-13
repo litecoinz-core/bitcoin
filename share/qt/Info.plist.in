@@ -29,16 +29,16 @@
   <string>????</string>
 
   <key>CFBundleExecutable</key>
-  <string>Litecoinz-Qt</string>
+  <string>LitecoinZ-Qt</string>
 
   <key>CFBundleName</key>
-  <string>Litecoinz-Qt</string>
+  <string>LitecoinZ-Qt</string>
 
   <key>LSHasLocalizedDisplayName</key>
   <true/>
 
   <key>CFBundleIdentifier</key>
-  <string>org.litecoinz.Litecoinz-Qt</string>
+  <string>org.litecoinz.LitecoinZ-Qt</string>
 
   <key>CFBundleURLTypes</key>
   <array>

@@ -42,11 +42,11 @@ static const int TOOLTIP_WRAP_THRESHOLD = 80;
 /* Number of frames in spinner animation */
 #define SPINNER_FRAMES 36
 
-#define QAPP_ORG_NAME "Litecoinz"
+#define QAPP_ORG_NAME "LitecoinZ"
 #define QAPP_ORG_DOMAIN "litecoinz.org"
-#define QAPP_APP_NAME_DEFAULT "Litecoinz-Qt"
-#define QAPP_APP_NAME_TESTNET "Litecoinz-Qt-testnet"
-#define QAPP_APP_NAME_REGTEST "Litecoinz-Qt-regtest"
+#define QAPP_APP_NAME_DEFAULT "LitecoinZ-Qt"
+#define QAPP_APP_NAME_TESTNET "LitecoinZ-Qt-testnet"
+#define QAPP_APP_NAME_REGTEST "LitecoinZ-Qt-regtest"
 
 /* One gigabyte (GB) in bytes */
 static constexpr uint64_t GB_BYTES{1000000000};

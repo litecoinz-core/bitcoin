@@ -249,7 +249,7 @@ UniValue importaddress(const JSONRPCRequest& request)
             "as change, and not show up in many RPCs.\n"
             "Note: Use \"getwalletinfo\" to query the scanning progress.\n",
                 {
-                    {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The Litecoinz address (or hex-encoded script)"},
+                    {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The LitecoinZ address (or hex-encoded script)"},
                     {"label", RPCArg::Type::STR, /* default */ "\"\"", "An optional label"},
                     {"rescan", RPCArg::Type::BOOL, /* default */ "true", "Rescan the wallet for transactions"},
                     {"p2sh", RPCArg::Type::BOOL, /* default */ "false", "Add the P2SH version of the script as well"},
@@ -318,7 +318,7 @@ UniValue importaddress(const JSONRPCRequest& request)
 
             pwallet->ImportScriptPubKeys(strLabel, scripts, false /* have_solving_data */, true /* apply_label */, 1 /* timestamp */);
         } else {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Litecoinz address or script");
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid LitecoinZ address or script");
         }
     }
     if (fRescan)
@@ -774,7 +774,7 @@ UniValue dumpprivkey(const JSONRPCRequest& request)
     std::string strAddress = request.params[0].get_str();
     CTxDestination dest = DecodeDestination(strAddress);
     if (!IsValidDestination(dest)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Litecoinz address");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid LitecoinZ address");
     }
     auto keyid = GetKeyForDestination(*pwallet, dest);
     if (keyid.IsNull()) {

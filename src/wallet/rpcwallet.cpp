@@ -207,7 +207,7 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     }
 
             RPCHelpMan{"getnewaddress",
-                "\nReturns a new Litecoinz address for receiving payments.\n"
+                "\nReturns a new LitecoinZ address for receiving payments.\n"
                 "If 'label' is specified, it is added to the address book \n"
                 "so payments received with the address will be associated with 'label'.\n",
                 {
@@ -264,7 +264,7 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
     }
 
             RPCHelpMan{"getrawchangeaddress",
-                "\nReturns a new Litecoinz address, for receiving change.\n"
+                "\nReturns a new LitecoinZ address, for receiving change.\n"
                 "This is for use with raw transactions, NOT normal use.\n",
                 {
                     {"address_type", RPCArg::Type::STR, /* default */ "set by -changetype", "The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\"."},
@@ -326,7 +326,7 @@ static UniValue setlabel(const JSONRPCRequest& request)
 
     CTxDestination dest = DecodeDestination(request.params[0].get_str());
     if (!IsValidDestination(dest)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Litecoinz address");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid LitecoinZ address");
     }
 
     std::string label = LabelFromValue(request.params[1]);
@@ -635,7 +635,7 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
     // Bitcoin address
     CTxDestination dest = DecodeDestination(request.params[0].get_str());
     if (!IsValidDestination(dest)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Litecoinz address");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid LitecoinZ address");
     }
     CScript scriptPubKey = GetScriptForDestination(dest);
     if (!IsMine(*pwallet, scriptPubKey)) {
@@ -912,7 +912,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
     for (const std::string& name_ : keys) {
         CTxDestination dest = DecodeDestination(name_);
         if (!IsValidDestination(dest)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Litecoinz address: ") + name_);
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid LitecoinZ address: ") + name_);
         }
 
         if (destinations.count(dest)) {
@@ -964,7 +964,7 @@ static UniValue addmultisigaddress(const JSONRPCRequest& request)
 
             RPCHelpMan{"addmultisigaddress",
                 "\nAdd a nrequired-to-sign multisignature address to the wallet. Requires a new wallet backup.\n"
-                "Each key is a Litecoinz address or hex-encoded public key.\n"
+                "Each key is a LitecoinZ address or hex-encoded public key.\n"
                 "This functionality is only intended for use with non-watchonly addresses.\n"
                 "See `importaddress` for watchonly p2sh address support.\n"
                 "If 'label' is specified, assign address to that label.\n",
@@ -3012,7 +3012,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
             const UniValue& input = inputs[idx];
             CTxDestination dest = DecodeDestination(input.get_str());
             if (!IsValidDestination(dest)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Litecoinz address: ") + input.get_str());
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid LitecoinZ address: ") + input.get_str());
             }
             if (!destinations.insert(dest).second) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ") + input.get_str());
@@ -3220,7 +3220,7 @@ static UniValue z_listunspent(const JSONRPCRequest& request)
             std::string address = input.get_str();
             auto zaddr = DecodePaymentAddress(address);
             if (!IsValidPaymentAddress(zaddr)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Litecoinz zaddress: ") + input.get_str());
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid LitecoinZ zaddress: ") + input.get_str());
             }
             auto hasSpendingKey = boost::apply_visitor(HaveSpendingKeyForPaymentAddress(pwallet), zaddr);
             if (!fIncludeWatchonly && !hasSpendingKey) {
@@ -4706,7 +4706,7 @@ static UniValue z_getnewaddress(const JSONRPCRequest& request)
     }
 
             RPCHelpMan{"z_getnewaddress",
-                "\nReturns a new Litecoinz shielded address for receiving payments.\n"
+                "\nReturns a new LitecoinZ shielded address for receiving payments.\n"
                 "If 'label' is specified, it is added to the address book \n"
                 "so payments received with the shielded address will be associated with 'label'.\n",
                 {

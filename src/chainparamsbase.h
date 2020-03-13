@@ -10,7 +10,7 @@
 
 /**
  * CBaseChainParams defines the base parameters (shared between litecoinz-cli and litecoinzd)
- * of a given instance of the Litecoinz system.
+ * of a given instance of the LitecoinZ system.
  */
 class CBaseChainParams
 {

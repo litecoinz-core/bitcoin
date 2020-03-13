@@ -1038,7 +1038,7 @@ static std::string WriteHDKeypath(std::vector<uint32_t>& keypath)
 UniValue decodepsbt(const JSONRPCRequest& request)
 {
             RPCHelpMan{"decodepsbt",
-                "\nReturn a JSON object representing the serialized, base64-encoded partially signed Litecoinz transaction.\n",
+                "\nReturn a JSON object representing the serialized, base64-encoded partially signed LitecoinZ transaction.\n",
                 {
                     {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The PSBT base64 string"},
                 },
@@ -1062,7 +1062,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             "          \"asm\" : \"asm\",            (string) The asm\n"
             "          \"hex\" : \"hex\",            (string) The hex\n"
             "          \"type\" : \"pubkeyhash\",    (string) The type, eg 'pubkeyhash'\n"
-            "          \"address\" : \"address\"     (string) Litecoinz address if there is one\n"
+            "          \"address\" : \"address\"     (string) LitecoinZ address if there is one\n"
             "        }\n"
             "      },\n"
             "      \"partial_signatures\" : {             (json object, optional)\n"
@@ -1327,7 +1327,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
 UniValue combinepsbt(const JSONRPCRequest& request)
 {
             RPCHelpMan{"combinepsbt",
-                "\nCombine multiple partially signed Litecoinz transactions into one transaction.\n"
+                "\nCombine multiple partially signed LitecoinZ transactions into one transaction.\n"
                 "Implements the Combiner role.\n",
                 {
                     {"txs", RPCArg::Type::ARR, RPCArg::Optional::NO, "A json array of base64 strings of partially signed transactions",

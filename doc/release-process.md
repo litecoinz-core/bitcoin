@@ -144,7 +144,7 @@ NOTE: Offline builds must use the --url flag to ensure Gitian fetches only from 
 
 The gbuild invocations below <b>DO NOT DO THIS</b> by default.
 
-### Build and sign Litecoinz Core for Linux, Windows, and macOS:
+### Build and sign LitecoinZ Core for Linux, Windows, and macOS:
 
     pushd ./gitian-builder
     ./bin/gbuild --num-make 2 --memory 3000 --commit litecoinz=v${VERSION} ../litecoinz/contrib/gitian-descriptors/gitian-linux.yml
@@ -306,14 +306,14 @@ litecoinz.org (see below for litecoinz.org update instructions).
 
 - Update litecoinz.org version
 
-  - First, check to see if the Litecoinz.org maintainers have prepared a
+  - First, check to see if the litecoinz.org maintainers have prepared a
     release: https://github.com/litecoinz-core/litecoinz.org/labels/Core
 
       - If they have, it will have previously failed their Travis CI
         checks because the final release files weren't uploaded.
         Trigger a Travis CI rebuild---if it passes, merge.
 
-  - If they have not prepared a release, follow the Litecoinz.org release
+  - If they have not prepared a release, follow the litecoinz.org release
     instructions: https://github.com/litecoinz-core/litecoinz.org/blob/master/docs/adding-events-release-notes-and-alerts.md#release-notes
 
   - After the pull request is merged, the website will automatically show the newest version within 15 minutes, as well
@@ -366,7 +366,7 @@ litecoinz.org (see below for litecoinz.org update instructions).
 
   - Update title of #bitcoin on Freenode IRC
 
-  - Optionally twitter, reddit /r/Litecoinz, ... but this will usually sort out itself
+  - Optionally twitter, reddit /r/LitecoinZ, ... but this will usually sort out itself
 
   - Celebrate
 

@@ -569,7 +569,7 @@
                   <bool>false</bool>
                  </property>
                  <property name="toolTip">
-                  <string>The Litecoinz z-address to shield the coinbase to</string>
+                  <string>The LitecoinZ z-address to shield the coinbase to</string>
                  </property>
                  <property name="alignment">
                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>

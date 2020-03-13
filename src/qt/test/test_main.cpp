@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
     // Don't remove this, it's needed to access
     // QApplication:: and QCoreApplication:: in the tests
     BitcoinApplication app(*node);
-    app.setApplicationName("Litecoinz-Qt-test");
+    app.setApplicationName("LitecoinZ-Qt-test");
 
     AppTests app_tests(app);
     if (QTest::qExec(&app_tests) != 0) {

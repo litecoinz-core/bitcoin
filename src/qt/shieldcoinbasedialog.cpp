@@ -171,7 +171,7 @@ void ShieldCoinbaseDialog::on_addressBookButton_clicked()
 void ShieldCoinbaseDialog::deleteClicked()
 {
     ui->shieldTo->clear();
-    ui->shieldTo->setToolTip("The Litecoinz z-address to shield the coinbase to");
+    ui->shieldTo->setToolTip("The LitecoinZ z-address to shield the coinbase to");
     ui->addAsLabel->clear();
 }
 

@@ -22,7 +22,7 @@ bool CPubKey::Verify(const uint256 &hash, const std::vector<unsigned char>& vchS
     if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, vch, size())) {
         return false;
     }
-    /* Litecoinz, unlike Bitcoin, has always enforced strict DER signatures. */
+    /* LitecoinZ, unlike Bitcoin, has always enforced strict DER signatures. */
     if (!secp256k1_ecdsa_signature_parse_der(secp256k1_context_verify, &sig, vchSig.data(), vchSig.size())) {
         return false;
     }
@@ -122,7 +122,7 @@ bool CExtPubKey::Derive(CExtPubKey &out, unsigned int _nChild) const {
 
 /* static */ bool CPubKey::CheckLowS(const std::vector<unsigned char>& vchSig) {
     secp256k1_ecdsa_signature sig;
-    /* Litecoinz, unlike Bitcoin, has always enforced strict DER signatures. */
+    /* LitecoinZ, unlike Bitcoin, has always enforced strict DER signatures. */
     if (!secp256k1_ecdsa_signature_parse_der(secp256k1_context_verify, &sig, vchSig.data(), vchSig.size())) {
         return false;
     }

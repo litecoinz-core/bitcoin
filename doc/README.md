@@ -1,15 +1,15 @@
-Litecoinz Core
+LitecoinZ Core
 ==============
 
 Setup
 ---------------------
-Litecoinz Core is the original Litecoinz client and it builds the backbone of the network. It downloads and, by default, stores the entire history of Litecoinz transactions, which requires a few hundred gigabytes of disk space. Depending on the speed of your computer and network connection, the synchronization process can take anywhere from a few hours to a day or more.
+LitecoinZ Core is the original LitecoinZ client and it builds the backbone of the network. It downloads and, by default, stores the entire history of LitecoinZ transactions, which requires a few hundred gigabytes of disk space. Depending on the speed of your computer and network connection, the synchronization process can take anywhere from a few hours to a day or more.
 
-To download Litecoinz Core, visit [litecoinz.org](https://litecoinz.org/en/download/).
+To download LitecoinZ Core, visit [litecoinz.org](https://litecoinz.org/en/download/).
 
 Running
 ---------------------
-The following are some helpful notes on how to run Litecoinz Core on your native platform.
+The following are some helpful notes on how to run LitecoinZ Core on your native platform.
 
 ### Unix
 
@@ -24,7 +24,7 @@ Unpack the files into a directory, and then run litecoinz-qt.exe.
 
 ### macOS
 
-Drag Litecoinz Core to your applications folder, and then run Litecoinz Core.
+Drag LitecoinZ Core to your applications folder, and then run LitecoinZ Core.
 
 ### Need Help?
 
@@ -35,7 +35,7 @@ for help and more information.
 
 Building
 ---------------------
-The following are developer notes on how to build Litecoinz Core on your native platform. They are not complete guides, but include notes on the necessary libraries, compile flags, etc.
+The following are developer notes on how to build LitecoinZ Core on your native platform. They are not complete guides, but include notes on the necessary libraries, compile flags, etc.
 
 - [Dependencies](dependencies.md)
 - [macOS Build Notes](build-osx.md)
@@ -48,7 +48,7 @@ The following are developer notes on how to build Litecoinz Core on your native 
 
 Development
 ---------------------
-The Litecoinz repo's [root README](/README.md) contains relevant information on the development process and automated testing.
+The LitecoinZ repo's [root README](/README.md) contains relevant information on the development process and automated testing.
 
 - [Developer Notes](developer-notes.md)
 - [Productivity Notes](productivity.md)

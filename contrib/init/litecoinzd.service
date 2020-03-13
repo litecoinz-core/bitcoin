@@ -10,7 +10,7 @@
 # config file.
 
 [Unit]
-Description=Litecoinz daemon
+Description=LitecoinZ daemon
 After=network.target
 
 [Service]

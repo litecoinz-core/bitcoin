@@ -56,7 +56,7 @@
 #include <boost/thread.hpp>
 
 #if defined(NDEBUG)
-# error "Litecoinz cannot be compiled without assertions."
+# error "LitecoinZ cannot be compiled without assertions."
 #endif
 
 #define MICRO 0.000001
