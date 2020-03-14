@@ -3760,7 +3760,7 @@ CWallet::Balance CWallet::GetBalance(const int min_depth, bool avoid_reuse) cons
             const CAmount tx_credit_mine{wtx.GetAvailableCredit(*locked_chain, /* fUseCache */ true, ISMINE_SPENDABLE | reuse_filter)};
             const CAmount tx_credit_watchonly{wtx.GetAvailableCredit(*locked_chain, /* fUseCache */ true, ISMINE_WATCH_ONLY | reuse_filter)};
             if (is_trusted && tx_depth >= min_depth) {
-                if (fIncludeCoinbase && is_coinbase) {
+                if (fIncludeCoinbase || !is_coinbase) {
                     ret.m_mine_trusted += tx_credit_mine;
                     ret.m_watchonly_trusted += tx_credit_watchonly;
                 } else {
