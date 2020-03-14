@@ -6392,7 +6392,6 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain& chain,
     int rescan_height = 0;
     if (!gArgs.GetBoolArg("-rescan", false))
     {
-        walletInstance->ClearNoteWitnessCache();
         WalletBatch batch(*walletInstance->database);
         CBlockLocator locator;
         if (batch.ReadBestBlock(locator)) {
@@ -6400,6 +6399,8 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain& chain,
                 rescan_height = *fork_height;
             }
         }
+    } else {
+        walletInstance->ClearNoteWitnessCache();
     }
 
     const Optional<int> tip_height = locked_chain->getHeight();
