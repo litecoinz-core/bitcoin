@@ -315,38 +315,52 @@ void ZSendCoinsDialog::on_sendButton_clicked()
     request.params = params;
     request.fHelp = false;
 
-    try {
+    try
+    {
         auto ret = z_sendmany(request);
         opid = QString::fromStdString(ret.get_str());
 
         sendStatus = true;
-    } catch (std::exception &e) {
-        qDebug("Error %s ", e.what());
-        QMessageBox msgBox("", e.what(), QMessageBox::Critical, 0, 0, 0, this, Qt::WindowTitleHint | Qt::WindowSystemMenuHint);
-        msgBox.exec();
-    } catch (...) {
-        qFatal("Error <unknown>");
-        QMessageBox msgBox("", "Error <unknown>", QMessageBox::Critical, 0, 0, 0, this, Qt::WindowTitleHint | Qt::WindowSystemMenuHint);
-        msgBox.exec();
     }
-
-    QString resultString = tr("Z-Send operation was submitted in background.");
-
-    resultString.append("<table style='width:100%;'>");
-    resultString.append("<br />");
-
-    resultString.append("<tr>");
-    resultString.append("<td style='width:50%; white-space:nowrap;'><b>" + tr("opid : ") + "</b></td>");
-    resultString.append("<td style='width:50%; white-space:nowrap;'>" + opid + "<td>");
-    resultString.append("</tr>");
-
-    resultString.append("</table>");
-
-    ZSendResultDialog resultDialog(tr("Z-Send operation submitted"), resultString, this);
-    resultDialog.exec();
+    catch (UniValue& objError)
+    {
+        try // Nice formatting for standard-format error
+        {
+            int code = find_value(objError, "code").get_int();
+            std::string message = find_value(objError, "message").get_str();
+            QMessageBox::critical(this, "Error", QString("Error: ") + QString::fromStdString(message) + " (code " + QString::number(code) + ")");
+        }
+        catch (const std::runtime_error&) // raised when converting to invalid type, i.e. missing code or message
+        {   // Show raw JSON object
+            QMessageBox::critical(this, "Error", QString("Error: ") + QString::fromStdString(objError.write()));
+        }
+    }
+    catch (const std::exception& e)
+    {
+        QMessageBox::critical(this, "Error", QString("Error: ") + QString::fromStdString(e.what()));
+    }
+    catch (...)
+    {
+        QMessageBox::critical(this, "Error", QString("Error <unknown>"));
+    }
 
     if (sendStatus)
     {
+        QString resultString = tr("Z-Send operation was submitted in background.");
+
+        resultString.append("<table style='width:100%;'>");
+        resultString.append("<br />");
+
+        resultString.append("<tr>");
+        resultString.append("<td style='width:50%; white-space:nowrap;'><b>" + tr("opid : ") + "</b></td>");
+        resultString.append("<td style='width:50%; white-space:nowrap;'>" + opid + "<td>");
+        resultString.append("</tr>");
+
+        resultString.append("</table>");
+
+        ZSendResultDialog resultDialog(tr("Z-Send operation submitted"), resultString, this);
+        resultDialog.exec();
+
         accept();
         InputControlDialog::inputControl()->UnSelect();
         inputControlUpdateLabels();

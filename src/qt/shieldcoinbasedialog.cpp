@@ -296,34 +296,57 @@ void ShieldCoinbaseDialog::on_shieldButton_clicked()
     bool sendStatus = false;
 
     UniValue params(UniValue::VARR);
-    UniValue ret;
+    params.push_back(addressFrom.toStdString());
+    params.push_back(address.toStdString());
+    params.push_back(ValueFromAmount(txFee));
+    params.push_back(ui->sliderShieldLimit->value());
 
-    try {
-        params.push_back(addressFrom.toStdString());
-        params.push_back(address.toStdString());
-        params.push_back(ValueFromAmount(txFee));
-        params.push_back(ui->sliderShieldLimit->value());
+    UniValue ret1;
+    UniValue ret2;
+    UniValue ret3;
+    UniValue ret4;
+    UniValue ret5;
 
-        JSONRPCRequest request;
-        request.params = params;
-        request.fHelp = false;
+    JSONRPCRequest request;
+    request.params = params;
+    request.fHelp = false;
 
-        ret = z_shieldcoinbase(request);
+    try
+    {
+        auto ret = z_shieldcoinbase(request);
+
+        ret1 = find_value(ret, "remainingUTXOs");
+        ret2 = find_value(ret, "remainingValue");
+        ret3 = find_value(ret, "shieldingUTXOs");
+        ret4 = find_value(ret, "shieldingValue");
+        ret5 = find_value(ret, "opid");
 
         sendStatus = true;
-    } catch (std::exception &e) {
-        qFatal("Error %s ", e.what());
-    } catch (...) {
-        qFatal("Error <unknown>");
+    }
+    catch (UniValue& objError)
+    {
+        try // Nice formatting for standard-format error
+        {
+            int code = find_value(objError, "code").get_int();
+            std::string message = find_value(objError, "message").get_str();
+            QMessageBox::critical(this, "Error", QString("Error: ") + QString::fromStdString(message) + " (code " + QString::number(code) + ")");
+        }
+        catch (const std::runtime_error&) // raised when converting to invalid type, i.e. missing code or message
+        {   // Show raw JSON object
+            QMessageBox::critical(this, "Error", QString("Error: ") + QString::fromStdString(objError.write()));
+        }
+    }
+    catch (const std::exception& e)
+    {
+        QMessageBox::critical(this, "Error", QString("Error: ") + QString::fromStdString(e.what()));
+    }
+    catch (...)
+    {
+        QMessageBox::critical(this, "Error", QString("Error <unknown>"));
     }
 
-    try {
-        UniValue ret1 = find_value(ret, "remainingUTXOs");
-        UniValue ret2 = find_value(ret, "remainingValue");
-        UniValue ret3 = find_value(ret, "shieldingUTXOs");
-        UniValue ret4 = find_value(ret, "shieldingValue");
-        UniValue ret5 = find_value(ret, "opid");
-
+    if (sendStatus)
+    {
         QString resultString = tr("Shielding operation was submitted in background.");
 
         resultString.append("<table style='width:100%;'>");
@@ -362,18 +385,7 @@ void ShieldCoinbaseDialog::on_shieldButton_clicked()
 
         ShieldResultDialog resultDialog(tr("Shield operation submitted"), resultString, this);
         resultDialog.exec();
-    } catch (std::exception &e) {
-        qDebug("Error %s ", e.what());
-        QMessageBox msgBox("", e.what(), QMessageBox::Critical, 0, 0, 0, this, Qt::WindowTitleHint | Qt::WindowSystemMenuHint);
-        msgBox.exec();
-    } catch (...) {
-        qFatal("Error <unknown>");
-        QMessageBox msgBox("", "Error <unknown>", QMessageBox::Critical, 0, 0, 0, this, Qt::WindowTitleHint | Qt::WindowSystemMenuHint);
-        msgBox.exec();
-    }
 
-    if (sendStatus)
-    {
         accept();
         InputControlDialog::inputControl()->UnSelect();
         inputControlUpdateLabels();
