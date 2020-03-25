@@ -2651,13 +2651,14 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
 
     m_chain.SetTip(pindexDelete->pprev);
 
-    // Update cached incremental witnesses
-    GetMainSignals().ChainTip(pblock, pindexDelete, boost::none);
-
     UpdateTip(pindexDelete->pprev, chainparams);
     // Let wallets know transactions went from 1-confirmed to
     // 0-confirmed or conflicted:
     GetMainSignals().BlockDisconnected(pblock);
+
+    // Update cached incremental witnesses
+    GetMainSignals().ChainTip(pblock, pindexDelete, boost::none);
+
     return true;
 }
 
@@ -2750,11 +2751,6 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         pthisBlock = pblock;
     }
     const CBlock& blockConnecting = *pthisBlock;
-    // Get the current commitment tree
-    SproutMerkleTree oldSproutTree;
-    SaplingMerkleTree oldSaplingTree;
-    assert(CoinsTip().GetSproutAnchorAt(CoinsTip().GetBestAnchor(SPROUT), oldSproutTree));
-    assert(CoinsTip().GetSaplingAnchorAt(CoinsTip().GetBestAnchor(SAPLING), oldSaplingTree));
     // Apply the block atomically to the chain state.
     int64_t nTime2 = GetTimeMicros(); nTimeReadFromDisk += nTime2 - nTime1;
     int64_t nTime3;
@@ -2790,9 +2786,6 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     // Update m_chain & related variables.
     m_chain.SetTip(pindexNew);
     UpdateTip(pindexNew, chainparams);
-
-    // Update cached incremental witnesses
-    GetMainSignals().ChainTip(pthisBlock, pindexNew, std::make_pair(oldSproutTree, oldSaplingTree));
 
     int64_t nTime6 = GetTimeMicros(); nTimePostConnect += nTime6 - nTime5; nTimeTotal += nTime6 - nTime1;
     LogPrint(BCLog::BENCH, "  - Connect postprocess: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime6 - nTime5) * MILLI, nTimePostConnect * MICRO, nTimePostConnect * MILLI / nBlocksTotal);
@@ -3063,6 +3056,23 @@ bool CChainState::ActivateBestChain(CValidationState &state, const CChainParams&
                 for (const PerBlockConnectTrace& trace : connectTrace.GetBlocksConnected()) {
                     assert(trace.pblock && trace.pindex);
                     GetMainSignals().BlockConnected(trace.pblock, trace.pindex, trace.conflictedTxs);
+
+                    CBlockIndex *pindex = trace.pindex;
+
+                    // Get the current Sprout commitment tree
+                    SproutMerkleTree oldSproutTree;
+                    assert(CoinsTip().GetSproutAnchorAt(pindex->hashSproutAnchor, oldSproutTree));
+
+                    // Get the current Sapling commitment tree
+                    SaplingMerkleTree oldSaplingTree;
+                    if (pindex->pprev && chainparams.GetConsensus().NetworkUpgradeActive(pindex->pprev->nHeight, Consensus::UPGRADE_SAPLING)) {
+                        assert(CoinsTip().GetSaplingAnchorAt(pindex->pprev->hashSaplingRoot, oldSaplingTree));
+                    } else {
+                        assert(CoinsTip().GetSaplingAnchorAt(SaplingMerkleTree::empty_root(), oldSaplingTree));
+                    }
+
+                    // Update cached incremental witnesses
+                    GetMainSignals().ChainTip(trace.pblock, pindex, std::make_pair(oldSproutTree, oldSaplingTree));
                 }
             } while (!m_chain.Tip() || (starting_tip && CBlockIndexWorkComparator()(m_chain.Tip(), starting_tip)));
             if (!blocks_connected) return true;

@@ -971,6 +971,9 @@ private:
      * Should be called with non-zero block_hash and posInBlock if this is for a transaction that is included in a block. */
     void SyncTransaction(const CTransactionRef& tx, CWalletTx::Status status, const uint256& block_hash, int posInBlock = 0, bool update_tx = true) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
+    /* Update cached incremental witnesses when the active block chain tip changes */
+    void ChainTip(const CBlock& block, const CBlockIndex *pindex, boost::optional<std::pair<SproutMerkleTree, SaplingMerkleTree>> added) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet) override;
+
     /* the HD chain data model (external chain counters) */
     CHDChain hdChain;
 
@@ -1412,7 +1415,6 @@ public:
     void TransactionAddedToMempool(const CTransactionRef& tx) override;
     void BlockConnected(const CBlock& block, const std::vector<CTransactionRef>& vtxConflicted) override;
     void BlockDisconnected(const CBlock& block) override;
-    void ChainTip(const CBlock& block, const CBlockIndex *pindex, boost::optional<std::pair<SproutMerkleTree, SaplingMerkleTree>> added) override;
     void UpdatedBlockTip() override;
     int64_t RescanFromTime(int64_t startTime, const WalletRescanReserver& reserver, bool update);
 

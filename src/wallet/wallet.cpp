@@ -1926,8 +1926,7 @@ void CWallet::UpdateSaplingNullifierNoteMapForBlock(const CBlock *pblock) {
     LOCK(cs_wallet);
 
     for (const CTransactionRef& ptx : pblock->vtx) {
-        const CTransaction& tx = *ptx;
-        auto hash = tx.GetHash();
+        auto hash = ptx->GetHash();
         bool txIsOurs = mapWallet.count(hash);
         if (txIsOurs) {
             UpdateSaplingNullifierNoteMapWithTx(mapWallet.at(hash));
