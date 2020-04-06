@@ -378,7 +378,7 @@ public:
         strNetworkID = "regtest";
         bip44CoinType = 1;
         consensus.nApproxReleaseHeight = 200000;
-        consensus.fCoinbaseMustBeShielded = true;
+        consensus.fCoinbaseMustBeShielded = false;
         consensus.nSubsidyHalvingInterval = 150;
         consensus.BIP16Enabled = true;
         consensus.BIP34Enabled = false;
@@ -501,6 +501,11 @@ public:
         consensus.vUpgrades[idx].nActivationHeight = nActivationHeight;
     }
 
+    void ProtectCoinbase()
+    {
+        consensus.fCoinbaseMustBeShielded = true;
+    }
+
     /**
      * Allows modifying the Version Bits regtest parameters.
      */
@@ -555,6 +560,11 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
                 throw std::runtime_error(strprintf("Invalid network upgrade (%s)", vDeploymentParams[0]));
             }
         }
+    }
+
+    if (gArgs.IsArgSet("-protectcoinbase")) {
+        LogPrintf("Enabling coinbase protection.\n");
+        ProtectCoinbase();
     }
 
     if (!args.IsArgSet("-vbparams")) return;
