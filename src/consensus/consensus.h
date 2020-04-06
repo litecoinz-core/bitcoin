@@ -21,6 +21,10 @@ static const int32_t OVERWINTER_MAX_TX_VERSION = 3;
 static const int32_t SAPLING_MIN_TX_VERSION = 4;
 /** The maximum allowed Sapling transaction version (network rule) */
 static const int32_t SAPLING_MAX_TX_VERSION = 4;
+/** The minimum allowed Alpheratz transaction version (network rule) */
+static const int32_t ALPHERATZ_MIN_TX_VERSION = 5;
+/** The maximum allowed Alpheratz transaction version (network rule) */
+static const int32_t ALPHERATZ_MAX_TX_VERSION = 5;
 /** The maximum allowed size for a serialized block, in bytes (only for buffer size limits) */
 static const unsigned int MAX_BLOCK_SERIALIZED_SIZE = 4000000;
 /** The maximum allowed weight for a block, see BIP 141 (network rule) */

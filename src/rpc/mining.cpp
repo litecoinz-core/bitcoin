@@ -571,7 +571,9 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
         // TODO: Maybe recheck connections/IBD and (if something wrong) send an expires-immediately template to stop miners?
     }
 
-    bool isSegwitEnabled = (::ChainActive().Height() > Params().GetConsensus().SegwitHeight);
+    const Consensus::Params& consensusParams = Params().GetConsensus();
+
+    bool isSegwitEnabled = consensusParams.NetworkUpgradeActive(::ChainActive().Height(), Consensus::UPGRADE_ALPHERATZ);
 
     // GBT must be called with 'segwit' set in the rules
     if (setClientRules.count("segwit") != 1 && isSegwitEnabled) {
@@ -609,14 +611,13 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     }
     assert(pindexPrev);
     CBlock* pblock = &pblocktemplate->block; // pointer for convenience
-    const Consensus::Params& consensusParams = Params().GetConsensus();
 
     // Update nTime
     UpdateTime(pblock, consensusParams, pindexPrev);
     pblock->nNonce = uint256();
 
     // NOTE: If at some point we support pre-segwit miners post-segwit-activation, this needs to take segwit support into consideration
-    const bool fPreSegWit = (pindexPrev->nHeight + 1 < consensusParams.SegwitHeight);
+    const bool fPreSegWit = !(consensusParams.NetworkUpgradeActive(::ChainActive().Height(), Consensus::UPGRADE_ALPHERATZ));
 
     UniValue aCaps(UniValue::VARR); aCaps.push_back("proposal");
 

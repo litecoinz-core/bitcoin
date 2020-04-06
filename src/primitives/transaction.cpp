@@ -308,8 +308,10 @@ std::string CTransaction::ToString() const
     }
     for (const auto& tx_in : vin)
         str += "    " + tx_in.ToString() + "\n";
-    for (const auto& tx_in : vin)
-        str += "    " + tx_in.scriptWitness.ToString() + "\n";
+    if (nVersion >= ALPHERATZ_MIN_TX_VERSION) {
+        for (const auto& tx_in : vin)
+            str += "    " + tx_in.scriptWitness.ToString() + "\n";
+    }
     for (const auto& tx_out : vout)
         str += "    " + tx_out.ToString() + "\n";
     return str;
@@ -324,7 +326,11 @@ CMutableTransaction CreateNewContextualCMutableTransaction(const Consensus::Para
         mtx.fOverwintered = true;
         int64_t nExpiryDelta = gArgs.GetArg("-txexpirydelta", DEFAULT_TX_EXPIRY_DELTA);
 
-        if (consensusParams.NetworkUpgradeActive(nHeight, Consensus::UPGRADE_SAPLING)) {
+        if (consensusParams.NetworkUpgradeActive(nHeight, Consensus::UPGRADE_ALPHERATZ)) {
+            mtx.nVersionGroupId = ALPHERATZ_VERSION_GROUP_ID;
+            mtx.nVersion = ALPHERATZ_TX_VERSION;
+            mtx.nExpiryHeight = nHeight + nExpiryDelta;
+        } else if (consensusParams.NetworkUpgradeActive(nHeight, Consensus::UPGRADE_SAPLING)) {
             mtx.nVersionGroupId = SAPLING_VERSION_GROUP_ID;
             mtx.nVersion = SAPLING_TX_VERSION;
             mtx.nExpiryHeight = nHeight + nExpiryDelta;

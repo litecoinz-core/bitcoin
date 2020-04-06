@@ -341,7 +341,7 @@ UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(
 
     SigVersion sigversion = SigVersion::BASE;
     if (signTx.fOverwintered) {
-        if (signTx.nVersionGroupId == SAPLING_VERSION_GROUP_ID) {
+        if (signTx.nVersionGroupId == SAPLING_VERSION_GROUP_ID || signTx.nVersionGroupId == ALPHERATZ_VERSION_GROUP_ID) {
             sigversion = SigVersion::SAPLING_V0;
         } else {
             sigversion = SigVersion::OVERWINTER;

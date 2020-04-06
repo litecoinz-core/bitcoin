@@ -234,7 +234,7 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     if (!request.params[0].isNull())
         label = LabelFromValue(request.params[0]);
 
-    bool isSegwitEnabled = (::ChainActive().Height() > Params().GetConsensus().SegwitHeight);
+    bool isSegwitEnabled = Params().GetConsensus().NetworkUpgradeActive(::ChainActive().Height(), Consensus::UPGRADE_ALPHERATZ);
 
     OutputType output_type = pwallet->GetDefaultAddressType();
     if (!request.params[1].isNull()) {
@@ -4944,22 +4944,33 @@ UniValue z_sendmany(const JSONRPCRequest& request)
     }
 
     int nextBlockHeight = ::ChainActive().Height() + 1;
+    unsigned int max_tx_size;
+
     CMutableTransaction mtx;
-    mtx.fOverwintered = true;
-    mtx.nVersionGroupId = SAPLING_VERSION_GROUP_ID;
-    mtx.nVersion = SAPLING_TX_VERSION;
-    unsigned int max_tx_size = MAX_TX_SIZE_AFTER_SAPLING;
-    if (!Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_SAPLING)) {
-        if (Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_OVERWINTER)) {
-            mtx.nVersionGroupId = OVERWINTER_VERSION_GROUP_ID;
-            mtx.nVersion = OVERWINTER_TX_VERSION;
-        } else {
-            mtx.fOverwintered = false;
-            mtx.nVersion = 2;
-        }
 
+    if (Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_ALPHERATZ)) {
+        mtx.fOverwintered = true;
+        mtx.nVersionGroupId = ALPHERATZ_VERSION_GROUP_ID;
+        mtx.nVersion = ALPHERATZ_TX_VERSION;
+        max_tx_size = MAX_TX_SIZE_AFTER_SAPLING;
+    } else if (Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_SAPLING)) {
+        mtx.fOverwintered = true;
+        mtx.nVersionGroupId = SAPLING_VERSION_GROUP_ID;
+        mtx.nVersion = SAPLING_TX_VERSION;
         max_tx_size = MAX_TX_SIZE_BEFORE_SAPLING;
+    } else if (Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_OVERWINTER)) {
+        mtx.fOverwintered = true;
+        mtx.nVersionGroupId = OVERWINTER_VERSION_GROUP_ID;
+        mtx.nVersion = OVERWINTER_TX_VERSION;
+        max_tx_size = MAX_TX_SIZE_BEFORE_SAPLING;
+    } else {
+        mtx.fOverwintered = false;
+        mtx.nVersionGroupId = 0;
+        mtx.nVersion = 2;
+        max_tx_size = MAX_TX_SIZE_BEFORE_SAPLING;
+    }
 
+    if (!Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_SAPLING)) {
         // Check the number of zaddr outputs does not exceed the limit.
         if (zaddrRecipients.size() > Z_SENDMANY_MAX_ZADDR_OUTPUTS_BEFORE_SAPLING)  {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, too many zaddr outputs");
