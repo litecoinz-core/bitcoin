@@ -3222,8 +3222,7 @@ static UniValue z_listunspent(const JSONRPCRequest& request)
             if (!IsValidPaymentAddress(zaddr)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid LitecoinZ zaddress: ") + input.get_str());
             }
-            auto hasSpendingKey = boost::apply_visitor(HaveSpendingKeyForPaymentAddress(pwallet), zaddr);
-            if (!fIncludeWatchonly && !hasSpendingKey) {
+            if (!fIncludeWatchonly && !boost::apply_visitor(HaveSpendingKeyForPaymentAddress(pwallet), zaddr)) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, spending key for address does not belong to wallet: ") + address);
             }
             if (!setAddress.insert(address).second) {
@@ -3233,15 +3232,16 @@ static UniValue z_listunspent(const JSONRPCRequest& request)
         }
     } else {
         // User did not provide zaddrs, so use default i.e. all addresses
-        std::set<libzcash::SproutPaymentAddress> sproutzaddrs = {};
-        pwallet->GetSproutPaymentAddresses(sproutzaddrs);
-
-        // Sapling support
-        std::set<libzcash::SaplingPaymentAddress> saplingzaddrs = {};
-        pwallet->GetSaplingPaymentAddresses(saplingzaddrs);
-
-        zaddrs.insert(sproutzaddrs.begin(), sproutzaddrs.end());
-        zaddrs.insert(saplingzaddrs.begin(), saplingzaddrs.end());
+        {
+            std::set<libzcash::SproutPaymentAddress> za;
+            pwallet->GetSproutPaymentAddresses(za);
+            zaddrs.insert(za.begin(), za.end());
+        }
+        {
+            std::set<libzcash::SaplingPaymentAddress> za;
+            pwallet->GetSaplingPaymentAddresses(za);
+            zaddrs.insert(za.begin(), za.end());
+        }
     }
 
     // Make sure the results are valid at least up to the most recent block
@@ -3253,57 +3253,59 @@ static UniValue z_listunspent(const JSONRPCRequest& request)
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
 
-    if (zaddrs.size() > 0) {
-        std::vector<SproutNoteEntry> sproutEntries;
-        std::vector<SaplingNoteEntry> saplingEntries;
-        pwallet->GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, &zaddrs, nMinDepth, nMaxDepth, true, !fIncludeWatchonly, false);
-        std::set<std::pair<libzcash::PaymentAddress, uint256>> nullifierSet = pwallet->GetNullifiersForAddresses(zaddrs);
+    if (zaddrs.empty()) {
+        return results;
+    }
 
-        for (auto & entry : sproutEntries) {
-            UniValue obj(UniValue::VOBJ);
-            obj.pushKV("txid", entry.jsop.hash.ToString());
-            obj.pushKV("jsindex", (int)entry.jsop.js );
-            obj.pushKV("jsoutindex", (int)entry.jsop.n);
-            obj.pushKV("confirmations", entry.confirmations);
-            bool hasSproutSpendingKey = HaveSpendingKeyForPaymentAddress(pwallet)(entry.address);
-            obj.pushKV("spendable", hasSproutSpendingKey);
-            obj.pushKV("address", EncodePaymentAddress(entry.address));
+    std::vector<SproutNoteEntry> sproutEntries;
+    std::vector<SaplingNoteEntry> saplingEntries;
+    pwallet->GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, &zaddrs, nMinDepth, nMaxDepth, true, !fIncludeWatchonly, false);
+    std::set<std::pair<libzcash::PaymentAddress, uint256>> nullifierSet = pwallet->GetNullifiersForAddresses(zaddrs);
 
-            auto i = pwallet->mapSproutAddressBook.find(entry.address);
-            if (i != pwallet->mapSproutAddressBook.end()) {
-                obj.pushKV("label", i->second.name);
-            }
+    for (auto & entry : sproutEntries) {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("txid", entry.jsop.hash.ToString());
+        obj.pushKV("jsindex", (int)entry.jsop.js );
+        obj.pushKV("jsoutindex", (int)entry.jsop.n);
+        obj.pushKV("confirmations", entry.confirmations);
+        bool hasSproutSpendingKey = HaveSpendingKeyForPaymentAddress(pwallet)(entry.address);
+        obj.pushKV("spendable", hasSproutSpendingKey);
+        obj.pushKV("address", EncodePaymentAddress(entry.address));
 
-            obj.pushKV("amount", ValueFromAmount(CAmount(entry.note.value())));
-            std::string data(entry.memo.begin(), entry.memo.end());
-            obj.pushKV("memo", HexStr(data));
-            if (hasSproutSpendingKey) {
-                obj.pushKV("change", pwallet->IsNoteSproutChange(nullifierSet, entry.address, entry.jsop));
-            }
-            results.push_back(obj);
+        auto i = pwallet->mapSproutAddressBook.find(entry.address);
+        if (i != pwallet->mapSproutAddressBook.end()) {
+            obj.pushKV("label", i->second.name);
         }
 
-        for (auto & entry : saplingEntries) {
-            UniValue obj(UniValue::VOBJ);
-            obj.pushKV("txid", entry.op.hash.ToString());
-            obj.pushKV("outindex", (int)entry.op.n);
-            obj.pushKV("confirmations", entry.confirmations);
-            bool hasSaplingSpendingKey = HaveSpendingKeyForPaymentAddress(pwallet)(entry.address);
-            obj.pushKV("spendable", hasSaplingSpendingKey);
-            obj.pushKV("address", EncodePaymentAddress(entry.address));
-
-            auto i = pwallet->mapSaplingAddressBook.find(entry.address);
-            if (i != pwallet->mapSaplingAddressBook.end()) {
-                obj.pushKV("label", i->second.name);
-            }
-
-            obj.pushKV("amount", ValueFromAmount(CAmount(entry.note.value()))); // note.value() is equivalent to plaintext.value()
-            obj.pushKV("memo", HexStr(entry.memo));
-            if (hasSaplingSpendingKey) {
-                obj.pushKV("change", pwallet->IsNoteSaplingChange(nullifierSet, entry.address, entry.op));
-            }
-            results.push_back(obj);
+        obj.pushKV("amount", ValueFromAmount(CAmount(entry.note.value())));
+        std::string data(entry.memo.begin(), entry.memo.end());
+        obj.pushKV("memo", HexStr(data));
+        if (hasSproutSpendingKey) {
+            obj.pushKV("change", pwallet->IsNoteSproutChange(nullifierSet, entry.address, entry.jsop));
         }
+        results.push_back(obj);
+    }
+
+    for (auto & entry : saplingEntries) {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("txid", entry.op.hash.ToString());
+        obj.pushKV("outindex", (int)entry.op.n);
+        obj.pushKV("confirmations", entry.confirmations);
+        bool hasSaplingSpendingKey = HaveSpendingKeyForPaymentAddress(pwallet)(entry.address);
+        obj.pushKV("spendable", hasSaplingSpendingKey);
+        obj.pushKV("address", EncodePaymentAddress(entry.address));
+
+        auto i = pwallet->mapSaplingAddressBook.find(entry.address);
+        if (i != pwallet->mapSaplingAddressBook.end()) {
+            obj.pushKV("label", i->second.name);
+        }
+
+        obj.pushKV("amount", ValueFromAmount(CAmount(entry.note.value()))); // note.value() is equivalent to plaintext.value()
+        obj.pushKV("memo", HexStr(entry.memo));
+        if (hasSaplingSpendingKey) {
+            obj.pushKV("change", pwallet->IsNoteSaplingChange(nullifierSet, entry.address, entry.op));
+        }
+        results.push_back(obj);
     }
 
     return results;
