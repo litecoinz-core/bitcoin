@@ -1247,7 +1247,7 @@ static UniValue NetworkUpgradeDesc(const Consensus::Params& consensusParams, Con
 {
     UniValue rv(UniValue::VOBJ);
     auto upgrade = NetworkUpgradeInfo[idx];
-    rv.pushKV("name", upgrade.strName);
+    rv.pushKV("branchid", HexInt(upgrade.nBranchId));
     rv.pushKV("activationheight", consensusParams.vUpgrades[idx].nActivationHeight);
     switch (NetworkUpgradeState(height, consensusParams, idx)) {
         case UPGRADE_DISABLED: rv.pushKV("status", "disabled"); break;
@@ -1264,7 +1264,7 @@ void NetworkUpgradeDescPushBack(UniValue& networkUpgrades, const Consensus::Para
     // hidden. This is used when network upgrade implementations are merged
     // without specifying the activation height.
     if (consensusParams.vUpgrades[idx].nActivationHeight != Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT) {
-        networkUpgrades.pushKV(HexInt(NetworkUpgradeInfo[idx].nBranchId), NetworkUpgradeDesc(consensusParams, idx, height));
+        networkUpgrades.pushKV(NetworkUpgradeInfo[idx].strName, NetworkUpgradeDesc(consensusParams, idx, height));
     }
 }
 
@@ -1316,8 +1316,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "  }\n"
             "  ],\n"
             "  \"upgrades\": {                (object) status of network upgrades\n"
-            "     \"xxxx\" : {                (string) branch ID of the upgrade\n"
-            "        \"name\": \"xxxx\",        (string) name of upgrade\n"
+            "     \"xxxx\" : {                (string) name of the upgrade\n"
+            "        \"branchid\": \"xxxx\",          (string) branch ID of upgrade\n"
             "        \"activationheight\": xxxxxx,  (numeric) block height of activation\n"
             "        \"status\": \"xxxx\",      (string) status of upgrade\n"
             "        \"info\": \"xxxx\",        (string) additional information about upgrade\n"
