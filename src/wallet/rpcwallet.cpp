@@ -1311,33 +1311,32 @@ static UniValue z_listreceivedbyaddress(const JSONRPCRequest& request)
         nullifierSet = pwallet->GetNullifiersForAddresses({zaddr});
     }
 
-    if (boost::get<libzcash::SproutPaymentAddress>(&zaddr) != nullptr) {
-        for (SproutNoteEntry & entry : sproutEntries) {
-            UniValue obj(UniValue::VOBJ);
-            obj.pushKV("txid", entry.jsop.hash.ToString());
-            obj.pushKV("amount", ValueFromAmount(CAmount(entry.note.value())));
-            std::string data(entry.memo.begin(), entry.memo.end());
-            obj.pushKV("memo", HexStr(data));
-            obj.pushKV("jsindex", entry.jsop.js);
-            obj.pushKV("jsoutindex", entry.jsop.n);
-            if (hasSpendingKey) {
-                obj.pushKV("change", pwallet->IsNoteSproutChange(nullifierSet, entry.address, entry.jsop));
-            }
-            result.push_back(obj);
+    for (SproutNoteEntry & entry : sproutEntries) {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("txid", entry.jsop.hash.ToString());
+        obj.pushKV("amount", ValueFromAmount(CAmount(entry.note.value())));
+        std::string data(entry.memo.begin(), entry.memo.end());
+        obj.pushKV("memo", HexStr(data));
+        obj.pushKV("jsindex", entry.jsop.js);
+        obj.pushKV("jsoutindex", entry.jsop.n);
+        if (hasSpendingKey) {
+            obj.pushKV("change", pwallet->IsNoteSproutChange(nullifierSet, entry.address, entry.jsop));
         }
-    } else if (boost::get<libzcash::SaplingPaymentAddress>(&zaddr) != nullptr) {
-        for (SaplingNoteEntry & entry : saplingEntries) {
-            UniValue obj(UniValue::VOBJ);
-            obj.pushKV("txid", entry.op.hash.ToString());
-            obj.pushKV("amount", ValueFromAmount(CAmount(entry.note.value())));
-            obj.pushKV("memo", HexStr(entry.memo));
-            obj.pushKV("outindex", (int)entry.op.n);
-            if (hasSpendingKey) {
-                obj.pushKV("change", pwallet->IsNoteSaplingChange(nullifierSet, entry.address, entry.op));
-            }
-            result.push_back(obj);
-        }
+        result.push_back(obj);
     }
+
+    for (SaplingNoteEntry & entry : saplingEntries) {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("txid", entry.op.hash.ToString());
+        obj.pushKV("amount", ValueFromAmount(CAmount(entry.note.value())));
+        obj.pushKV("memo", HexStr(entry.memo));
+        obj.pushKV("outindex", (int)entry.op.n);
+        if (hasSpendingKey) {
+            obj.pushKV("change", pwallet->IsNoteSaplingChange(nullifierSet, entry.address, entry.op));
+        }
+        result.push_back(obj);
+    }
+
     return result;
 }
 
