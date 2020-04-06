@@ -223,12 +223,7 @@ CTxMemPoolEntry TestMemPoolEntryHelper::FromTx(const CMutableTransaction &tx) {
 
 CTxMemPoolEntry TestMemPoolEntryHelper::FromTx(const CTransactionRef& tx)
 {
-    // Grab the branch ID we expect this transaction to commit to. We don't
-    // yet know if it does, but if the entry gets added to the mempool, then
-    // it has passed ContextualCheckInputs and therefore this is correct.
-    auto consensusBranchId = CurrentEpochBranchId(::ChainActive().Height() + 1, Params().GetConsensus());
-
-    return CTxMemPoolEntry(tx, nFee, nTime, nHeight, spendsCoinbase, consensusBranchId, sigOpCost, lp);
+    return CTxMemPoolEntry(tx, nFee, nTime, nHeight, spendsCoinbase, nBranchId, sigOpCost, lp);
 }
 
 /**

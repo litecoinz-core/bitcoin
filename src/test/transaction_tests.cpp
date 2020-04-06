@@ -325,6 +325,8 @@ SetupDummyInputs(FillableSigningProvider& keystoreRet, CCoinsViewCache& coinsRet
 
 BOOST_AUTO_TEST_CASE(test_Get)
 {
+    uint32_t consensusBranchId = SPROUT_BRANCH_ID;
+
     FillableSigningProvider keystore;
     CCoinsView coinsDummy;
     CCoinsViewCache coins(&coinsDummy);
@@ -345,12 +347,14 @@ BOOST_AUTO_TEST_CASE(test_Get)
     t1.vout[0].nValue = 90*CENT;
     t1.vout[0].scriptPubKey << OP_1;
 
-    BOOST_CHECK(AreInputsStandard(CTransaction(t1), coins, 0));
+    BOOST_CHECK(AreInputsStandard(CTransaction(t1), coins, consensusBranchId));
     BOOST_CHECK_EQUAL(coins.GetValueIn(CTransaction(t1)), (50+21+22)*CENT);
 }
 
 static void CreateCreditAndSpend(const FillableSigningProvider& keystore, const CScript& outscript, CTransactionRef& output, CMutableTransaction& input, bool success = true)
 {
+    uint32_t consensusBranchId = SPROUT_BRANCH_ID;
+
     CMutableTransaction outputm;
     outputm.nVersion = 1;
     outputm.vin.resize(1);
@@ -375,7 +379,7 @@ static void CreateCreditAndSpend(const FillableSigningProvider& keystore, const 
     inputm.vout.resize(1);
     inputm.vout[0].nValue = 1;
     inputm.vout[0].scriptPubKey = CScript();
-    bool ret = SignSignature(keystore, *output, inputm, 0, SIGHASH_ALL, 0);
+    bool ret = SignSignature(keystore, *output, inputm, 0, SIGHASH_ALL, consensusBranchId);
     assert(ret == success);
     CDataStream ssin(SER_NETWORK, PROTOCOL_VERSION);
     ssin << inputm;
@@ -421,6 +425,8 @@ static void ReplaceRedeemScript(CScript& script, const CScript& redeemScript)
 
 BOOST_AUTO_TEST_CASE(test_big_witness_transaction)
 {
+    uint32_t consensusBranchId = SPROUT_BRANCH_ID;
+
     CMutableTransaction mtx;
     mtx.nVersion = 1;
 
@@ -457,7 +463,7 @@ BOOST_AUTO_TEST_CASE(test_big_witness_transaction)
 
     // sign all inputs
     for(uint32_t i = 0; i < mtx.vin.size(); i++) {
-        bool hashSigned = SignSignature(keystore, scriptPubKey, mtx, i, 1000, sigHashes.at(i % sigHashes.size()), 0);
+        bool hashSigned = SignSignature(keystore, scriptPubKey, mtx, i, 1000, sigHashes.at(i % sigHashes.size()), consensusBranchId);
         assert(hashSigned);
     }
 

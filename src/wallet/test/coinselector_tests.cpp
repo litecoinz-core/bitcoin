@@ -260,7 +260,7 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
     coin_control.Select(COutPoint(vCoins.at(0).tx->GetHash(), vCoins.at(0).i));
     std::vector<COutput> vCoinsNoCoinbase; // dummy
     bool fOnlyCoinbaseCoins = false;
-    bool fNeedCoinbaseCoins = false;
+    bool fNeedCoinbaseCoins = true;
     BOOST_CHECK(testWallet.SelectCoins(vCoinsNoCoinbase, vCoins, 10 * CENT, setCoinsRet, nValueRet, fOnlyCoinbaseCoins, fNeedCoinbaseCoins, coin_control, coin_selection_params_bnb, bnb_used));
     BOOST_CHECK(!bnb_used);
     BOOST_CHECK(!coin_selection_params_bnb.use_bnb);

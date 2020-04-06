@@ -185,7 +185,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
 
         // Ensure that coinbases cannot be spent to transparent outputs
         // Disabled on regtest
-        if (coin.IsCoinBase() && consensusParams.fCoinbaseMustBeShielded && !tx.vout.empty()) {
+        if (coin.IsCoinBase() && fCoinbaseEnforcedShieldingEnabled && consensusParams.fCoinbaseMustBeShielded && !tx.vout.empty()) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
         }
 
