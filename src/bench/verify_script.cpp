@@ -3,8 +3,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <bench/bench.h>
-#include <chain.h>
-#include <chainparams.h>
 #include <consensus/upgrades.h>
 #include <key.h>
 #if defined(HAVE_CONSENSUS_LIB)
@@ -12,6 +10,7 @@
 #endif
 #include <script/script.h>
 #include <script/standard.h>
+#include <validation.h>
 #include <streams.h>
 
 #include <array>
@@ -59,8 +58,7 @@ static void VerifyScriptBench(benchmark::State& state)
     const int witnessversion = 0;
 
     // Grab the current consensus branch ID
-    CChain chain;
-    auto consensusBranchId = CurrentEpochBranchId(chain.Height() + 1, Params().GetConsensus());
+    auto consensusBranchId = CurrentEpochBranchId(::ChainActive().Height() + 1, Params().GetConsensus());
 
     // Keypair.
     CKey key;

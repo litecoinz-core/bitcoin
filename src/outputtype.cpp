@@ -10,6 +10,8 @@
 #include <script/sign.h>
 #include <script/signingprovider.h>
 #include <script/standard.h>
+#include <validation.h>
+#include <consensus/upgrades.h>
 
 #include <assert.h>
 #include <string>
@@ -76,6 +78,8 @@ std::vector<CTxDestination> GetAllDestinationsForKey(const CPubKey& key)
 
 CTxDestination AddAndGetDestinationForScript(FillableSigningProvider& keystore, const CScript& script, OutputType type)
 {
+    auto consensusBranchId = CurrentEpochBranchId(::ChainActive().Height() + 1, Params().GetConsensus());
+
     // Add script to keystore
     keystore.AddCScript(script);
     // Note that scripts over 520 bytes are not yet supported.
@@ -87,7 +91,7 @@ CTxDestination AddAndGetDestinationForScript(FillableSigningProvider& keystore, 
         CTxDestination witdest = WitnessV0ScriptHash(script);
         CScript witprog = GetScriptForDestination(witdest);
         // Check if the resulting program is solvable (i.e. doesn't use an uncompressed key)
-        if (!IsSolvable(keystore, witprog)) return ScriptHash(script);
+        if (!IsSolvable(keystore, witprog, consensusBranchId)) return ScriptHash(script);
         // Add the redeemscript, so that P2WSH and P2SH-P2WSH outputs are recognized as ours.
         keystore.AddCScript(witprog);
         if (type == OutputType::BECH32) {

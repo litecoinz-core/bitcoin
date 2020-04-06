@@ -838,7 +838,7 @@ static UniValue signrawtransactionwithkey(const JSONRPCRequest& request)
     // have a better estimation of the current height and will be more likely to
     // determine the correct consensus branch ID.
     const Consensus::Params& consensusParams = Params().GetConsensus();
-    int nextBlockHeight = std::max((::ChainActive().Height() + 1), consensusParams.nApproxReleaseHeight);
+    int nextBlockHeight = ::ChainActive().Height() + 1;
     // Grab the current consensus branch ID
     auto consensusBranchId = CurrentEpochBranchId(nextBlockHeight, consensusParams);
     if (!request.params[4].isNull()) {

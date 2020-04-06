@@ -3614,7 +3614,7 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
     // have a better estimation of the current height and will be more likely to
     // determine the correct consensus branch ID.
     const Consensus::Params& consensusParams = Params().GetConsensus();
-    int nextBlockHeight = std::max((::ChainActive().Height() + 1), consensusParams.nApproxReleaseHeight);
+    int nextBlockHeight = ::ChainActive().Height() + 1;
     // Grab the current consensus branch ID
     auto consensusBranchId = CurrentEpochBranchId(nextBlockHeight, consensusParams);
     if (!request.params[4].isNull()) {
@@ -4073,6 +4073,8 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
 
+    auto consensusBranchId = CurrentEpochBranchId(::ChainActive().Height() + 1, Params().GetConsensus());
+
     std::string currentAddress = EncodeDestination(dest);
     ret.pushKV("address", currentAddress);
 
@@ -4081,7 +4083,7 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
 
     isminetype mine = IsMine(*pwallet, dest);
     ret.pushKV("ismine", bool(mine & ISMINE_SPENDABLE));
-    bool solvable = IsSolvable(*pwallet, scriptPubKey);
+    bool solvable = IsSolvable(*pwallet, scriptPubKey, consensusBranchId);
     ret.pushKV("solvable", solvable);
     if (solvable) {
        ret.pushKV("desc", InferDescriptor(scriptPubKey, *pwallet)->ToString());

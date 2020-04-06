@@ -5,9 +5,6 @@
 
 #include <script/sign.h>
 
-#include <chain.h>
-#include <chainparams.h>
-#include <consensus/upgrades.h>
 #include <key.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
@@ -435,12 +432,8 @@ public:
 const BaseSignatureCreator& DUMMY_SIGNATURE_CREATOR = DummySignatureCreator(32, 32);
 const BaseSignatureCreator& DUMMY_MAXIMUM_SIGNATURE_CREATOR = DummySignatureCreator(33, 32);
 
-bool IsSolvable(const SigningProvider& provider, const CScript& script)
+bool IsSolvable(const SigningProvider& provider, const CScript& script, uint32_t consensusBranchId)
 {
-    // Grab the current consensus branch ID
-    CChain chain;
-    auto consensusBranchId = CurrentEpochBranchId(chain.Height() + 1, Params().GetConsensus());
-
     // This check is to make sure that the script we created can actually be solved for and signed by us
     // if we were to have the private keys. This is just to make sure that the script is valid and that,
     // if found in a transaction, we would still accept and relay that transaction. In particular,
