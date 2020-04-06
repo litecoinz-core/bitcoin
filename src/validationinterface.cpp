@@ -33,7 +33,7 @@ struct MainSignalsInstance {
     boost::signals2::signal<void (const CTransactionRef &)> TransactionAddedToMempool;
     boost::signals2::signal<void (const std::shared_ptr<const CBlock> &, const CBlockIndex *pindex, const std::vector<CTransactionRef>&)> BlockConnected;
     boost::signals2::signal<void (const std::shared_ptr<const CBlock> &)> BlockDisconnected;
-    boost::signals2::signal<void (const std::shared_ptr<const CBlock> &, const CBlockIndex *pindex, boost::optional<std::pair<SproutMerkleTree, SaplingMerkleTree>>)> ChainTip;
+    boost::signals2::signal<void (const std::shared_ptr<const CBlock> &, const CBlockIndex *pindex, bool added)> ChainTip;
     boost::signals2::signal<void (const CTransactionRef &)> TransactionRemovedFromMempool;
     boost::signals2::signal<void (const CBlockLocator &)> ChainStateFlushed;
     boost::signals2::signal<void (const CBlock&, const CValidationState&)> BlockChecked;
@@ -167,7 +167,7 @@ void CMainSignals::BlockDisconnected(const std::shared_ptr<const CBlock> &pblock
     });
 }
 
-void CMainSignals::ChainTip(const std::shared_ptr<const CBlock> &pblock, const CBlockIndex *pindex, boost::optional<std::pair<SproutMerkleTree, SaplingMerkleTree>> added) {
+void CMainSignals::ChainTip(const std::shared_ptr<const CBlock> &pblock, const CBlockIndex *pindex, bool added) {
     m_internals->m_schedulerClient.AddToProcessQueue([pblock, pindex, added, this] {
         m_internals->ChainTip(pblock, pindex, added);
     });

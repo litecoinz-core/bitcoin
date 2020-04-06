@@ -120,7 +120,7 @@ protected:
      *
      * Called on a background thread.
      */
-    virtual void ChainTip(const std::shared_ptr<const CBlock> &block, const CBlockIndex *pindex, boost::optional<std::pair<SproutMerkleTree, SaplingMerkleTree>>) {}
+    virtual void ChainTip(const std::shared_ptr<const CBlock> &block, const CBlockIndex *pindex, bool added) {}
     /**
      * Notifies listeners of the new active block chain on-disk.
      *
@@ -185,7 +185,7 @@ public:
     void TransactionAddedToMempool(const CTransactionRef &);
     void BlockConnected(const std::shared_ptr<const CBlock> &, const CBlockIndex *pindex, const std::shared_ptr<const std::vector<CTransactionRef>> &);
     void BlockDisconnected(const std::shared_ptr<const CBlock> &);
-    void ChainTip(const std::shared_ptr<const CBlock> &, const CBlockIndex *pindex, boost::optional<std::pair<SproutMerkleTree, SaplingMerkleTree>>);
+    void ChainTip(const std::shared_ptr<const CBlock> &, const CBlockIndex *pindex, bool added);
     void ChainStateFlushed(const CBlockLocator &);
     void BlockChecked(const CBlock&, const CValidationState&);
     void NewPoWValidBlock(const CBlockIndex *, const std::shared_ptr<const CBlock>&);

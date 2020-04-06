@@ -567,15 +567,18 @@ public:
      * -1 as a placeholder. The next time CWallet::ChainTip is called, we can
      * determine what height the witness cache for this note is valid for (even
      * if no witnesses were cached), and so can set the correct value in
-     * CWallet::IncrementNoteWitnesses and CWallet::DecrementNoteWitnesses.
+     * CWallet::BuildWitnessCache and CWallet::DecrementNoteWitnesses.
      */
     int witnessHeight;
 
-    SproutNoteData() : address(), nullifier(), witnessHeight {-1} { }
+    // In Memory Only
+    bool witnessRootValidated;
+
+    SproutNoteData() : address(), nullifier(), witnessHeight {-1}, witnessRootValidated {false} { }
     SproutNoteData(libzcash::SproutPaymentAddress a) :
-            address {a}, nullifier(), witnessHeight {-1} { }
+            address {a}, nullifier(), witnessHeight {-1}, witnessRootValidated {false} { }
     SproutNoteData(libzcash::SproutPaymentAddress a, uint256 n) :
-            address {a}, nullifier {n}, witnessHeight {-1} { }
+            address {a}, nullifier {n}, witnessHeight {-1}, witnessRootValidated {false} { }
 
     ADD_SERIALIZE_METHODS;
 
@@ -608,15 +611,18 @@ public:
      * We initialize the height to -1 for the same reason as we do in SproutNoteData.
      * See the comment in that class for a full description.
      */
-    SaplingNoteData() : witnessHeight {-1}, nullifier() { }
-    SaplingNoteData(libzcash::SaplingIncomingViewingKey ivk) : ivk {ivk}, witnessHeight {-1}, nullifier() { }
-    SaplingNoteData(libzcash::SaplingIncomingViewingKey ivk, uint256 n) : ivk {ivk}, witnessHeight {-1}, nullifier(n) { }
+    SaplingNoteData() : witnessHeight {-1}, nullifier(), witnessRootValidated {false} { }
+    SaplingNoteData(libzcash::SaplingIncomingViewingKey ivk) : ivk {ivk}, witnessHeight {-1}, nullifier(), witnessRootValidated {false} { }
+    SaplingNoteData(libzcash::SaplingIncomingViewingKey ivk, uint256 n) : ivk {ivk}, witnessHeight {-1}, nullifier(n), witnessRootValidated {false} { }
 
     libzcash::SaplingIncomingViewingKey ivk;
     int witnessHeight;
     boost::optional<uint256> nullifier;
 
     std::list<SaplingWitness> witnesses;
+
+    // In Memory Only
+    bool witnessRootValidated;
 
     ADD_SERIALIZE_METHODS;
 

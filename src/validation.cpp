@@ -2668,7 +2668,7 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
     GetMainSignals().BlockDisconnected(pblock);
 
     // Update cached incremental witnesses
-    GetMainSignals().ChainTip(pblock, pindexDelete, boost::none);
+    GetMainSignals().ChainTip(pblock, pindexDelete, false);
 
     return true;
 }
@@ -3068,22 +3068,8 @@ bool CChainState::ActivateBestChain(CValidationState &state, const CChainParams&
                     assert(trace.pblock && trace.pindex);
                     GetMainSignals().BlockConnected(trace.pblock, trace.pindex, trace.conflictedTxs);
 
-                    CBlockIndex *pindex = trace.pindex;
-
-                    // Get the current Sprout commitment tree
-                    SproutMerkleTree oldSproutTree;
-                    assert(CoinsTip().GetSproutAnchorAt(pindex->hashSproutAnchor, oldSproutTree));
-
-                    // Get the current Sapling commitment tree
-                    SaplingMerkleTree oldSaplingTree;
-                    if (pindex->pprev && chainparams.GetConsensus().NetworkUpgradeActive(pindex->pprev->nHeight, Consensus::UPGRADE_SAPLING)) {
-                        assert(CoinsTip().GetSaplingAnchorAt(pindex->pprev->hashSaplingRoot, oldSaplingTree));
-                    } else {
-                        assert(CoinsTip().GetSaplingAnchorAt(SaplingMerkleTree::empty_root(), oldSaplingTree));
-                    }
-
                     // Update cached incremental witnesses
-                    GetMainSignals().ChainTip(trace.pblock, pindex, std::make_pair(oldSproutTree, oldSaplingTree));
+                    GetMainSignals().ChainTip(trace.pblock, trace.pindex, true);
                 }
             } while (!m_chain.Tip() || (starting_tip && CBlockIndexWorkComparator()(m_chain.Tip(), starting_tip)));
             if (!blocks_connected) return true;
