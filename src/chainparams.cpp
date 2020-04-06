@@ -422,7 +422,7 @@ public:
         consensus.nEquihashN2 = N2;
         consensus.nEquihashK2 = K2;
 
-        consensus.nEquihashForkHeight = 100;
+        consensus.nEquihashForkHeight = 1000;
 
         // The best chain should have at least this much work.
         consensus.nMinimumChainWork = uint256S("0x00");
