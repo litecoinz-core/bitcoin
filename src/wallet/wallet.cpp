@@ -4816,9 +4816,10 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                             continue;
                         }
                         else {
-                            if (fOnlyCoinbaseCoins && Params().GetConsensus().fCoinbaseMustBeShielded) {
+                            bool fProtectCoinbase = Params().GetConsensus().fCoinbaseMustBeShielded;
+                            if (fOnlyCoinbaseCoins && fProtectCoinbase) {
                                 strFailReason = _("Coinbase funds can only be sent to a zaddr").translated;
-                            } else if (fNeedCoinbaseCoins) {
+                            } else if (fNeedCoinbaseCoins && fProtectCoinbase) {
                                 strFailReason = _("Insufficient funds, coinbase funds can only be spent after they have been sent to a zaddr").translated;
                             } else {
                                 strFailReason = _("Insufficient funds").translated;
