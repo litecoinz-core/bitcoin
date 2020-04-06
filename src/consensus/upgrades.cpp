@@ -28,6 +28,16 @@ const struct NUInfo NetworkUpgradeInfo[Consensus::MAX_NETWORK_UPGRADES] = {
         /*.nBranchId =*/ 0x76b809bb,
         /*.strName =*/ "Sapling",
         /*.strInfo =*/ "See https://z.cash/upgrade/sapling.html for details.",
+    },
+    {
+        /*.nBranchId =*/ 0x9be669a6,
+        /*.strName =*/ "Alpheratz",
+        /*.strInfo =*/ "See https://blog.litecoinz.org/alpheratz-update/ for details.",
+    },
+    {
+        /*.nBranchId =*/ 0x413edb17,
+        /*.strName =*/ "Pegasi",
+        /*.strInfo =*/ "See https://blog.litecoinz.org/pegasi-update/ for details.",
     }
 };
 

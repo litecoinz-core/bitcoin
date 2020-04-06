@@ -106,6 +106,10 @@ public:
         consensus.vUpgrades[Consensus::UPGRADE_OVERWINTER].nActivationHeight = 190000;
         consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nProtocolVersion = 170007;
         consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight = 190000;
+        consensus.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nProtocolVersion = 170008;
+        consensus.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
+        consensus.vUpgrades[Consensus::UPGRADE_PEGASI].nProtocolVersion = 170009;
+        consensus.vUpgrades[Consensus::UPGRADE_PEGASI].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
         const size_t N1 = 200, K1 = 9;
         const size_t N2 = 144, K2 = 5;
         BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N1, K1));
@@ -262,6 +266,10 @@ public:
         consensus.vUpgrades[Consensus::UPGRADE_OVERWINTER].nActivationHeight = 4000;
         consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nProtocolVersion = 170007;
         consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight = 4000;
+        consensus.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nProtocolVersion = 170008;
+        consensus.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
+        consensus.vUpgrades[Consensus::UPGRADE_PEGASI].nProtocolVersion = 170009;
+        consensus.vUpgrades[Consensus::UPGRADE_PEGASI].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
         const size_t N1 = 200, K1 = 9;
         const size_t N2 = 144, K2 = 5;
         BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N1, K1));
@@ -396,8 +404,12 @@ public:
         consensus.vUpgrades[Consensus::UPGRADE_TESTDUMMY].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
         consensus.vUpgrades[Consensus::UPGRADE_OVERWINTER].nProtocolVersion = 170005;
         consensus.vUpgrades[Consensus::UPGRADE_OVERWINTER].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
-        consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nProtocolVersion = 170006;
+        consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nProtocolVersion = 170007;
         consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
+        consensus.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nProtocolVersion = 170008;
+        consensus.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
+        consensus.vUpgrades[Consensus::UPGRADE_PEGASI].nProtocolVersion = 170009;
+        consensus.vUpgrades[Consensus::UPGRADE_PEGASI].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
         const size_t N1 = 48, K1 = 5;
         const size_t N2 = 96, K2 = 5;
         BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N1, K1));
