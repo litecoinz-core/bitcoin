@@ -8,6 +8,7 @@
 #include <chainparamsseeds.h>
 #include <crypto/equihash.h>
 #include <consensus/merkle.h>
+#include <consensus/upgrades.h>
 #include <tinyformat.h>
 #include <util/system.h>
 #include <util/strencodings.h>
@@ -384,10 +385,10 @@ public:
         consensus.BIP65Enabled = false;
         consensus.BIP66Enabled = false;
         consensus.ZIP209Enabled = false;
-        consensus.CSVHeight = 150; // CSV activated on regtest (Used in rpc activation tests)
+        consensus.CSVHeight = 432; // CSV activated on regtest (Used in rpc activation tests)
         consensus.OverwinterHeight = 200;
         consensus.SaplingHeight = 200;
-        consensus.SegwitHeight = 2000; // SEGWIT is always activated on regtest unless overridden
+        consensus.SegwitHeight = 0; // SEGWIT is always activated on regtest unless overridden
         consensus.MinBIP9WarningHeight = 3440;
         consensus.powLimit = uint256S("0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f");
         consensus.nPowAveragingWindow = 17;
@@ -408,9 +409,9 @@ public:
         consensus.vUpgrades[Consensus::UPGRADE_TESTDUMMY].nProtocolVersion = 170004;
         consensus.vUpgrades[Consensus::UPGRADE_TESTDUMMY].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
         consensus.vUpgrades[Consensus::UPGRADE_OVERWINTER].nProtocolVersion = 170005;
-        consensus.vUpgrades[Consensus::UPGRADE_OVERWINTER].nActivationHeight = 200;
+        consensus.vUpgrades[Consensus::UPGRADE_OVERWINTER].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
         consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nProtocolVersion = 170006;
-        consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight = 200;
+        consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
         consensus.vUpgrades[Consensus::UPGRADE_BLOSSOM].nProtocolVersion = 170009;
         consensus.vUpgrades[Consensus::UPGRADE_BLOSSOM].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
         consensus.vUpgrades[Consensus::UPGRADE_HEARTWOOD].nProtocolVersion = 170011;
@@ -494,6 +495,12 @@ public:
         bech32HRPs[SAPLING_EXTENDED_FVK]         = "zxviews";
     }
 
+    void UpdateNetworkUpgradeParameters(Consensus::UpgradeIndex idx, int nActivationHeight)
+    {
+        assert(idx > Consensus::BASE_SPROUT && idx < Consensus::MAX_NETWORK_UPGRADES);
+        consensus.vUpgrades[idx].nActivationHeight = nActivationHeight;
+    }
+
     /**
      * Allows modifying the Version Bits regtest parameters.
      */
@@ -521,6 +528,33 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
             height = std::numeric_limits<int>::max();
         }
         consensus.SegwitHeight = static_cast<int>(height);
+    }
+
+    if (gArgs.IsArgSet("-nuparams")) {
+        for (const std::string& strDeployment : args.GetArgs("-nuparams")) {
+            std::vector<std::string> vDeploymentParams;
+            boost::split(vDeploymentParams, strDeployment, boost::is_any_of(":"));
+            if (vDeploymentParams.size() != 2) {
+                throw std::runtime_error("Network upgrade parameters malformed, expecting hexBranchId:activationHeight");
+            }
+            int nActivationHeight;
+            if (!ParseInt32(vDeploymentParams[1], &nActivationHeight)) {
+                throw std::runtime_error(strprintf("Invalid nActivationHeight (%s)", vDeploymentParams[1]));
+            }
+            bool found = false;
+            // Exclude Sprout from upgrades
+            for (int j = Consensus::BASE_SPROUT + 1; j < (int)Consensus::MAX_NETWORK_UPGRADES; ++j) {
+                if (vDeploymentParams[0].compare(HexInt(NetworkUpgradeInfo[j].nBranchId)) == 0) {
+                    UpdateNetworkUpgradeParameters(Consensus::UpgradeIndex(j), nActivationHeight);
+                    found = true;
+                    LogPrintf("Setting network upgrade activation parameters for %s to height=%d\n", vDeploymentParams[0], nActivationHeight);
+                    break;
+                }
+            }
+            if (!found) {
+                throw std::runtime_error(strprintf("Invalid network upgrade (%s)", vDeploymentParams[0]));
+            }
+        }
     }
 
     if (!args.IsArgSet("-vbparams")) return;
