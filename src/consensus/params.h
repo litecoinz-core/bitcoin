@@ -133,10 +133,6 @@ struct Params {
     int ZIP209Enabled;
     /** Block height at which CSV (BIP68, BIP112 and BIP113) becomes active */
     int CSVHeight;
-    /** Block height at which Overwinter (ZIP143, ZIP201 and ZIP202) becomes active */
-    int OverwinterHeight;
-    /** Block height at which Sapling (ZIP205, ZIP210 and ZIP243) becomes active */
-    int SaplingHeight;
     /** Block height at which Segwit (BIP141, BIP143 and BIP147) becomes active.
      * Note that segwit v0 script rules are enforced on all blocks except the
      * BIP 16 exception blocks. */

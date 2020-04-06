@@ -3660,13 +3660,13 @@ bool IsWitnessEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& pa
 bool IsOverwinterEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& params)
 {
     int height = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
-    return (height >= params.OverwinterHeight);
+    return (params.NetworkUpgradeActive(height, Consensus::UPGRADE_OVERWINTER));
 }
 
 bool IsSaplingEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& params)
 {
     int height = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
-    return (height >= params.SaplingHeight);
+    return (params.NetworkUpgradeActive(height, Consensus::UPGRADE_SAPLING));
 }
 
 int GetWitnessCommitmentIndex(const CBlock& block)
