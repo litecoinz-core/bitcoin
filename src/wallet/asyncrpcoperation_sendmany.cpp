@@ -23,6 +23,7 @@
 #include <util/time.h>
 #include <validation.h>
 #include <wallet/asyncrpcoperation_common.h>
+#include <wallet/fees.h>
 #include <wallet/paymentdisclosuredb.h>
 #include <wallet/rpcwallet.h>
 #include <wallet/wallet.h>
@@ -279,8 +280,9 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         CKey secret;
         secret.MakeNewKey(true);
         CScript scriptPubKey = GetScriptForDestination(PKHash(secret.GetPubKey()));
+
         CTxOut out(CAmount(1), scriptPubKey);
-        CAmount dustThreshold = GetDustThreshold(out, ::minRelayTxFee);
+        CAmount dustThreshold = GetDustThreshold(out, GetDiscardRate(*pwallet));
         CAmount dustChange = -1;
 
         std::vector<SendManyInputUTXO> selectedTInputs;
@@ -366,18 +368,22 @@ bool AsyncRPCOperation_sendmany::main_impl() {
 
         // Set change address if we are using transparent funds
         // TODO: Should we just use fromtaddr_ as the change address?
-        ReserveDestination changedest(pwallet);
+        ReserveDestination reservedest(pwallet);
         if (isfromtaddr_) {
-            LOCK2(cs_main, pwallet->cs_wallet);
+            LOCK(pwallet->cs_wallet);
 
             EnsureWalletIsUnlocked(pwallet);
-            OutputType output_type = pwallet->m_default_change_type != OutputType::CHANGE_AUTO ? pwallet->m_default_change_type : pwallet->m_default_address_type;
-            CTxDestination dest;
-            std::string error;
-            if (!pwallet->GetNewChangeDestination(output_type, dest, error)) {
-                throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
+            CTxDestination changeDest;
+            const OutputType change_type = pwallet->GetDefaultAddressType();
+            bool ret = reservedest.GetReservedDestination(change_type, changeDest, true);
+            if (!ret)
+            {
+                // should never fail, as we just unlocked
+                throw JSONRPCError(
+                    RPC_WALLET_KEYPOOL_RAN_OUT,
+                    "Could not generate a taddr to use as a change address");
             }
-            builder_.SendChangeTo(dest);
+            builder_.SendChangeTo(changeDest);
         }
 
         // Select Sapling notes
@@ -397,7 +403,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         uint256 anchor;
         std::vector<boost::optional<SaplingWitness>> witnesses;
         {
-            LOCK2(cs_main, pwallet->cs_wallet);
+            LOCK(pwallet->cs_wallet);
             pwallet->GetSaplingNoteWitnesses(ops, witnesses, anchor);
         }
 
@@ -466,9 +472,9 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         CAmount fundsSpent = t_outputs_total + minersFee;
         CAmount change = funds - fundsSpent;
 
-        ReserveDestination changedest(pwallet);
+        ReserveDestination reservedest(pwallet);
         if (change > 0) {
-            add_taddr_change_output_to_tx(changedest, change);
+            add_taddr_change_output_to_tx(reservedest, change);
 
             LogPrint(BCLog::ZRPC, "%s: transparent change in transaction output (amount=%s)\n",
                     getId(),
@@ -513,7 +519,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
     // change upon arrival of new blocks which contain joinsplit transactions.  This is likely
     // to happen as creating a chained joinsplit transaction can take longer than the block interval.
     if (z_sprout_inputs_.size() > 0) {
-        LOCK2(cs_main, pwallet->cs_wallet);
+        LOCK(pwallet->cs_wallet);
         for (auto t : z_sprout_inputs_) {
             SproutOutPoint jso = t.outpoint;
             std::vector<SproutOutPoint> vOutPoints = { jso };
@@ -543,7 +549,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         CAmount fundsSpent = t_outputs_total + minersFee + z_outputs_total;
         CAmount change = funds - fundsSpent;
 
-        ReserveDestination changedest(pwallet);
+        ReserveDestination reservedest(pwallet);
         if (change > 0) {
             if (selectedUTXOCoinbase) {
                 assert(isSingleZaddrOutput);
@@ -552,7 +558,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
                     "allow any change as there is currently no way to specify a change address "
                     "in z_sendmany.", FormatMoney(change)));
             } else {
-                add_taddr_change_output_to_tx(changedest, change);
+                add_taddr_change_output_to_tx(reservedest, change);
                 LogPrint(BCLog::ZRPC, "%s: transparent change in transaction output (amount=%s)\n",
                         getId(),
                         FormatMoney(change)
@@ -648,7 +654,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         // Consume change as the first input of the JoinSplit.
         //
         if (jsChange > 0) {
-            LOCK2(cs_main, pwallet->cs_wallet);
+            LOCK(pwallet->cs_wallet);
 
             // Update tree state with previous joinsplit
             SproutMerkleTree tree;
@@ -735,14 +741,12 @@ bool AsyncRPCOperation_sendmany::main_impl() {
             int wtxHeight = -1;
             int wtxDepth = -1;
             {
-                LOCK2(cs_main, pwallet->cs_wallet);
+                LOCK(pwallet->cs_wallet);
                 const CWalletTx& wtx = pwallet->mapWallet.at(jso.hash);
-                CBlockIndex* pindex = LookupBlockIndex(wtx.m_confirm.hashBlock);
                 // Zero-confirmation notes belong to transactions which have not yet been mined
-                if (!pindex) {
-                    throw JSONRPCError(RPC_WALLET_ERROR, strprintf("pindex does not contain block hash %s", wtx.m_confirm.hashBlock.ToString()));
-                }
-                wtxHeight = pindex->nHeight;
+                wtxHeight = locked_chain->getBlockHeight(wtx.m_confirm.hashBlock).get_value_or(-1);
+                if (wtxHeight < 0)
+                    throw JSONRPCError(RPC_WALLET_ERROR, strprintf("chain does not contain block hash %s", wtx.m_confirm.hashBlock.ToString()));
                 wtxDepth = wtx.GetDepthInMainChain(*locked_chain);
             }
             LogPrint(BCLog::ZRPC, "%s: spending note (txid=%s, vJoinSplit=%d, jsoutindex=%d, amount=%s, height=%d, confirmations=%d)\n",
@@ -883,7 +887,7 @@ bool AsyncRPCOperation_sendmany::find_utxos(bool fAcceptCoinbase=false) {
     destinations.insert(fromtaddr_);
     std::vector<COutput> vecOutputs;
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    LOCK(pwallet->cs_wallet);
 
     pwallet->AvailableCoins(*locked_chain, false, fAcceptCoinbase, vecOutputs);
 
@@ -920,7 +924,7 @@ bool AsyncRPCOperation_sendmany::find_utxos(bool fAcceptCoinbase=false) {
 
     // sort in ascending order, so smaller utxos appear first
     std::sort(t_inputs_.begin(), t_inputs_.end(), [](SendManyInputUTXO i, SendManyInputUTXO j) -> bool {
-        return i.amount < j.amount;
+        return (i.amount < j.amount);
     });
 
     return t_inputs_.size() > 0;
@@ -935,7 +939,7 @@ bool AsyncRPCOperation_sendmany::find_unspent_notes() {
     std::vector<SproutNoteEntry> sproutEntries;
     std::vector<SaplingNoteEntry> saplingEntries;
     {
-        LOCK2(cs_main, pwallet->cs_wallet);
+        LOCK(pwallet->cs_wallet);
         pwallet->GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, fromaddress_, mindepth_);
     }
 
@@ -979,7 +983,7 @@ bool AsyncRPCOperation_sendmany::find_unspent_notes() {
     // sort in descending order, so big notes appear first
     std::sort(z_sprout_inputs_.begin(), z_sprout_inputs_.end(),
         [](SendManyInputJSOP i, SendManyInputJSOP j) -> bool {
-            return i.amount > j.amount;
+            return (i.amount > j.amount);
         });
     std::sort(z_sapling_inputs_.begin(), z_sapling_inputs_.end(),
         [](SaplingNoteEntry i, SaplingNoteEntry j) -> bool {
@@ -1207,22 +1211,22 @@ void AsyncRPCOperation_sendmany::add_taddr_outputs_to_tx() {
     tx_ = MakeTransactionRef(std::move(rawTx));
 }
 
-void AsyncRPCOperation_sendmany::add_taddr_change_output_to_tx(ReserveDestination& changedest, CAmount amount) {
+void AsyncRPCOperation_sendmany::add_taddr_change_output_to_tx(ReserveDestination& reservedest, CAmount amount) {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
     auto locked_chain = pwallet->chain().lock();
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    LOCK(pwallet->cs_wallet);
 
     EnsureWalletIsUnlocked(pwallet);
 
-    OutputType output_type = pwallet->m_default_change_type != OutputType::CHANGE_AUTO ? pwallet->m_default_change_type : pwallet->m_default_address_type;
-    CTxDestination dest;
-    std::string error;
-    if (!pwallet->GetNewChangeDestination(output_type, dest, error)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
+    CTxDestination changeDest;
+    const OutputType change_type = pwallet->GetDefaultAddressType();
+    bool ret = reservedest.GetReservedDestination(change_type, changeDest, true);
+    if (!ret) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Could not generate a taddr to use as a change address"); // should never fail, as we just unlocked
     }
-    CScript scriptPubKey = GetScriptForDestination(dest);
+    CScript scriptPubKey = GetScriptForDestination(changeDest);
     CTxOut out(amount, scriptPubKey);
 
     CMutableTransaction rawTx(*tx_);

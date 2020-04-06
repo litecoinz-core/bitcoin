@@ -30,12 +30,8 @@ public:
     CAmount amount;
     std::string memo;
 
-    SendManyRecipient(std::string address_, CAmount amount_, std::string memo_ = "")
-    {
-        address = address_;
-        amount = amount_;
-        memo = memo_;
-    }
+    SendManyRecipient(std::string address_, CAmount amount_, std::string memo_ = "") :
+        address(address_), amount(amount_), memo(memo_) {}
 };
 
 class SendManyInputUTXO {
@@ -45,13 +41,8 @@ public:
     CAmount amount;
     bool coinbase;
 
-    SendManyInputUTXO(uint256 txid_, int vout_, CAmount amount_, bool coinbase_)
-    {
-        txid = txid_;
-        vout = vout_;
-        amount = amount_;
-        coinbase = coinbase_;
-    }
+    SendManyInputUTXO(uint256 txid_, int vout_, CAmount amount_, bool coinbase_) :
+        txid(txid_), vout(vout_), amount(amount_), coinbase(coinbase_) {}
 };
 
 class SendManyInputJSOP {
@@ -60,12 +51,8 @@ public:
     libzcash::SproutNote note;
     CAmount amount;
 
-    SendManyInputJSOP(SproutOutPoint outpoint_, libzcash::SproutNote note_, CAmount amount_)
-    {
-        outpoint = outpoint_;
-        note = note_;
-        amount = amount_;
-    }
+    SendManyInputJSOP(SproutOutPoint outpoint_, libzcash::SproutNote note_, CAmount amount_) :
+        outpoint(outpoint_), note(note_), amount(amount_) {}
 };
 
 // Package of info which is passed to perform_joinsplit methods.
