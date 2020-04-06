@@ -564,11 +564,8 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
         *pfMissingInputs = false;
     }
 
+    // Grab the branch ID we expect this transaction to commit to.
     int nextBlockHeight = ::ChainActive().Height() + 1;
-
-    // Grab the branch ID we expect this transaction to commit to. We don't
-    // yet know if it does, but if the entry gets added to the mempool, then
-    // it has passed CheckInputs and therefore this is correct.
     auto consensusBranchId = CurrentEpochBranchId(nextBlockHeight, Params().GetConsensus());
 
     auto verifier = libzcash::ProofVerifier::Strict();
@@ -1579,6 +1576,19 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
             pvChecks->push_back(CScriptCheck());
             check.swap(pvChecks->back());
         } else if (!check()) {
+            // Check whether the failure was caused by an outdated
+            // consensus branch ID; if so, don't trigger DoS protection
+            // immediately, and inform the node that they need to
+            // upgrade. We only check the previous epoch's branch ID, on
+            // the assumption that users creating transactions will
+            // notice their transactions failing before a second network
+            // upgrade occurs.
+            auto prevConsensusBranchId = PrevEpochBranchId(consensusBranchId, Params().GetConsensus());
+            CScriptCheck checkPrev(coin.out, tx, i, flags, cacheSigStore, prevConsensusBranchId, &txdata);
+            if (checkPrev()) {
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID,
+                       strprintf("old-consensus-branch-id (Expected %s, found %s)", HexInt(consensusBranchId), HexInt(prevConsensusBranchId)));
+            }
             if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
                 // Check whether the failure was caused by a
                 // non-mandatory script verification check, such as

@@ -8,6 +8,8 @@
 #include <consensus/upgrades.h>
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
+#include <tinyformat.h>
+#include <util/strencodings.h>
 
 #include <zcashparams.h>
 
@@ -93,14 +95,15 @@ bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state,
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-oversize");
     }
 
+    auto consensusBranchId = CurrentEpochBranchId(nHeight, chainparams.GetConsensus());
+    auto prevConsensusBranchId = PrevEpochBranchId(consensusBranchId, chainparams.GetConsensus());
     uint256 dataToBeSigned;
+    uint256 prevDataToBeSigned;
 
     if (!tx.vJoinSplit.empty() ||
         !tx.vShieldedSpend.empty() ||
         !tx.vShieldedOutput.empty())
     {
-        auto consensusBranchId = CurrentEpochBranchId(nHeight, chainparams.GetConsensus());
-
         SigVersion sigversion = SigVersion::BASE;
         if (tx.fOverwintered) {
             if (tx.nVersionGroupId == SAPLING_VERSION_GROUP_ID) {
@@ -114,6 +117,7 @@ bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state,
         CScript scriptCode;
         try {
             dataToBeSigned = SignatureHash(scriptCode, tx, NOT_AN_INPUT, SIGHASH_ALL, 0, sigversion, consensusBranchId);
+            prevDataToBeSigned = SignatureHash(scriptCode, tx, NOT_AN_INPUT, SIGHASH_ALL, 0, sigversion, prevConsensusBranchId);
         } catch (std::logic_error& ex) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "error-computing-signature-hash");
         }
@@ -129,6 +133,18 @@ bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state,
                                         dataToBeSigned.begin(), 32,
                                         tx.joinSplitPubKey.begin()
                                         ) != 0) {
+            // Check whether the failure was caused by an outdated consensus
+            // branch ID; if so, inform the node that they need to upgrade. We
+            // only check the previous epoch's branch ID, on the assumption that
+            // users creating transactions will notice their transactions
+            // failing before a second network upgrade occurs.
+            if (crypto_sign_verify_detached(&tx.joinSplitSig[0],
+                                            prevDataToBeSigned.begin(), 32,
+                                            tx.joinSplitPubKey.begin()
+                                            ) == 0) {
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID,
+                       strprintf("old-consensus-branch-id (Expected %s, found %s)", HexInt(consensusBranchId), HexInt(prevConsensusBranchId)));
+            }
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-invalid-joinsplit-signature");
         }
     }
