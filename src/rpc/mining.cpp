@@ -404,7 +404,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
             "  },\n"
             "  \"vbrequired\" : n,                 (numeric) bit mask of versionbits the server requires set in submissions\n"
             "  \"previousblockhash\" : \"xxxx\",     (string) The hash of current highest block\n"
-            "  \"saplingroothash\" : \"xxxx\",       (string) The hash of the final sapling root\n"
+            "  \"finalsaplingroothash\" : \"xxxx\",  (string) The hash of the final sapling root\n"
             "  \"transactions\" : [                (array) contents of non-coinbase transactions that should be included in the next block\n"
             "      {\n"
             "         \"data\" : \"xxxx\",             (string) transaction data encoded in hexadecimal (byte-for-byte)\n"
@@ -727,7 +727,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     }
 
     result.pushKV("previousblockhash", pblock->hashPrevBlock.GetHex());
-    result.pushKV("saplingroothash", pblock->hashSaplingRoot.GetHex());
+    result.pushKV("finalsaplingroothash", pblock->hashSaplingRoot.GetHex());
     result.pushKV("transactions", transactions);
     result.pushKV("coinbaseaux", aux);
     result.pushKV("coinbasevalue", (int64_t)pblock->vtx[0]->vout[0].nValue);
