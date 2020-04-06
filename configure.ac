@@ -76,6 +76,10 @@ fi
 AC_PROG_OBJCXX
 ])
 
+dnl Since libtool 1.5.2 (released 2004-01-25), on Linux libtool no longer
+dnl sets RPATH for any directories in the dynamic linker search path.
+dnl See more: https://wiki.debian.org/RpathIssue
+LT_PREREQ([1.5.2])
 dnl Libtool init checks.
 LT_INIT([pic-only])
 
@@ -772,12 +776,17 @@ if test x$use_hardening != xno; then
   AX_CHECK_COMPILE_FLAG([-Wstack-protector],[HARDENED_CXXFLAGS="$HARDENED_CXXFLAGS -Wstack-protector"])
   AX_CHECK_COMPILE_FLAG([-fstack-protector-all],[HARDENED_CXXFLAGS="$HARDENED_CXXFLAGS -fstack-protector-all"])
 
-  AX_CHECK_PREPROC_FLAG([-D_FORTIFY_SOURCE=2],[
-    AX_CHECK_PREPROC_FLAG([-U_FORTIFY_SOURCE],[
-      HARDENED_CPPFLAGS="$HARDENED_CPPFLAGS -U_FORTIFY_SOURCE"
+  # When enable_debug is yes, all optimizations are disabled.
+  # However, FORTIFY_SOURCE requires that there is some level of optimization, otherwise it does nothing and just creates a compiler warning.
+  # Since FORTIFY_SOURCE is a no-op without optimizations, do not enable it when enable_debug is yes.
+  if test x$enable_debug != xyes; then
+    AX_CHECK_PREPROC_FLAG([-D_FORTIFY_SOURCE=2],[
+      AX_CHECK_PREPROC_FLAG([-U_FORTIFY_SOURCE],[
+        HARDENED_CPPFLAGS="$HARDENED_CPPFLAGS -U_FORTIFY_SOURCE"
+      ])
+      HARDENED_CPPFLAGS="$HARDENED_CPPFLAGS -D_FORTIFY_SOURCE=2"
     ])
-    HARDENED_CPPFLAGS="$HARDENED_CPPFLAGS -D_FORTIFY_SOURCE=2"
-  ])
+  fi
 
   AX_CHECK_LINK_FLAG([[-Wl,--dynamicbase]], [HARDENED_LDFLAGS="$HARDENED_LDFLAGS -Wl,--dynamicbase"])
   AX_CHECK_LINK_FLAG([[-Wl,--nxcompat]], [HARDENED_LDFLAGS="$HARDENED_LDFLAGS -Wl,--nxcompat"])
@@ -886,25 +895,6 @@ AC_LINK_IFELSE([AC_LANG_SOURCE([
     if test x$use_reduce_exports = xyes; then
       AC_MSG_ERROR([Cannot find a working visibility attribute. Use --disable-reduce-exports.])
     fi
-  ]
-)
-
-dnl Check for CWG1579 (http://www.open-std.org/jtc1/sc22/wg21/docs/cwg_defects.html#1579) fix in C++ compiler
-AC_MSG_CHECKING([whether $CXX has a fix for CWG1579])
-AC_COMPILE_IFELSE([AC_LANG_SOURCE([
-  #include <memory>
-  struct S1 {};
-  struct S2: S1 {};
-  std::unique_ptr<S1> f() {
-    std::unique_ptr<S2> s2(new S2);
-    return s2;
-  }
-  ])],
-  [
-    AC_DEFINE(HAVE_CXX_CWG1579_FIX,1,[Define this symbol when the C++ compiler has a fix for <http://www.open-std.org/jtc1/sc22/wg21/docs/cwg_defects.html#1579> "Return by converting move constructor".])
-    AC_MSG_RESULT([yes])
-  ],
-    [AC_MSG_RESULT([no])
   ]
 )
 
@@ -1666,17 +1656,6 @@ ac_configure_args="${ac_configure_args} --disable-shared --with-pic --enable-ben
 AC_CONFIG_SUBDIRS([src/secp256k1])
 
 AC_OUTPUT
-
-dnl Taken from https://wiki.debian.org/RpathIssue
-case $host in
-   *-*-linux-gnu)
-     AC_MSG_RESULT([Fixing libtool for -rpath problems.])
-     sed < libtool > libtool-2 \
-     's/^hardcode_libdir_flag_spec.*$'/'hardcode_libdir_flag_spec=" -D__LIBTOOL_IS_A_FOOL__ "/'
-     mv libtool-2 libtool
-     chmod 755 libtool
-   ;;
-esac
 
 dnl Replace the BUILDDIR path with the correct Windows path if compiling on Native Windows
 case ${OS} in
