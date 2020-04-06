@@ -486,11 +486,12 @@ AC_SEARCH_LIBS([dlsym],[dl])
 DL_LIBS="$LIBS"
 LIBS="$TEMP_LIBS"
 
+CARGO_FLAGS="$CARGO_FLAGS --verbose --release --locked"
 case $host in
-  ${host_cpu}-w64-mingw*) CARGO_FLAGS="$CARGO_FLAGS --verbose --release" CARGO_TARGET=${host_cpu}-pc-windows-gnu ;;
-  ${host_cpu}-pc-linux*) CARGO_FLAGS="$CARGO_FLAGS --verbose --release" CARGO_TARGET=${host_cpu}-unknown-${host_os} ;;
-  ${host_cpu}-apple-darwin*) CARGO_FLAGS="$CARGO_FLAGS --verbose --release" CARGO_TARGET=${host_cpu}-apple-darwin ;;
-  *) CARGO_FLAGS="$CARGO_FLAGS --verbose --release" CARGO_TARGET=${host} ;;
+  ${host_cpu}-w64-mingw*) CARGO_TARGET=${host_cpu}-pc-windows-gnu ;;
+  ${host_cpu}-pc-linux*) CARGO_TARGET=${host_cpu}-unknown-${host_os} ;;
+  ${host_cpu}-apple-darwin*) CARGO_TARGET=${host_cpu}-apple-darwin ;;
+  *) CARGO_TARGET=${host} ;;
 esac
 
 use_pkgconfig=yes

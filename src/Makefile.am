@@ -66,15 +66,11 @@ endif
 $(LIBSECP256K1): $(wildcard secp256k1/src/*.h) $(wildcard secp256k1/src/*.c) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
 
-# A phony target is included here to ensure librustzcash is built first, so that its
-# header files are collated for use in later build steps.
-# See https://stackoverflow.com/a/10726725
--include collate-librustzcash
-collate-librustzcash: $(LIBRUSTZCASH)
-
-$(LIBRUSTZCASH): $(wildcard rustzcash/*.c)
+cargo-build:
 	$(CARGO) build $(CARGO_FLAGS) --manifest-path=rustzcash/Cargo.toml --target=$(CARGO_TARGET) && \
 	cp -f rustzcash/target/$(CARGO_TARGET)/release/librustzcash.a rustzcash/librustzcash.a
+
+$(LIBRUSTZCASH): cargo-build
 
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
@@ -113,7 +109,7 @@ if BUILD_BITCOIN_WALLET
 endif
 endif
 
-.PHONY: FORCE collate-librustzcash check-symbols check-security
+.PHONY: FORCE cargo-build check-symbols check-security
 # zcash #
 LIBZCASH_H = \
   zcash/IncrementalMerkleTree.hpp \
