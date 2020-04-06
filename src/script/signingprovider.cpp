@@ -273,7 +273,7 @@ bool FillableSigningProvider::AddSaplingSpendingKey(const libzcash::SaplingExten
     auto extfvk = sk.ToXFVK();
 
     // if extfvk is not in SaplingFullViewingKeyMap, add it
-    if (!AddSaplingFullViewingKey(extfvk)) {
+    if (!FillableSigningProvider::AddSaplingFullViewingKey(extfvk)) {
         return false;
     }
 

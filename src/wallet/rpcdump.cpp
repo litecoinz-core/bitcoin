@@ -1803,33 +1803,21 @@ UniValue z_importviewingkey(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid viewing key");
     }
 
-    // TODO: Add Sapling support. For now, return an error to the user.
-    if (boost::get<libzcash::SproutViewingKey>(&viewingkey) == nullptr) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Currently, only Sprout viewing keys are supported");
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    auto addResult = boost::apply_visitor(AddViewingKeyToWallet(pwallet), viewingkey);
+    if (addResult == SpendingKeyExists) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "The wallet already contains the private key for this viewing key");
+    } else if (addResult == KeyAlreadyExists) {
+        return NullUniValue;
+    }
+    pwallet->MarkDirty();
+    if (addResult == KeyNotAdded) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Error adding viewing key to wallet");
     }
 
-    {
-        auto locked_chain = pwallet->chain().lock();
-        LOCK(pwallet->cs_wallet);
-
-        auto vkey = boost::get<libzcash::SproutViewingKey>(viewingkey);
-        auto addr = vkey.address();
-
-        if (pwallet->HaveSproutSpendingKey(addr)) {
-            throw JSONRPCError(RPC_WALLET_ERROR, "The wallet already contains the private key for this viewing key");
-        }
-
-        // Don't throw error in case a viewing key is already there
-        if (pwallet->HaveSproutViewingKey(addr)) {
-            return NullUniValue;
-        }
-
-        pwallet->MarkDirty();
-
-        if (!pwallet->AddSproutViewingKey(vkey)) {
-            throw JSONRPCError(RPC_WALLET_ERROR, "Error adding viewing key to wallet");
-        }
-    }
+    // We want to scan for transactions and notes
     if (fRescan)
     {
         RescanWallet(*pwallet, reserver);
@@ -1879,20 +1867,11 @@ UniValue z_exportviewingkey(const JSONRPCRequest& request)
     if (!IsValidPaymentAddress(address)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid zaddr");
     }
-    // TODO: Add Sapling support. For now, return an error to the user.
-    if (boost::get<libzcash::SproutPaymentAddress>(&address) == nullptr) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Currently, only Sprout zaddrs are supported");
-    }
-    auto addr = boost::get<libzcash::SproutPaymentAddress>(address);
 
-    libzcash::SproutViewingKey vk;
-    if (!pwallet->GetSproutViewingKey(addr, vk)) {
-        libzcash::SproutSpendingKey k;
-        if (!pwallet->GetSproutSpendingKey(addr, k)) {
-            throw JSONRPCError(RPC_WALLET_ERROR, "Wallet does not hold private key or viewing key for this zaddr");
-        }
-        vk = k.viewing_key();
+    auto vk = boost::apply_visitor(GetViewingKeyForPaymentAddress(pwallet), address);
+    if (vk) {
+        return EncodeViewingKey(vk.get());
+    } else {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Wallet does not hold private key or viewing key for this zaddr");
     }
-
-    return EncodeViewingKey(vk);
 }
