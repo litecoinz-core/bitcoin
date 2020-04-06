@@ -6,17 +6,29 @@
 
 #include <core_io.h>
 #include <init.h>
+#include <policy/policy.h>
 #include <rpc/protocol.h>
 #include <rpc/request.h>
+#include <consensus/validation.h>
 
 extern UniValue signrawtransactionwithwallet(const JSONRPCRequest& request);
 
 UniValue SendTransaction(CTransactionRef& tx, CWallet* const pwallet, bool testmode) {
     mapValue_t mapValue;
     UniValue o(UniValue::VOBJ);
+
+    // Extremely large transactions with lots of inputs can cost the network
+    // almost as much to process as they cost the sender in fees, because
+    // computing signature hashes is O(ninputs*txsize). Limiting transactions
+    // to MAX_STANDARD_TX_WEIGHT mitigates CPU exhaustion attacks.
+    if (GetTransactionWeight(*tx) > MAX_STANDARD_TX_WEIGHT)
+    {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Transaction too large");
+    }
+
     // Send the transaction
     if (!testmode) {
-        pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */);
+        pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, true);
         o.pushKV("txid", tx->GetHash().GetHex());
     } else {
         // Test mode does not send the transaction to the network.
