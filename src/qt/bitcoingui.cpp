@@ -245,22 +245,40 @@ void BitcoinGUI::createActions()
     overviewAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_1));
     tabGroup->addAction(overviewAction);
 
+    shieldCoinbaseAction = new QAction(platformStyle->SingleColorIcon(":/icons/shield"), tr("&Shield Coinbase"), this);
+    shieldCoinbaseAction->setStatusTip(tr("Shield coinbase to a LitecoinZ z-address"));
+    shieldCoinbaseAction->setToolTip(shieldCoinbaseAction->statusTip());
+    shieldCoinbaseAction->setCheckable(true);
+    shieldCoinbaseAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_2));
+    tabGroup->addAction(shieldCoinbaseAction);
+
     sendCoinsAction = new QAction(platformStyle->SingleColorIcon(":/icons/send"), tr("&Send"), this);
-    sendCoinsAction->setStatusTip(tr("Send coins to a Litecoinz address"));
+    sendCoinsAction->setStatusTip(tr("Send coins to a LitecoinZ address"));
     sendCoinsAction->setToolTip(sendCoinsAction->statusTip());
     sendCoinsAction->setCheckable(true);
-    sendCoinsAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_2));
+    sendCoinsAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_3));
     tabGroup->addAction(sendCoinsAction);
 
     sendCoinsMenuAction = new QAction(sendCoinsAction->text(), this);
     sendCoinsMenuAction->setStatusTip(sendCoinsAction->statusTip());
     sendCoinsMenuAction->setToolTip(sendCoinsMenuAction->statusTip());
 
+    zsendCoinsAction = new QAction(platformStyle->SingleColorIcon(":/icons/zsend"), tr("&ZSend"), this);
+    zsendCoinsAction->setStatusTip(tr("Send coins to a shielded LitecoinZ z-address"));
+    zsendCoinsAction->setToolTip(zsendCoinsAction->statusTip());
+    zsendCoinsAction->setCheckable(true);
+    zsendCoinsAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_4));
+    tabGroup->addAction(zsendCoinsAction);
+
+    zsendCoinsMenuAction = new QAction(zsendCoinsAction->text(), this);
+    zsendCoinsMenuAction->setStatusTip(zsendCoinsAction->statusTip());
+    zsendCoinsMenuAction->setToolTip(zsendCoinsMenuAction->statusTip());
+
     receiveCoinsAction = new QAction(platformStyle->SingleColorIcon(":/icons/receiving_addresses"), tr("&Receive"), this);
     receiveCoinsAction->setStatusTip(tr("Request payments (generates QR codes and litecoinz: URIs)"));
     receiveCoinsAction->setToolTip(receiveCoinsAction->statusTip());
     receiveCoinsAction->setCheckable(true);
-    receiveCoinsAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_3));
+    receiveCoinsAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_5));
     tabGroup->addAction(receiveCoinsAction);
 
     receiveCoinsMenuAction = new QAction(receiveCoinsAction->text(), this);
@@ -271,7 +289,7 @@ void BitcoinGUI::createActions()
     historyAction->setStatusTip(tr("Browse transaction history"));
     historyAction->setToolTip(historyAction->statusTip());
     historyAction->setCheckable(true);
-    historyAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_4));
+    historyAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_6));
     tabGroup->addAction(historyAction);
 
 #ifdef ENABLE_WALLET
@@ -279,10 +297,16 @@ void BitcoinGUI::createActions()
     // can be triggered from the tray menu, and need to show the GUI to be useful.
     connect(overviewAction, &QAction::triggered, [this]{ showNormalIfMinimized(); });
     connect(overviewAction, &QAction::triggered, this, &BitcoinGUI::gotoOverviewPage);
+    connect(shieldCoinbaseAction, &QAction::triggered, [this]{ showNormalIfMinimized(); });
+    connect(shieldCoinbaseAction, &QAction::triggered, this, &BitcoinGUI::gotoShieldCoinbasePage);
     connect(sendCoinsAction, &QAction::triggered, [this]{ showNormalIfMinimized(); });
     connect(sendCoinsAction, &QAction::triggered, [this]{ gotoSendCoinsPage(); });
     connect(sendCoinsMenuAction, &QAction::triggered, [this]{ showNormalIfMinimized(); });
     connect(sendCoinsMenuAction, &QAction::triggered, [this]{ gotoSendCoinsPage(); });
+    connect(zsendCoinsAction, &QAction::triggered, [this]{ showNormalIfMinimized(); });
+    connect(zsendCoinsAction, &QAction::triggered, [this]{ gotoZSendCoinsPage(); });
+    connect(zsendCoinsMenuAction, &QAction::triggered, [this]{ showNormalIfMinimized(); });
+    connect(zsendCoinsMenuAction, &QAction::triggered, [this]{ gotoZSendCoinsPage(); });
     connect(receiveCoinsAction, &QAction::triggered, [this]{ showNormalIfMinimized(); });
     connect(receiveCoinsAction, &QAction::triggered, this, &BitcoinGUI::gotoReceiveCoinsPage);
     connect(receiveCoinsMenuAction, &QAction::triggered, [this]{ showNormalIfMinimized(); });
@@ -317,9 +341,9 @@ void BitcoinGUI::createActions()
     changePassphraseAction = new QAction(tr("&Change Passphrase..."), this);
     changePassphraseAction->setStatusTip(tr("Change the passphrase used for wallet encryption"));
     signMessageAction = new QAction(tr("Sign &message..."), this);
-    signMessageAction->setStatusTip(tr("Sign messages with your Litecoinz addresses to prove you own them"));
+    signMessageAction->setStatusTip(tr("Sign messages with your LitecoinZ addresses to prove you own them"));
     verifyMessageAction = new QAction(tr("&Verify message..."), this);
-    verifyMessageAction->setStatusTip(tr("Verify messages to ensure they were signed with specified Litecoinz addresses"));
+    verifyMessageAction->setStatusTip(tr("Verify messages to ensure they were signed with specified LitecoinZ addresses"));
 
     openRPCConsoleAction = new QAction(tr("&Node window"), this);
     openRPCConsoleAction->setStatusTip(tr("Open node debugging and diagnostic console"));
@@ -355,7 +379,7 @@ void BitcoinGUI::createActions()
 
     showHelpMessageAction = new QAction(tr("&Command-line options"), this);
     showHelpMessageAction->setMenuRole(QAction::NoRole);
-    showHelpMessageAction->setStatusTip(tr("Show the %1 help message to get a list with possible Litecoinz command-line options").arg(PACKAGE_NAME));
+    showHelpMessageAction->setStatusTip(tr("Show the %1 help message to get a list with possible LitecoinZ command-line options").arg(PACKAGE_NAME));
 
     m_mask_values_action = new QAction(tr("&Mask values"), this);
     m_mask_values_action->setShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_M));
@@ -548,7 +572,9 @@ void BitcoinGUI::createToolBars()
         toolbar->setMovable(false);
         toolbar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
         toolbar->addAction(overviewAction);
+        toolbar->addAction(shieldCoinbaseAction);
         toolbar->addAction(sendCoinsAction);
+        toolbar->addAction(zsendCoinsAction);
         toolbar->addAction(receiveCoinsAction);
         toolbar->addAction(historyAction);
         overviewAction->setChecked(true);
@@ -729,8 +755,11 @@ void BitcoinGUI::removeAllWallets()
 void BitcoinGUI::setWalletActionsEnabled(bool enabled)
 {
     overviewAction->setEnabled(enabled);
+    shieldCoinbaseAction->setEnabled(enabled);
     sendCoinsAction->setEnabled(enabled);
     sendCoinsMenuAction->setEnabled(enabled);
+    zsendCoinsAction->setEnabled(enabled);
+    zsendCoinsMenuAction->setEnabled(enabled);
     receiveCoinsAction->setEnabled(enabled);
     receiveCoinsMenuAction->setEnabled(enabled);
     historyAction->setEnabled(enabled);
@@ -783,6 +812,7 @@ void BitcoinGUI::createTrayIconMenu()
 #endif
     if (enableWallet) {
         trayIconMenu->addAction(sendCoinsMenuAction);
+        trayIconMenu->addAction(zsendCoinsMenuAction);
         trayIconMenu->addAction(receiveCoinsMenuAction);
         trayIconMenu->addSeparator();
         trayIconMenu->addAction(signMessageAction);
@@ -861,6 +891,12 @@ void BitcoinGUI::gotoOverviewPage()
     if (walletFrame) walletFrame->gotoOverviewPage();
 }
 
+void BitcoinGUI::gotoShieldCoinbasePage()
+{
+    shieldCoinbaseAction->setChecked(true);
+    if (walletFrame) walletFrame->gotoShieldCoinbasePage();
+}
+
 void BitcoinGUI::gotoHistoryPage()
 {
     historyAction->setChecked(true);
@@ -877,6 +913,12 @@ void BitcoinGUI::gotoSendCoinsPage(QString addr)
 {
     sendCoinsAction->setChecked(true);
     if (walletFrame) walletFrame->gotoSendCoinsPage(addr);
+}
+
+void BitcoinGUI::gotoZSendCoinsPage(QString addr)
+{
+    zsendCoinsAction->setChecked(true);
+    if (walletFrame) walletFrame->gotoZSendCoinsPage(addr);
 }
 
 void BitcoinGUI::gotoSignMessageTab(QString addr)
@@ -906,7 +948,7 @@ void BitcoinGUI::updateNetworkState()
     QString tooltip;
 
     if (m_node.getNetworkActive()) {
-        tooltip = tr("%n active connection(s) to Litecoinz network", "", count) + QString(".<br>") + tr("Click to disable network activity.");
+        tooltip = tr("%n active connection(s) to LitecoinZ network", "", count) + QString(".<br>") + tr("Click to disable network activity.");
     } else {
         tooltip = tr("Network activity disabled.") + QString("<br>") + tr("Click to enable network activity again.");
         icon = ":/icons/network_disabled";

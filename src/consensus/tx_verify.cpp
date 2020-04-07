@@ -168,7 +168,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
 
     // are the joinsplits' and sapling spends' requirements met in tx(valid anchors/nullifiers)?
     if (!inputs.HaveShieldedRequirements(tx)) {
-        return state.Invalid(ValidationInvalidReason::TX_MISSING_INPUTS, false, REJECT_INVALID, "bad-txns-shielded-requirements-not-met",
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-shielded-requirements-not-met",
                          strprintf("%s: shielded requirements not met", __func__));
     }
 
@@ -186,7 +186,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
 
         // Ensure that coinbases cannot be spent to transparent outputs
         // Disabled on regtest
-        if (coin.IsCoinBase() && consensusParams.fCoinbaseMustBeShielded && !tx.vout.empty()) {
+        if (coin.IsCoinBase() && fCoinbaseEnforcedShieldingEnabled && consensusParams.fCoinbaseMustBeShielded && !tx.vout.empty()) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
         }
 

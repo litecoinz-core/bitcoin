@@ -4,9 +4,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <psbt.h>
-#include <chain.h>
-#include <chainparams.h>
 #include <consensus/upgrades.h>
+#include <validation.h>
 #include <util/strencodings.h>
 
 #include <numeric>
@@ -225,8 +224,7 @@ void UpdatePSBTOutput(const SigningProvider& provider, PartiallySignedTransactio
     PSBTOutput& psbt_out = psbt.outputs.at(index);
 
     // Grab the current consensus branch ID
-    CChain chain;
-    auto consensusBranchId = CurrentEpochBranchId(chain.Height() + 1, Params().GetConsensus());
+    auto consensusBranchId = CurrentEpochBranchId(::ChainActive().Height() + 1, Params().GetConsensus());
 
     // Fill a SignatureData with output info
     SignatureData sigdata;
@@ -248,8 +246,7 @@ bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& 
     const CMutableTransaction& tx = *psbt.tx;
 
     // Grab the current consensus branch ID
-    CChain chain;
-    auto consensusBranchId = CurrentEpochBranchId(chain.Height() + 1, Params().GetConsensus());
+    auto consensusBranchId = CurrentEpochBranchId(::ChainActive().Height() + 1, Params().GetConsensus());
 
     if (PSBTInputSigned(input)) {
         return true;

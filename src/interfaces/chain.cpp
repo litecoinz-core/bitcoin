@@ -191,6 +191,10 @@ public:
     {
         m_notifications->BlockDisconnected(*block);
     }
+    void ChainTip(const std::shared_ptr<const CBlock>& block, const CBlockIndex* pindex, bool added) override
+    {
+        m_notifications->ChainTip(*block, pindex, added);
+    }
     void UpdatedBlockTip(const CBlockIndex* index, const CBlockIndex* fork_index, bool is_ibd) override
     {
         m_notifications->UpdatedBlockTip();
@@ -244,15 +248,10 @@ class ChainImpl : public Chain
 public:
     std::unique_ptr<Chain::Lock> lock(bool try_lock) override
     {
-        auto result = MakeUnique<LockImpl>(::cs_main, "cs_main", __FILE__, __LINE__, try_lock);
-        if (try_lock && result && !*result) return {};
-#if HAVE_CXX_CWG1579_FIX
+        auto lock = MakeUnique<LockImpl>(::cs_main, "cs_main", __FILE__, __LINE__, try_lock);
+        if (try_lock && lock && !*lock) return {};
+        std::unique_ptr<Chain::Lock> result = std::move(lock); // Temporary to avoid CWG 1579
         return result;
-#else
-        // std::move necessary on some compilers due to conversion from
-        // LockImpl to Lock pointer
-        return std::move(result);
-#endif
     }
     bool findBlock(const uint256& hash, CBlock* block, int64_t* time, int64_t* time_max) override
     {

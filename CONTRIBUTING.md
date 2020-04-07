@@ -1,7 +1,7 @@
-Contributing to Litecoinz Core
+Contributing to LitecoinZ Core
 ==============================
 
-The Litecoinz Core project operates an open contributor model where anyone is
+The LitecoinZ Core project operates an open contributor model where anyone is
 welcome to contribute towards development in the form of peer review, testing
 and patches. This document explains the practical process and guidelines for
 contributing.
@@ -21,7 +21,7 @@ list.
 Communication Channels
 ----------------------
 
-Most communication about Litecoinz Core development happens on IRC, in the
+Most communication about LitecoinZ Core development happens on IRC, in the
 #bitcoin-core-dev channel on Freenode. The easiest way to participate on IRC is
 with the web client, [webchat.freenode.net](https://webchat.freenode.net/). Chat
 history logs can be found
@@ -194,11 +194,11 @@ workload on reviewing.
 "Decision Making" Process
 -------------------------
 
-The following applies to code changes to the Litecoinz Core project (and related
-projects such as libsecp256k1), and is not to be confused with overall Litecoinz
+The following applies to code changes to the LitecoinZ Core project (and related
+projects such as libsecp256k1), and is not to be confused with overall LitecoinZ
 Network Protocol consensus changes.
 
-Whether a pull request is merged into Litecoinz Core rests with the project merge
+Whether a pull request is merged into LitecoinZ Core rests with the project merge
 maintainers and ultimately the project lead.
 
 Maintainers will take into consideration if a patch is in line with the general
@@ -217,7 +217,7 @@ In general, all pull requests must:
     demonstrating the bug and also proving the fix. This helps prevent regression.
   - Change relevant comments and documentation when behaviour of code changes.
 
-Patches that change Litecoinz consensus rules are considerably more involved than
+Patches that change LitecoinZ consensus rules are considerably more involved than
 normal because they affect the entire ecosystem and so must be preceded by
 extensive mailing list discussions and have a numbered BIP. While each case will
 be different, one should be prepared to expend more time and effort than for
@@ -272,7 +272,7 @@ higher in terms of discussion and peer review requirements, keeping in mind that
 mistakes could be very costly to the wider community. This includes refactoring
 of consensus critical code.
 
-Where a patch set proposes to change the Litecoinz consensus, it must have been
+Where a patch set proposes to change the LitecoinZ consensus, it must have been
 discussed extensively on the mailing list and IRC, be accompanied by a widely
 discussed BIP and have a generally widely perceived technical consensus of being
 a worthwhile change based on the judgement of the maintainers.
@@ -312,7 +312,7 @@ about:
 Release Policy
 --------------
 
-The project leader is the release manager for each Litecoinz Core release.
+The project leader is the release manager for each LitecoinZ Core release.
 
 Copyright
 ---------

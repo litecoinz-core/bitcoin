@@ -41,45 +41,43 @@
 
 AsyncRPCOperation_shieldcoinbase::AsyncRPCOperation_shieldcoinbase(
         const JSONRPCRequest& request,
-        TransactionBuilder builder,
+        boost::optional<TransactionBuilder> builder,
         CMutableTransaction contextualTx,
-        std::vector<ShieldCoinbaseUTXO> inputs,
-        std::string toAddress,
+        std::vector<ShieldCoinbaseUTXO> tInputs,
+        std::string zOutput,
         CAmount fee,
         UniValue contextInfo) :
-        request_(request), builder_(builder), tx_(MakeTransactionRef(std::move(contextualTx))), inputs_(inputs), fee_(fee), contextinfo_(contextInfo)
+        request_(request), tx_(MakeTransactionRef(std::move(contextualTx))), t_inputs_(tInputs), z_output_(zOutput), fee_(fee), contextinfo_(contextInfo)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
     auto locked_chain = pwallet->chain().lock();
 
+    assert(fee_ >= 0);
     assert(contextualTx.nVersion >= 2);  // transaction format version must support vJoinSplit
 
-    if (fee < 0 || fee > MAX_MONEY) {
+    if (fee_ < 0 || fee_ > MAX_MONEY) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Fee is out of range");
     }
 
-    if (inputs.size() == 0) {
+    if (tInputs.size() == 0) {
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Empty inputs");
     }
 
     //  Check the destination address is valid for this network i.e. not testnet being used on mainnet
-    auto address = DecodePaymentAddress(toAddress);
-    if (IsValidPaymentAddress(address)) {
-        tozaddr_ = address;
-    } else {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid to address");
+    auto address = DecodePaymentAddress(z_output_);
+    if (!IsValidPaymentAddress(address)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid destination address");
     }
 
-    // Log the context info
-    if (LogAcceptCategory(BCLog::ZRPCUNSAFE)) {
-        LogPrint(BCLog::ZRPCUNSAFE, "%s: z_shieldcoinbase initialized (context=%s)\n", getId(), contextInfo.write());
-    } else {
-        LogPrint(BCLog::ZRPC, "%s: z_shieldcoinbase initialized\n", getId());
+    isUsingBuilder_ = false;
+    if (builder) {
+        isUsingBuilder_ = true;
+        builder_ = builder.get();
     }
 
-    // Lock UTXOs
-    lock_utxos(pwallet);
+    // Log the context info i.e. the call parameters to z_shieldcoinbase
+    LogPrint(BCLog::ZRPC, "%s: z_shieldcoinbase initialized (params=%s)\n", getId(), contextInfo.write());
 
     // Enable payment disclosure if requested
     paymentDisclosureMode = gArgs.GetBoolArg("-paymentdisclosure", false);
@@ -89,13 +87,8 @@ AsyncRPCOperation_shieldcoinbase::~AsyncRPCOperation_shieldcoinbase() {
 }
 
 void AsyncRPCOperation_shieldcoinbase::main() {
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
-    CWallet* const pwallet = wallet.get();
-
-    if (isCancelled()) {
-        unlock_utxos(pwallet); // clean up
+    if (isCancelled())
         return;
-    }
 
     set_state(OperationStatus::EXECUTING);
     start_execution_clock();
@@ -139,8 +132,6 @@ void AsyncRPCOperation_shieldcoinbase::main() {
     }
     LogPrintf("%s",s);
 
-    unlock_utxos(pwallet); // clean up
-
     // !!! Payment disclosure START
     if (success && paymentDisclosureMode && paymentDisclosureData_.size()>0) {
         uint256 txidhash = tx_->GetHash();
@@ -158,101 +149,137 @@ void AsyncRPCOperation_shieldcoinbase::main() {
 }
 
 bool AsyncRPCOperation_shieldcoinbase::main_impl() {
-    CAmount minersFee = fee_;
-    CAmount targetAmount = 0;
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
+    CWallet* const pwallet = wallet.get();
+    auto locked_chain = pwallet->chain().lock();
 
-    for (ShieldCoinbaseUTXO & utxo : inputs_) {
-        targetAmount += utxo.amount;
+    CAmount minersFee = fee_;
+
+    CAmount t_inputs_total = 0;
+    for (ShieldCoinbaseUTXO & t : t_inputs_) {
+        t_inputs_total += t.amount;
     }
 
-    if (targetAmount <= minersFee) {
+    if (t_inputs_total < minersFee) {
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
             strprintf("Insufficient coinbase funds, have %s and miners fee is %s",
-            FormatMoney(targetAmount), FormatMoney(minersFee)));
+            FormatMoney(t_inputs_total), FormatMoney(minersFee)));
     }
-
-    CAmount sendAmount = targetAmount - minersFee;
-    LogPrint(BCLog::ZRPC, "%s: spending %s to shield %s with fee %s\n",
-            getId(), FormatMoney(targetAmount), FormatMoney(sendAmount), FormatMoney(minersFee));
-
-    return boost::apply_visitor(ShieldToAddress(this, sendAmount, request_), tozaddr_);
-}
-
-bool ShieldToAddress::operator()(const libzcash::SproutPaymentAddress &zaddr) const {
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
-    CWallet* const pwallet = wallet.get();
 
     // update the transaction with these inputs
-    CMutableTransaction rawTx(*m_op->tx_);
-    for (ShieldCoinbaseUTXO & t : m_op->inputs_) {
-        CTxIn in(COutPoint(t.txid, t.vout));
-        rawTx.vin.push_back(in);
-    }
-    m_op->tx_ = MakeTransactionRef(std::move(rawTx));
-
-    // Prepare raw transaction to handle JoinSplits
-    CMutableTransaction mtx(*m_op->tx_);
-    crypto_sign_keypair(m_op->joinSplitPubKey_.begin(), m_op->joinSplitPrivKey_);
-    mtx.joinSplitPubKey = m_op->joinSplitPubKey_;
-    m_op->tx_ = MakeTransactionRef(std::move(rawTx));
-
-    // Create joinsplit
-    ShieldCoinbaseJSInfo info;
-    info.vpub_old = sendAmount;
-    info.vpub_new = 0;
-    libzcash::JSOutput jso = libzcash::JSOutput(zaddr, sendAmount);
-    info.vjsout.push_back(jso);
-    UniValue obj = m_op->perform_joinsplit(info);
-
-    auto txAndResult = SignSendRawTransaction(obj, pwallet, m_op->testmode);
-    m_op->tx_ = txAndResult.first;
-    m_op->set_result(txAndResult.second);
-    return true;
-}
-
-bool ShieldToAddress::operator()(const libzcash::SaplingPaymentAddress &zaddr) const {
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
-    CWallet* const pwallet = wallet.get();
-
-    m_op->builder_.SetFee(m_op->fee_);
-
-    // Sending from a t-address, which we don't have an ovk for. Instead,
-    // generate a common one from the HD seed. This ensures the data is
-    // recoverable, while keeping it logically separate from the ZIP 32
-    // Sapling key hierarchy, which the user might not be using.
-    HDSeed seed = pwallet->GetZecHDSeedForRPC(pwallet);
-    uint256 ovk = ovkForShieldingFromTaddr(seed);
-
-    // Add transparent inputs
-    for (auto t : m_op->inputs_) {
-        m_op->builder_.AddTransparentInput(COutPoint(t.txid, t.vout), t.scriptPubKey, t.amount);
+    if (isUsingBuilder_) {
+        for (ShieldCoinbaseUTXO t : t_inputs_) {
+            builder_.AddTransparentInput(COutPoint(t.txid, t.vout), t.script, t.amount);
+        }
+    } else {
+        CMutableTransaction rawTx(*tx_);
+        for (ShieldCoinbaseUTXO & t : t_inputs_) {
+            CTxIn in(COutPoint(t.txid, t.vout));
+            rawTx.vin.push_back(in);
+        }
+        tx_ = MakeTransactionRef(std::move(rawTx));
     }
 
-    // Send all value to the target z-addr
-    m_op->builder_.SendChangeTo(zaddr, ovk);
+    CAmount sendAmount = t_inputs_total - minersFee;
 
-    // Build the transaction
-    m_op->tx_ = m_op->builder_.Build().GetTxOrThrow();
+    LogPrint(BCLog::ZRPC, "%s: spending %s to send %s with fee %s\n", getId(), FormatMoney(t_inputs_total), FormatMoney(sendAmount), FormatMoney(minersFee));
+    LogPrint(BCLog::ZRPC, "%s: transparent input: %s (to choose from)\n", getId(), FormatMoney(t_inputs_total));
+    LogPrint(BCLog::ZRPC, "%s: private output: %s\n", getId(), FormatMoney(sendAmount));
+    LogPrint(BCLog::ZRPC, "%s: fee: %s\n", getId(), FormatMoney(minersFee));
 
-    UniValue sendResult = SendTransaction(m_op->tx_, pwallet, m_op->testmode);
-    m_op->set_result(sendResult);
+    /**
+     * Sprout not involved, so we just use the TransactionBuilder and we're done.
+     * We added the transparent inputs to the builder earlier.
+     */
+    if (isUsingBuilder_) {
+        builder_.SetFee(minersFee);
 
-    return true;
+        // Sending from a t-address, which we don't have an ovk for. Instead,
+        // generate a common one from the HD seed. This ensures the data is
+        // recoverable, while keeping it logically separate from the ZIP 32
+        // Sapling key hierarchy, which the user might not be using.
+        HDSeed seed = pwallet->GetZecHDSeedForRPC(pwallet);
+        uint256 ovk = ovkForShieldingFromTaddr(seed);
+
+        LOCK(pwallet->cs_wallet);
+        EnsureWalletIsUnlocked(pwallet);
+
+        // Send all value to the target z-addr
+        auto zaddr = DecodePaymentAddress(z_output_);
+        libzcash::SaplingPaymentAddress address = boost::get<libzcash::SaplingPaymentAddress>(zaddr);
+        builder_.SendChangeTo(address, ovk);
+
+        // Build the transaction
+        tx_ = builder_.Build().GetTxOrThrow();
+
+        UniValue sendResult = SendTransaction(tx_, pwallet, testmode);
+        set_result(sendResult);
+
+        return true;
+    }
+    else
+    {
+        // Grab the current consensus branch ID
+        {
+            LOCK(cs_main);
+            consensusBranchId_ = CurrentEpochBranchId(::ChainActive().Height() + 1, Params().GetConsensus());
+        }
+
+        // Prepare raw transaction to handle JoinSplits
+        CMutableTransaction mtx(*tx_);
+        crypto_sign_keypair(joinSplitPubKey_.begin(), joinSplitPrivKey_);
+        mtx.joinSplitPubKey = joinSplitPubKey_;
+        tx_ = MakeTransactionRef(std::move(mtx));
+
+        // Create joinsplits, where each output represents a zaddr recipient.
+        UniValue obj(UniValue::VOBJ);
+        ShieldCoinbaseJSInfo info;
+        info.vpub_old = sendAmount;
+        info.vpub_new = 0;
+        auto zaddr = DecodePaymentAddress(z_output_);
+        libzcash::SproutPaymentAddress address = boost::get<libzcash::SproutPaymentAddress>(zaddr);
+        libzcash::JSOutput jso = libzcash::JSOutput(address, sendAmount);
+        info.vjsout.push_back(jso);
+        obj = perform_joinsplit(info);
+
+        auto txAndResult = SignSendRawTransaction(obj, pwallet, testmode);
+        tx_ = txAndResult.first;
+        set_result(txAndResult.second);
+        return true;
+    }
 }
 
-bool ShieldToAddress::operator()(const libzcash::InvalidEncoding& no) const {
-    return false;
-}
-
-UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(ShieldCoinbaseJSInfo & info) {
-    uint32_t consensusBranchId;
+UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(ShieldCoinbaseJSInfo& info)
+{
+    std::vector<boost::optional<SproutWitness>> witnesses;
     uint256 anchor;
     {
         LOCK(cs_main);
-        consensusBranchId = CurrentEpochBranchId(::ChainActive().Height() + 1, Params().GetConsensus());
-        anchor = ::ChainstateActive().CoinsTip().GetBestAnchor(SPROUT);
+        anchor = ::ChainstateActive().CoinsTip().GetBestAnchor(SPROUT);    // As there are no inputs, ask the wallet for the best anchor
     }
+    return perform_joinsplit(info, witnesses, anchor);
+}
 
+UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(ShieldCoinbaseJSInfo& info, std::vector<SproutOutPoint> & outPoints)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
+    CWallet* const pwallet = wallet.get();
+    auto locked_chain = pwallet->chain().lock();
+
+    std::vector<boost::optional<SproutWitness>> witnesses;
+    uint256 anchor;
+    {
+        LOCK(cs_main);
+        pwallet->GetSproutNoteWitnesses(outPoints, witnesses, anchor);
+    }
+    return perform_joinsplit(info, witnesses, anchor);
+}
+
+UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(
+    ShieldCoinbaseJSInfo & info,
+    std::vector<boost::optional<SproutWitness>> witnesses,
+    uint256 anchor)
+{
     if (anchor.IsNull()) {
         throw std::runtime_error("anchor is null");
     }
@@ -272,19 +299,16 @@ UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(ShieldCoinbaseJSInf
 
     CMutableTransaction mtx(*tx_);
 
-    LogPrint(BCLog::ZRPCUNSAFE, "%s: creating joinsplit at index %d (vpub_old=%s, vpub_new=%s, in[0]=%s, in[1]=%s, out[0]=%s, out[1]=%s)\n",
-            getId(),
-            tx_->vJoinSplit.size(),
-            FormatMoney(info.vpub_old), FormatMoney(info.vpub_new),
-            FormatMoney(info.vjsin[0].note.value()), FormatMoney(info.vjsin[1].note.value()),
-            FormatMoney(info.vjsout[0].value), FormatMoney(info.vjsout[1].value)
-            );
+    LogPrint(BCLog::ZRPC, "%s: creating joinsplit at index %d (vpub_old=%s, vpub_new=%s, in[0]=%s, in[1]=%s, out[0]=%s, out[1]=%s)\n",
+             getId(),
+             tx_->vJoinSplit.size(),
+             FormatMoney(info.vpub_old), FormatMoney(info.vpub_new),
+             FormatMoney(info.vjsin[0].note.value()), FormatMoney(info.vjsin[1].note.value()),
+             FormatMoney(info.vjsout[0].value), FormatMoney(info.vjsout[1].value));
 
     // Generate the proof, this can take over a minute.
-    std::array<libzcash::JSInput, ZC_NUM_JS_INPUTS> inputs
-            {info.vjsin[0], info.vjsin[1]};
-    std::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS> outputs
-            {info.vjsout[0], info.vjsout[1]};
+    std::array<libzcash::JSInput, ZC_NUM_JS_INPUTS> inputs {info.vjsin[0], info.vjsin[1]};
+    std::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS> outputs {info.vjsout[0], info.vjsout[1]};
     std::array<size_t, ZC_NUM_JS_INPUTS> inputMap;
     std::array<size_t, ZC_NUM_JS_OUTPUTS> outputMap;
 
@@ -318,13 +342,13 @@ UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(ShieldCoinbaseJSInf
 
     SigVersion sigversion = SigVersion::BASE;
     if (signTx.fOverwintered) {
-        if (signTx.nVersionGroupId == SAPLING_VERSION_GROUP_ID) {
+        if (signTx.nVersionGroupId == SAPLING_VERSION_GROUP_ID || signTx.nVersionGroupId == ALPHERATZ_VERSION_GROUP_ID) {
             sigversion = SigVersion::SAPLING_V0;
         } else {
             sigversion = SigVersion::OVERWINTER;
         }
     }
-    uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL, 0, sigversion, consensusBranchId);
+    uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL, 0, sigversion, consensusBranchId_);
 
     // Add the signature
     if (!(crypto_sign_detached(&mtx.joinSplitSig[0], NULL,
@@ -410,7 +434,7 @@ UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(ShieldCoinbaseJSInf
 }
 
 /**
- * Override getStatus() to append the operation's context object to the default status object.
+ * Override getStatus() to append the operation's input parameters to the default status object.
  */
 UniValue AsyncRPCOperation_shieldcoinbase::getStatus() const {
     UniValue v = AsyncRPCOperation::getStatus();
@@ -424,24 +448,3 @@ UniValue AsyncRPCOperation_shieldcoinbase::getStatus() const {
     return obj;
 }
 
-/**
- * Lock input utxos
- */
- void AsyncRPCOperation_shieldcoinbase::lock_utxos(CWallet* const pwallet) {
-    LOCK2(cs_main, pwallet->cs_wallet);
-    for (auto utxo : inputs_) {
-        COutPoint outpt(utxo.txid, utxo.vout);
-        pwallet->LockCoin(outpt);
-    }
-}
-
-/**
- * Unlock input utxos
- */
-void AsyncRPCOperation_shieldcoinbase::unlock_utxos(CWallet* const pwallet) {
-    LOCK2(cs_main, pwallet->cs_wallet);
-    for (auto utxo : inputs_) {
-        COutPoint outpt(utxo.txid, utxo.vout);
-        pwallet->UnlockCoin(outpt);
-    }
-}

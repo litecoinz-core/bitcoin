@@ -34,6 +34,7 @@ class TransactionTableModel;
 class WalletModelTransaction;
 
 class CCoinControl;
+class CInputControl;
 class CKeyID;
 class COutPoint;
 class COutput;
@@ -86,6 +87,7 @@ public:
 
     // Check address for validity
     bool validateAddress(const QString &address);
+    bool validatePaymentAddress(const QString &address);
 
     // Return status record for SendCoins, contains error id + information
     struct SendCoinsReturn
@@ -101,6 +103,9 @@ public:
 
     // prepare transaction for getting txfee before sending coins
     SendCoinsReturn prepareTransaction(WalletModelTransaction &transaction, const CCoinControl& coinControl);
+
+    // prepare shielded transaction
+    SendCoinsReturn prepareShieldedTransaction(WalletModelTransaction &transaction, const CInputControl& inputControl);
 
     // Send coins to a list of recipients
     SendCoinsReturn sendCoins(WalletModelTransaction &transaction);
@@ -159,6 +164,8 @@ private:
     std::unique_ptr<interfaces::Handler> m_handler_unload;
     std::unique_ptr<interfaces::Handler> m_handler_status_changed;
     std::unique_ptr<interfaces::Handler> m_handler_address_book_changed;
+    std::unique_ptr<interfaces::Handler> m_handler_sprout_address_book_changed;
+    std::unique_ptr<interfaces::Handler> m_handler_sapling_address_book_changed;
     std::unique_ptr<interfaces::Handler> m_handler_transaction_changed;
     std::unique_ptr<interfaces::Handler> m_handler_show_progress;
     std::unique_ptr<interfaces::Handler> m_handler_watch_only_changed;
@@ -226,9 +233,9 @@ public Q_SLOTS:
     /* New, updated or removed transparent address book entry */
     void updateAddressBook(const QString &address, const QString &label, bool isMine, const QString &purpose, int status);
     /* New, updated or removed sprout address book entry */
-    void updateSproutAddressBook(const QString &address, const QString &label, const QString &purpose, int status);
+    void updateSproutAddressBook(const QString &address, const QString &label, bool isMine, const QString &purpose, int status);
     /* New, updated or removed sapling address book entry */
-    void updateSaplingAddressBook(const QString &address, const QString &label, const QString &purpose, int status);
+    void updateSaplingAddressBook(const QString &address, const QString &label, bool isMine, const QString &purpose, int status);
     /* Watch-only added */
     void updateWatchOnlyFlag(bool fHaveWatchonly);
     /* Current, immature or unconfirmed balance might have changed - emit 'balanceChanged' if so */

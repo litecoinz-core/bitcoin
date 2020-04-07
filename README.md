@@ -1,25 +1,25 @@
-Litecoinz Core integration/staging tree
+LitecoinZ Core integration/staging tree
 =======================================
 
 https://litecoinz.org
 
-What is Litecoinz?
+What is LitecoinZ?
 ------------------
 
-Litecoinz is an experimental digital currency that enables instant payments to
-anyone, anywhere in the world. Litecoinz uses peer-to-peer technology to operate
+LitecoinZ is an experimental digital currency that enables instant payments to
+anyone, anywhere in the world. LitecoinZ uses peer-to-peer technology to operate
 with no central authority: managing transactions and issuing money are carried
-out collectively by the network. Litecoinz Core is the name of open source
+out collectively by the network. LitecoinZ Core is the name of open source
 software which enables the use of this currency.
 
 For more information, as well as an immediately useable, binary version of
-the Litecoinz Core software, see https://litecoinz.org/download/, or read the
+the LitecoinZ Core software, see https://litecoinz.org/download/, or read the
 [original whitepaper](https://litecoinz.org/litecoinz.pdf).
 
 License
 -------
 
-Litecoinz Core is released under the terms of the MIT license. See [COPYING](COPYING) for more
+LitecoinZ Core is released under the terms of the MIT license. See [COPYING](COPYING) for more
 information or see https://opensource.org/licenses/MIT.
 
 Development Process
@@ -27,7 +27,7 @@ Development Process
 
 The `master` branch is regularly built and tested, but is not guaranteed to be
 completely stable. [Tags](https://github.com/litecoinz-core/litecoinz/tags) are created
-regularly to indicate new official, stable release versions of Litecoinz Core.
+regularly to indicate new official, stable release versions of LitecoinZ Core.
 
 The contribution workflow is described in [CONTRIBUTING.md](CONTRIBUTING.md)
 and useful hints for developers can be found in [doc/developer-notes.md](doc/developer-notes.md).
@@ -64,7 +64,7 @@ Translations
 ------------
 
 Changes to translations as well as new translations can be submitted to
-[Litecoinz Core's Transifex page](https://www.transifex.com/bitcoin/bitcoin/).
+[LitecoinZ Core's Transifex page](https://www.transifex.com/bitcoin/bitcoin/).
 
 Translations are periodically pulled from Transifex and merged into the git repository. See the
 [translation process](doc/translation_process.md) for details on how this works.

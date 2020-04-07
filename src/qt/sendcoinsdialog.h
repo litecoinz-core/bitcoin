@@ -122,4 +122,8 @@ private:
     int secDelay;
 };
 
+static const std::array<int, 9> confTargets = { {2, 4, 6, 12, 24, 48, 144, 504, 1008} };
+int getConfTargetForIndex(int index);
+int getIndexForConfTarget(int target);
+
 #endif // BITCOIN_QT_SENDCOINSDIALOG_H

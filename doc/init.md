@@ -84,9 +84,9 @@ OpenRC).
 ### macOS
 
 Binary:              `/usr/local/bin/litecoinzd`
-Configuration file:  `~/Library/Application Support/Litecoinz/litecoinz.conf`
-Data directory:      `~/Library/Application Support/Litecoinz`
-Lock file:           `~/Library/Application Support/Litecoinz/.lock`
+Configuration file:  `~/Library/Application Support/LitecoinZ/litecoinz.conf`
+Data directory:      `~/Library/Application Support/LitecoinZ`
+Lock file:           `~/Library/Application Support/LitecoinZ/.lock`
 
 Installing Service Configuration
 -----------------------------------

@@ -5,16 +5,16 @@
 /* #undef AC_APPLE_UNIVERSAL_BUILD */
 
 /* Version Build */
-#define CLIENT_VERSION_BUILD 1
+#define CLIENT_VERSION_BUILD 0
 
 /* Version is release */
-#define CLIENT_VERSION_IS_RELEASE true
+#define CLIENT_VERSION_IS_RELEASE false
 
 /* Major version */
-#define CLIENT_VERSION_MAJOR 0
+#define CLIENT_VERSION_MAJOR 3
 
 /* Minor version */
-#define CLIENT_VERSION_MINOR 19
+#define CLIENT_VERSION_MINOR 0
 
 /* Build revision */
 #define CLIENT_VERSION_REVISION 0
@@ -23,10 +23,10 @@
 #define COPYRIGHT_HOLDERS "The %s developers"
 
 /* Copyright holder(s) */
-#define COPYRIGHT_HOLDERS_FINAL "The Litecoinz Core developers"
+#define COPYRIGHT_HOLDERS_FINAL "The LitecoinZ Core developers"
 
 /* Replacement for %s in copyright holders string */
-#define COPYRIGHT_HOLDERS_SUBSTITUTION "Litecoinz Core"
+#define COPYRIGHT_HOLDERS_SUBSTITUTION "LitecoinZ Core"
 
 /* Copyright year */
 #define COPYRIGHT_YEAR 2019
@@ -339,10 +339,10 @@
 #define PACKAGE_BUGREPORT "https://github.com/litecoinz-core/litecoinz/issues"
 
 /* Define to the full name of this package. */
-#define PACKAGE_NAME "Litecoinz Core"
+#define PACKAGE_NAME "LitecoinZ Core"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "Litecoinz Core 0.18.99"
+#define PACKAGE_STRING "LitecoinZ Core 0.18.99"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "litecoinz"

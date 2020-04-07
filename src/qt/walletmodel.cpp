@@ -23,6 +23,7 @@
 #include <ui_interface.h>
 #include <util/system.h> // for GetBoolArg
 #include <wallet/coincontrol.h>
+#include <wallet/inputcontrol.h>
 #include <wallet/wallet.h>
 
 #include <stdint.h>
@@ -78,21 +79,18 @@ void WalletModel::pollBalanceChanged()
     // rescan.
     interfaces::WalletBalances new_balances;
     int numBlocks = -1;
-    if (!m_wallet->tryGetBalances(new_balances, numBlocks)) {
+    if (!m_wallet->tryGetBalances(new_balances, numBlocks, fForceCheckBalanceChanged, cachedNumBlocks)) {
         return;
     }
 
-    if(fForceCheckBalanceChanged || numBlocks != cachedNumBlocks)
-    {
-        fForceCheckBalanceChanged = false;
+    fForceCheckBalanceChanged = false;
 
-        // Balance and number of transactions might have changed
-        cachedNumBlocks = numBlocks;
+    // Balance and number of transactions might have changed
+    cachedNumBlocks = numBlocks;
 
-        checkBalanceChanged(new_balances);
-        if(transactionTableModel)
-            transactionTableModel->updateConfirmations();
-    }
+    checkBalanceChanged(new_balances);
+    if(transactionTableModel)
+        transactionTableModel->updateConfirmations();
 }
 
 void WalletModel::checkBalanceChanged(const interfaces::WalletBalances& new_balances)
@@ -113,21 +111,21 @@ void WalletModel::updateAddressBook(const QString &address, const QString &label
         bool isMine, const QString &purpose, int status)
 {
     if(addressTableModel)
-        addressTableModel->updateEntry(address, label, isMine, purpose, status);
+        addressTableModel->updateEntry(AddressTableModel::Base, address, label, isMine, purpose, status);
 }
 
 void WalletModel::updateSproutAddressBook(const QString &address, const QString &label,
-        const QString &purpose, int status)
+        bool isMine, const QString &purpose, int status)
 {
     if(addressTableModel)
-        addressTableModel->updateEntry(address, label, false, purpose, status);
+        addressTableModel->updateEntry(AddressTableModel::Sprout, address, label, isMine, purpose, status);
 }
 
 void WalletModel::updateSaplingAddressBook(const QString &address, const QString &label,
-        const QString &purpose, int status)
+        bool isMine, const QString &purpose, int status)
 {
     if(addressTableModel)
-        addressTableModel->updateEntry(address, label, false, purpose, status);
+        addressTableModel->updateEntry(AddressTableModel::Sapling, address, label, isMine, purpose, status);
 }
 
 void WalletModel::updateWatchOnlyFlag(bool fHaveWatchonly)
@@ -139,6 +137,11 @@ void WalletModel::updateWatchOnlyFlag(bool fHaveWatchonly)
 bool WalletModel::validateAddress(const QString &address)
 {
     return IsValidDestinationString(address.toStdString());
+}
+
+bool WalletModel::validatePaymentAddress(const QString &address)
+{
+    return IsValidPaymentAddressString(address.toStdString());
 }
 
 WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransaction &transaction, const CCoinControl& coinControl)
@@ -220,6 +223,57 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         if (nFeeRequired > m_wallet->getDefaultMaxTxFee()) {
             return AbsurdFee;
         }
+    }
+
+    return SendCoinsReturn(OK);
+}
+
+WalletModel::SendCoinsReturn WalletModel::prepareShieldedTransaction(WalletModelTransaction &transaction, const CInputControl& inputControl)
+{
+    CAmount total = 0;
+    QList<SendCoinsRecipient> recipients = transaction.getRecipients();
+
+    if(recipients.empty())
+    {
+        return OK;
+    }
+
+    QSet<QString> setAddress; // Used to detect duplicates
+    int nAddresses = 0;
+
+    // Pre-check input data for validity
+    for (const SendCoinsRecipient &rcp : recipients)
+    {
+        // User-entered litecoinz address / amount:
+        if((!validateAddress(rcp.address)) && (!validatePaymentAddress(rcp.address)))
+        {
+            return InvalidAddress;
+        }
+        if(rcp.amount <= 0)
+        {
+            return InvalidAmount;
+        }
+        setAddress.insert(rcp.address);
+        ++nAddresses;
+
+        total += rcp.amount;
+    }
+    if(setAddress.size() != nAddresses)
+    {
+        return DuplicateAddress;
+    }
+
+    CAmount nBalance = inputControl.GetInputBalance();
+    if(total > nBalance)
+    {
+        return AmountExceedsBalance;
+    }
+
+    CAmount nFeeRequired = 10000;
+    transaction.setTransactionFee(nFeeRequired);
+    if((total + nFeeRequired) > nBalance)
+    {
+        return SendCoinsReturn(AmountWithFeeExceedsBalance);
     }
 
     return SendCoinsReturn(OK);
@@ -379,34 +433,36 @@ static void NotifyAddressBookChanged(WalletModel *walletmodel,
 }
 
 static void NotifySproutAddressBookChanged(WalletModel *walletmodel,
-        const libzcash::PaymentAddress &address, const std::string &label,
+        const libzcash::PaymentAddress &address, const std::string &label, bool isMine,
         const std::string &purpose, ChangeType status)
 {
     QString strAddress = QString::fromStdString(EncodePaymentAddress(address));
     QString strLabel = QString::fromStdString(label);
     QString strPurpose = QString::fromStdString(purpose);
 
-    qDebug() << "NotifySproutAddressBookChanged: " + strAddress + " " + strLabel + " purpose=" + strPurpose + " status=" + QString::number(status);
+    qDebug() << "NotifySproutAddressBookChanged: " + strAddress + " " + strLabel + " isMine=" + QString::number(isMine) + " purpose=" + strPurpose + " status=" + QString::number(status);
     bool invoked = QMetaObject::invokeMethod(walletmodel, "updateSproutAddressBook", Qt::QueuedConnection,
                               Q_ARG(QString, strAddress),
                               Q_ARG(QString, strLabel),
+                              Q_ARG(bool, isMine),
                               Q_ARG(QString, strPurpose),
                               Q_ARG(int, status));
     assert(invoked);
 }
 
 static void NotifySaplingAddressBookChanged(WalletModel *walletmodel,
-        const libzcash::PaymentAddress &address, const std::string &label,
+        const libzcash::PaymentAddress &address, const std::string &label, bool isMine,
         const std::string &purpose, ChangeType status)
 {
     QString strAddress = QString::fromStdString(EncodePaymentAddress(address));
     QString strLabel = QString::fromStdString(label);
     QString strPurpose = QString::fromStdString(purpose);
 
-    qDebug() << "NotifySaplingAddressBookChanged: " + strAddress + " " + strLabel + " purpose=" + strPurpose + " status=" + QString::number(status);
+    qDebug() << "NotifySaplingAddressBookChanged: " + strAddress + " " + strLabel + " isMine=" + QString::number(isMine) + " purpose=" + strPurpose + " status=" + QString::number(status);
     bool invoked = QMetaObject::invokeMethod(walletmodel, "updateSaplingAddressBook", Qt::QueuedConnection,
                               Q_ARG(QString, strAddress),
                               Q_ARG(QString, strLabel),
+                              Q_ARG(bool, isMine),
                               Q_ARG(QString, strPurpose),
                               Q_ARG(int, status));
     assert(invoked);
@@ -448,8 +504,8 @@ void WalletModel::subscribeToCoreSignals()
     m_handler_unload = m_wallet->handleUnload(std::bind(&NotifyUnload, this));
     m_handler_status_changed = m_wallet->handleStatusChanged(std::bind(&NotifyKeyStoreStatusChanged, this));
     m_handler_address_book_changed = m_wallet->handleAddressBookChanged(std::bind(NotifyAddressBookChanged, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
-    m_handler_address_book_changed = m_wallet->handleSproutAddressBookChanged(std::bind(NotifySproutAddressBookChanged, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-    m_handler_address_book_changed = m_wallet->handleSaplingAddressBookChanged(std::bind(NotifySaplingAddressBookChanged, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+    m_handler_sprout_address_book_changed = m_wallet->handleSproutAddressBookChanged(std::bind(NotifySproutAddressBookChanged, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
+    m_handler_sapling_address_book_changed = m_wallet->handleSaplingAddressBookChanged(std::bind(NotifySaplingAddressBookChanged, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
     m_handler_transaction_changed = m_wallet->handleTransactionChanged(std::bind(NotifyTransactionChanged, this, std::placeholders::_1, std::placeholders::_2));
     m_handler_show_progress = m_wallet->handleShowProgress(std::bind(ShowProgress, this, std::placeholders::_1, std::placeholders::_2));
     m_handler_watch_only_changed = m_wallet->handleWatchOnlyChanged(std::bind(NotifyWatchonlyChanged, this, std::placeholders::_1));
@@ -462,6 +518,8 @@ void WalletModel::unsubscribeFromCoreSignals()
     m_handler_unload->disconnect();
     m_handler_status_changed->disconnect();
     m_handler_address_book_changed->disconnect();
+    m_handler_sprout_address_book_changed->disconnect();
+    m_handler_sapling_address_book_changed->disconnect();
     m_handler_transaction_changed->disconnect();
     m_handler_show_progress->disconnect();
     m_handler_watch_only_changed->disconnect();

@@ -41,7 +41,7 @@ struct ChainTxData {
 
 /**
  * CChainParams defines various tweakable parameters of a given instance of the
- * Litecoinz system. There are three: the main network on which people trade goods
+ * LitecoinZ system. There are three: the main network on which people trade goods
  * and services, the public test network which gets reset from time to time and
  * a regression test mode which is intended for private networks only. It has
  * minimal difficulty to ensure that blocks can be found instantly.
@@ -56,9 +56,9 @@ public:
         EXT_PUBLIC_KEY,
         EXT_SECRET_KEY,
 
-        ZCPAYMENT_ADDRESS,
-        ZCSPENDING_KEY,
-        ZCVIEWING_KEY,
+        SPROUT_PAYMENT_ADDRESS,
+        SPROUT_SPENDING_KEY,
+        SPROUT_VIEWING_KEY,
 
         MAX_BASE58_TYPES
     };
@@ -68,6 +68,7 @@ public:
         SAPLING_FULL_VIEWING_KEY,
         SAPLING_INCOMING_VIEWING_KEY,
         SAPLING_EXTENDED_SPEND_KEY,
+        SAPLING_EXTENDED_FVK,
 
         MAX_BECH32_TYPES
     };

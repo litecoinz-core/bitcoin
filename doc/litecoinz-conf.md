@@ -47,7 +47,7 @@ rpcport=4000
 
 ## Configuration File Path
 
-The configuration file is not automatically created; you can create it using your favorite text editor. By default, the configuration file name is `litecoinz.conf` and it is located in the Litecoinz data directory, but both the Litecoinz data directory and the configuration file path may be changed using the `-datadir` and `-conf` command-line options.
+The configuration file is not automatically created; you can create it using your favorite text editor. By default, the configuration file name is `litecoinz.conf` and it is located in the LitecoinZ data directory, but both the LitecoinZ data directory and the configuration file path may be changed using the `-datadir` and `-conf` command-line options.
 
 The `includeconf=<file>` option in the `litecoinz.conf` file can be used to include additional configuration files.
 
@@ -55,8 +55,8 @@ The `includeconf=<file>` option in the `litecoinz.conf` file can be used to incl
 
 Operating System | Data Directory | Example Path
 -- | -- | --
-Windows | `%APPDATA%\Litecoinz\` | `C:\Users\username\AppData\Roaming\Litecoinz\litecoinz.conf`
+Windows | `%APPDATA%\LitecoinZ\` | `C:\Users\username\AppData\Roaming\LitecoinZ\litecoinz.conf`
 Linux | `$HOME/.litecoinz/` | `/home/username/.litecoinz/litecoinz.conf`
-macOS | `$HOME/Library/Application Support/Litecoinz/` | `/Users/username/Library/Application Support/Litecoinz/litecoinz.conf`
+macOS | `$HOME/Library/Application Support/LitecoinZ/` | `/Users/username/Library/Application Support/LitecoinZ/litecoinz.conf`
 
 You can find an example litecoinz.conf file in [share/examples/litecoinz.conf](../share/examples/litecoinz.conf).

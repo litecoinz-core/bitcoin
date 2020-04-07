@@ -500,6 +500,7 @@ void TransactionView::editLabel()
             QString type = modelIdx.data(AddressTableModel::TypeRole).toString();
 
             EditAddressDialog dlg(
+                AddressTableModel::Base,
                 type == AddressTableModel::Receive
                 ? EditAddressDialog::EditReceivingAddress
                 : EditAddressDialog::EditSendingAddress, this);
@@ -510,7 +511,7 @@ void TransactionView::editLabel()
         else
         {
             // Add sending address
-            EditAddressDialog dlg(EditAddressDialog::NewSendingAddress,
+            EditAddressDialog dlg(nullptr, EditAddressDialog::NewSendingAddress,
                 this);
             dlg.setModel(addressBook);
             dlg.setAddress(address);

@@ -57,7 +57,7 @@
 #include <boost/thread.hpp>
 
 #if defined(NDEBUG)
-# error "Litecoinz cannot be compiled without assertions."
+# error "LitecoinZ cannot be compiled without assertions."
 #endif
 
 #define MICRO 0.000001
@@ -121,6 +121,7 @@ bool fPruneMode = false;
 bool fRequireStandard = true;
 bool fCheckBlockIndex = false;
 bool fCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED;
+bool fCoinbaseEnforcedShieldingEnabled = true;
 size_t nCoinCacheUsage = 5000 * 300;
 uint64_t nPruneTarget = 0;
 int64_t nMaxTipAge = DEFAULT_MAX_TIP_AGE;
@@ -565,11 +566,8 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
         *pfMissingInputs = false;
     }
 
+    // Grab the branch ID we expect this transaction to commit to.
     int nextBlockHeight = ::ChainActive().Height() + 1;
-
-    // Grab the branch ID we expect this transaction to commit to. We don't
-    // yet know if it does, but if the entry gets added to the mempool, then
-    // it has passed CheckInputs and therefore this is correct.
     auto consensusBranchId = CurrentEpochBranchId(nextBlockHeight, Params().GetConsensus());
 
     auto verifier = libzcash::ProofVerifier::Strict();
@@ -691,6 +689,10 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
             return false; // fMissingInputs and !state.IsInvalid() is used to detect this condition, don't set state.Invalid()
         }
     }
+    // are the joinsplits' and sapling spends' requirements met in tx(valid anchors/nullifiers)?
+    if (!m_view.HaveShieldedRequirements(tx))
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-shielded-requirements-not-met",
+                         strprintf("%s: shielded requirements not met", __func__));
 
     // Bring the best block into scope
     m_view.GetBestBlock();
@@ -1576,6 +1578,19 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
             pvChecks->push_back(CScriptCheck());
             check.swap(pvChecks->back());
         } else if (!check()) {
+            // Check whether the failure was caused by an outdated
+            // consensus branch ID; if so, don't trigger DoS protection
+            // immediately, and inform the node that they need to
+            // upgrade. We only check the previous epoch's branch ID, on
+            // the assumption that users creating transactions will
+            // notice their transactions failing before a second network
+            // upgrade occurs.
+            auto prevConsensusBranchId = PrevEpochBranchId(consensusBranchId, Params().GetConsensus());
+            CScriptCheck checkPrev(coin.out, tx, i, flags, cacheSigStore, prevConsensusBranchId, &txdata);
+            if (checkPrev()) {
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID,
+                       strprintf("old-consensus-branch-id (Expected %s, found %s)", HexInt(consensusBranchId), HexInt(prevConsensusBranchId)));
+            }
             if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
                 // Check whether the failure was caused by a
                 // non-mandatory script verification check, such as
@@ -1893,7 +1908,7 @@ static ThresholdConditionCache warningcache[VERSIONBITS_NUM_BITS] GUARDED_BY(cs_
 // environment. See test/functional/p2p-segwit.py.
 static bool IsScriptWitnessEnabled(const Consensus::Params& params)
 {
-    return params.SegwitHeight != std::numeric_limits<int>::max();
+    return (params.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nActivationHeight != std::numeric_limits<int>::max());
 }
 
 static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consensus::Params& consensusparams) EXCLUSIVE_LOCKS_REQUIRED(cs_main) {
@@ -2236,6 +2251,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!tx.IsCoinBase())
         {
             CAmount txfee = 0;
+
+            // are the joinsplits' and sapling spends' requirements met in tx(valid anchors/nullifiers)?
+            if (!view.HaveShieldedRequirements(tx))
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-shielded-requirements-not-met",
+                                 strprintf("%s: shielded requirements not met", __func__));
+
             if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, txfee, chainparams.GetConsensus())) {
                 if (!IsBlockReason(state.GetReason())) {
                     // CheckTxInputs may return MISSING_INPUTS or
@@ -2643,16 +2664,13 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
     m_chain.SetTip(pindexDelete->pprev);
 
     UpdateTip(pindexDelete->pprev, chainparams);
-    // Get the current commitment tree
-    SproutMerkleTree newSproutTree;
-    SaplingMerkleTree newSaplingTree;
-    assert(CoinsTip().GetSproutAnchorAt(CoinsTip().GetBestAnchor(SPROUT), newSproutTree));
-    assert(CoinsTip().GetSaplingAnchorAt(CoinsTip().GetBestAnchor(SAPLING), newSaplingTree));
     // Let wallets know transactions went from 1-confirmed to
     // 0-confirmed or conflicted:
     GetMainSignals().BlockDisconnected(pblock);
+
     // Update cached incremental witnesses
-    GetMainSignals().ChainTip(pindexDelete, pblock, newSproutTree, newSaplingTree, false);
+    GetMainSignals().ChainTip(pblock, pindexDelete, false);
+
     return true;
 }
 
@@ -2745,11 +2763,6 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         pthisBlock = pblock;
     }
     const CBlock& blockConnecting = *pthisBlock;
-    // Get the current commitment tree
-    SproutMerkleTree oldSproutTree;
-    SaplingMerkleTree oldSaplingTree;
-    assert(CoinsTip().GetSproutAnchorAt(CoinsTip().GetBestAnchor(SPROUT), oldSproutTree));
-    assert(CoinsTip().GetSaplingAnchorAt(CoinsTip().GetBestAnchor(SAPLING), oldSaplingTree));
     // Apply the block atomically to the chain state.
     int64_t nTime2 = GetTimeMicros(); nTimeReadFromDisk += nTime2 - nTime1;
     int64_t nTime3;
@@ -2785,9 +2798,6 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     // Update m_chain & related variables.
     m_chain.SetTip(pindexNew);
     UpdateTip(pindexNew, chainparams);
-
-    // Update cached incremental witnesses
-    GetMainSignals().ChainTip(pindexNew, pblock, oldSproutTree, oldSaplingTree, true);
 
     int64_t nTime6 = GetTimeMicros(); nTimePostConnect += nTime6 - nTime5; nTimeTotal += nTime6 - nTime1;
     LogPrint(BCLog::BENCH, "  - Connect postprocess: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime6 - nTime5) * MILLI, nTimePostConnect * MICRO, nTimePostConnect * MILLI / nBlocksTotal);
@@ -3058,6 +3068,9 @@ bool CChainState::ActivateBestChain(CValidationState &state, const CChainParams&
                 for (const PerBlockConnectTrace& trace : connectTrace.GetBlocksConnected()) {
                     assert(trace.pblock && trace.pindex);
                     GetMainSignals().BlockConnected(trace.pblock, trace.pindex, trace.conflictedTxs);
+
+                    // Update cached incremental witnesses
+                    GetMainSignals().ChainTip(trace.pblock, trace.pindex, true);
                 }
             } while (!m_chain.Tip() || (starting_tip && CBlockIndexWorkComparator()(m_chain.Tip(), starting_tip)));
             if (!blocks_connected) return true;
@@ -3629,19 +3642,19 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
 bool IsWitnessEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& params)
 {
     int height = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
-    return (height >= params.SegwitHeight);
+    return (params.NetworkUpgradeActive(height, Consensus::UPGRADE_ALPHERATZ));
 }
 
 bool IsOverwinterEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& params)
 {
     int height = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
-    return (height >= params.OverwinterHeight);
+    return (params.NetworkUpgradeActive(height, Consensus::UPGRADE_OVERWINTER));
 }
 
 bool IsSaplingEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& params)
 {
     int height = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
-    return (height >= params.SaplingHeight);
+    return (params.NetworkUpgradeActive(height, Consensus::UPGRADE_SAPLING));
 }
 
 int GetWitnessCommitmentIndex(const CBlock& block)
@@ -3674,7 +3687,7 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
     std::vector<unsigned char> commitment;
     int commitpos = GetWitnessCommitmentIndex(block);
     std::vector<unsigned char> ret(32, 0x00);
-    if (consensusParams.SegwitHeight != std::numeric_limits<int>::max()) {
+    if (consensusParams.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nActivationHeight != std::numeric_limits<int>::max()) {
         if (commitpos == -1) {
             uint256 witnessroot = BlockWitnessMerkleRoot(block, nullptr);
             CHash256().Write(witnessroot.begin(), 32).Write(ret.data(), 32).Finalize(witnessroot.begin());
@@ -3797,7 +3810,7 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
     //   {0xaa, 0x21, 0xa9, 0xed}, and the following 32 bytes are SHA256^2(witness root, witness reserved value). In case there are
     //   multiple, the last one is used.
     bool fHaveWitness = false;
-    if (nHeight >= consensusParams.SegwitHeight) {
+    if (consensusParams.NetworkUpgradeActive(nHeight, Consensus::UPGRADE_ALPHERATZ)) {
         int commitpos = GetWitnessCommitmentIndex(block);
         if (commitpos != -1) {
             bool malleated = false;

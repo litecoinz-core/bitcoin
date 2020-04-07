@@ -9,14 +9,18 @@
 #include <qt/addresstablemodel.h>
 #include <qt/guiutil.h>
 
+#include <key_io.h>
+#include <zcash/Address.hpp>
+
 #include <QDataWidgetMapper>
 #include <QMessageBox>
 
 
-EditAddressDialog::EditAddressDialog(Mode _mode, QWidget *parent) :
+EditAddressDialog::EditAddressDialog(QString _addressbook, Mode _mode, QWidget *parent) :
     QDialog(parent),
     ui(new Ui::EditAddressDialog),
     mapper(nullptr),
+    addressbook(_addressbook),
     mode(_mode),
     model(nullptr)
 {
@@ -79,6 +83,7 @@ bool EditAddressDialog::saveCurrentRow()
     case NewSendingAddress:
         address = model->addRow(
                 AddressTableModel::Send,
+                addressbook,
                 ui->labelEdit->text(),
                 ui->addressEdit->text(),
                 model->GetDefaultAddressType());
@@ -99,6 +104,18 @@ void EditAddressDialog::accept()
     if(!model)
         return;
 
+    std::string strAddress = ui->addressEdit->text().toStdString();
+    if(IsValidDestinationString(strAddress))
+        addressbook = AddressTableModel::Base;
+    else
+    {
+        libzcash::PaymentAddress dest = DecodePaymentAddress(strAddress);
+        if(boost::get<libzcash::SproutPaymentAddress>(&dest))
+            addressbook = AddressTableModel::Sprout;
+        else if(boost::get<libzcash::SaplingPaymentAddress>(&dest))
+            addressbook = AddressTableModel::Sapling;
+    }
+
     if(!saveCurrentRow())
     {
         switch(model->getEditStatus())
@@ -111,7 +128,7 @@ void EditAddressDialog::accept()
             break;
         case AddressTableModel::INVALID_ADDRESS:
             QMessageBox::warning(this, windowTitle(),
-                tr("The entered address \"%1\" is not a valid Litecoinz address.").arg(ui->addressEdit->text()),
+                tr("The entered address \"%1\" is not a valid LitecoinZ address.").arg(ui->addressEdit->text()),
                 QMessageBox::Ok, QMessageBox::Ok);
             break;
         case AddressTableModel::DUPLICATE_ADDRESS:

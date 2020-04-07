@@ -24,11 +24,20 @@
 // Default transaction fee if caller does not specify one.
 #define SHIELD_COINBASE_DEFAULT_MINERS_FEE   10000
 
-struct ShieldCoinbaseUTXO {
+class ShieldCoinbaseUTXO {
+public:
     uint256 txid;
     int vout;
-    CScript scriptPubKey;
+    CScript script;
     CAmount amount;
+
+    ShieldCoinbaseUTXO(uint256 txid_, int vout_, CScript script_, CAmount amount_)
+    {
+        txid = txid_;
+        vout = vout_;
+        script = script_;
+        amount = amount_;
+    }
 };
 
 // Package of info which is passed to perform_joinsplit methods.
@@ -44,10 +53,10 @@ class AsyncRPCOperation_shieldcoinbase : public AsyncRPCOperation {
 public:
     AsyncRPCOperation_shieldcoinbase(
         const JSONRPCRequest& request,
-        TransactionBuilder builder,
+        boost::optional<TransactionBuilder> builder,
         CMutableTransaction contextualTx,
-        std::vector<ShieldCoinbaseUTXO> inputs,
-        std::string toAddress,
+        std::vector<ShieldCoinbaseUTXO> tInputs,
+        std::string zOutput,
         CAmount fee = SHIELD_COINBASE_DEFAULT_MINERS_FEE,
         UniValue contextInfo = NullUniValue);
     virtual ~AsyncRPCOperation_shieldcoinbase();
@@ -68,44 +77,36 @@ public:
 
 private:
     JSONRPCRequest request_;
-    TransactionBuilder builder_;
     CTransactionRef tx_;
-    std::vector<ShieldCoinbaseUTXO> inputs_;
-    libzcash::PaymentAddress tozaddr_;
+    std::vector<ShieldCoinbaseUTXO> t_inputs_;
+    std::string z_output_;
     CAmount fee_;
     UniValue contextinfo_;     // optional data to include in return value from getStatus()
 
-    friend class ShieldToAddress;
+    bool isUsingBuilder_; // Indicates that no Sprout addresses are involved
+    uint32_t consensusBranchId_;
 
     uint256 joinSplitPubKey_;
     unsigned char joinSplitPrivKey_[crypto_sign_SECRETKEYBYTES];
+
+    TransactionBuilder builder_;
 
     bool main_impl();
 
     // JoinSplit without any input notes to spend
     UniValue perform_joinsplit(ShieldCoinbaseJSInfo &);
 
-    void lock_utxos(CWallet* const pwallet);
+    // JoinSplit with input notes to spend (SproutOutPoints))
+    UniValue perform_joinsplit(ShieldCoinbaseJSInfo &, std::vector<SproutOutPoint> & );
 
-    void unlock_utxos(CWallet* const pwallet);
+    // JoinSplit where you have the witnesses and anchor
+    UniValue perform_joinsplit(
+        ShieldCoinbaseJSInfo & info,
+        std::vector<boost::optional < SproutWitness>> witnesses,
+        uint256 anchor);
 
     // payment disclosure!
     std::vector<PaymentDisclosureKeyInfo> paymentDisclosureData_;
-};
-
-class ShieldToAddress : public boost::static_visitor<bool>
-{
-private:
-    AsyncRPCOperation_shieldcoinbase *m_op;
-    CAmount sendAmount;
-    JSONRPCRequest request_;
-public:
-    ShieldToAddress(AsyncRPCOperation_shieldcoinbase *op, CAmount sendAmount, const JSONRPCRequest& request) :
-        m_op(op), sendAmount(sendAmount), request_(request) {}
-
-    bool operator()(const libzcash::SproutPaymentAddress &zaddr) const;
-    bool operator()(const libzcash::SaplingPaymentAddress &zaddr) const;
-    bool operator()(const libzcash::InvalidEncoding& no) const;
 };
 
 #endif /* ASYNCRPCOPERATION_SHIELDCOINBASE_H */

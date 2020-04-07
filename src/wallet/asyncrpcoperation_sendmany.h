@@ -25,14 +25,36 @@
 // Default transaction fee if caller does not specify one.
 #define ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE   10000
 
-// A recipient is a tuple of address, amount, memo (optional if zaddr)
-typedef std::tuple<std::string, CAmount, std::string> SendManyRecipient;
+class SendManyRecipient {
+public:
+    std::string address;
+    CAmount amount;
+    std::string memo;
 
-// Input UTXO is a tuple (quadruple) of txid, vout, amount, coinbase)
-typedef std::tuple<uint256, int, CAmount, bool> SendManyInputUTXO;
+    SendManyRecipient(std::string address_, CAmount amount_, std::string memo_ = "") :
+        address(address_), amount(amount_), memo(memo_) {}
+};
 
-// Input JSOP is a tuple of JSOutpoint, note and amount
-typedef std::tuple<JSOutPoint, libzcash::SproutNote, CAmount> SendManyInputJSOP;
+class SendManyInputUTXO {
+public:
+    uint256 txid;
+    int vout;
+    CAmount amount;
+    bool coinbase;
+
+    SendManyInputUTXO(uint256 txid_, int vout_, CAmount amount_, bool coinbase_) :
+        txid(txid_), vout(vout_), amount(amount_), coinbase(coinbase_) {}
+};
+
+class SendManyInputJSOP {
+public:
+    SproutOutPoint outpoint;
+    libzcash::SproutNote note;
+    CAmount amount;
+
+    SendManyInputJSOP(SproutOutPoint outpoint_, libzcash::SproutNote note_, CAmount amount_) :
+        outpoint(outpoint_), note(note_), amount(amount_) {}
+};
 
 // Package of info which is passed to perform_joinsplit methods.
 struct AsyncJoinSplitInfo
@@ -44,7 +66,7 @@ struct AsyncJoinSplitInfo
     CAmount vpub_new = 0;
 };
 
-// A struct to help us track the witness and anchor for a given JSOutPoint
+// A struct to help us track the witness and anchor for a given SproutOutPoint
 struct WitnessAnchorData {
 	boost::optional<SproutWitness> witness;
 	uint256 anchor;
@@ -99,7 +121,7 @@ private:
     uint256 joinSplitPubKey_;
     unsigned char joinSplitPrivKey_[crypto_sign_SECRETKEYBYTES];
 
-    // The key is the result string from calling JSOutPoint::ToString()
+    // The key is the result string from calling SproutOutPoint::ToString()
     std::unordered_map<std::string, WitnessAnchorData> jsopWitnessAnchorMap;
 
     std::vector<SendManyInputUTXO> t_inputs_;
@@ -118,8 +140,8 @@ private:
     // JoinSplit without any input notes to spend
     UniValue perform_joinsplit(AsyncJoinSplitInfo &);
 
-    // JoinSplit with input notes to spend (JSOutPoints))
-    UniValue perform_joinsplit(AsyncJoinSplitInfo &, std::vector<JSOutPoint> & );
+    // JoinSplit with input notes to spend (SproutOutPoints))
+    UniValue perform_joinsplit(AsyncJoinSplitInfo &, std::vector<SproutOutPoint> & );
 
     // JoinSplit where you have the witnesses and anchor
     UniValue perform_joinsplit(

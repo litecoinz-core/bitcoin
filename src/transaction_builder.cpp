@@ -166,7 +166,7 @@ void TransactionBuilder::AddTransparentInput(COutPoint utxo, CScript scriptPubKe
     tIns.emplace_back(scriptPubKey, value);
 }
 
-void TransactionBuilder::AddTransparentOutput(CTxDestination& to, CAmount value)
+void TransactionBuilder::AddTransparentOutput(const CTxDestination& to, CAmount value)
 {
     if (!IsValidDestination(to)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid output address, not a valid taddr.");
@@ -381,7 +381,7 @@ TransactionBuilderResult TransactionBuilder::Build()
     SigVersion sigversion = SigVersion::BASE;
     if (mtx.nVersion == 3)
         sigversion = SigVersion::OVERWINTER;
-    else if (mtx.nVersion == 4)
+    else if (mtx.nVersion == 4 || mtx.nVersion == 5)
         sigversion = SigVersion::SAPLING_V0;
 
     // Empty output script.
@@ -589,7 +589,7 @@ void TransactionBuilder::CreateJSDescriptions()
 
                 jsInputValue += plaintext.value();
 
-                LogPrint(BCLog::ZRPCUNSAFE, "spending change (amount=%s)\n", FormatMoney(plaintext.value()));
+                LogPrint(BCLog::ZRPC, "spending change (amount=%s)\n", FormatMoney(plaintext.value()));
 
             } catch (const std::exception& e) {
                 throw JSDescException("Error decrypting output note of previous JoinSplit");
@@ -669,7 +669,7 @@ void TransactionBuilder::CreateJSDescriptions()
         if (jsChange > 0) {
             vjsout[1] = libzcash::JSOutput(changeAddress, jsChange);
 
-            LogPrint(BCLog::ZRPCUNSAFE, "generating note for change (amount=%s)\n", FormatMoney(jsChange));
+            LogPrint(BCLog::ZRPC, "generating note for change (amount=%s)\n", FormatMoney(jsChange));
         }
 
         std::array<size_t, ZC_NUM_JS_INPUTS> inputMap;
@@ -696,7 +696,7 @@ void TransactionBuilder::CreateJSDescription(
     std::array<size_t, ZC_NUM_JS_INPUTS>& inputMap,
     std::array<size_t, ZC_NUM_JS_OUTPUTS>& outputMap)
 {
-    LogPrint(BCLog::ZRPCUNSAFE, "CreateJSDescription: creating joinsplit at index %d (vpub_old=%s, vpub_new=%s, in[0]=%s, in[1]=%s, out[0]=%s, out[1]=%s)\n",
+    LogPrint(BCLog::ZRPC, "CreateJSDescription: creating joinsplit at index %d (vpub_old=%s, vpub_new=%s, in[0]=%s, in[1]=%s, out[0]=%s, out[1]=%s)\n",
         mtx.vJoinSplit.size(),
         FormatMoney(vpub_old), FormatMoney(vpub_new),
         FormatMoney(vjsin[0].note.value()), FormatMoney(vjsin[1].note.value()),

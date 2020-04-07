@@ -31,14 +31,14 @@ const struct NUInfo NetworkUpgradeInfo[Consensus::MAX_NETWORK_UPGRADES] = {
         /*.strInfo =*/ "See https://z.cash/upgrade/sapling.html for details.",
     },
     {
-        /*.nBranchId =*/ 0x2bb40e60,
-        /*.strName =*/ "Blossom",
-        /*.strInfo =*/ "See https://z.cash/upgrade/blossom.html for details.",
+        /*.nBranchId =*/ 0x9be669a6,
+        /*.strName =*/ "Alpheratz",
+        /*.strInfo =*/ "See https://blog.litecoinz.org/alpheratz-update/ for details.",
     },
     {
-        /*.nBranchId =*/ 0xf5b9230b,
-        /*.strName =*/ "Heartwood",
-        /*.strInfo =*/ "See https://z.cash/upgrade/heartwood/ for details.",
+        /*.nBranchId =*/ 0x413edb17,
+        /*.strName =*/ "Pegasi",
+        /*.strInfo =*/ "See https://blog.litecoinz.org/pegasi-update/ for details.",
     }
 };
 
@@ -83,6 +83,16 @@ uint32_t CurrentEpoch(int nHeight, const Consensus::Params& params) {
 
 uint32_t CurrentEpochBranchId(int nHeight, const Consensus::Params& params) {
     return NetworkUpgradeInfo[CurrentEpoch(nHeight, params)].nBranchId;
+}
+
+uint32_t PrevEpochBranchId(uint32_t currentBranchId, const Consensus::Params& params) {
+    for (uint32_t idx = Consensus::BASE_SPROUT + 1; idx < Consensus::MAX_NETWORK_UPGRADES; idx++) {
+        if (currentBranchId == NetworkUpgradeInfo[idx].nBranchId) {
+            return NetworkUpgradeInfo[idx - 1].nBranchId;
+        }
+    }
+    // Base case
+    return NetworkUpgradeInfo[Consensus::BASE_SPROUT].nBranchId;
 }
 
 bool IsConsensusBranchId(uint32_t branchId) {

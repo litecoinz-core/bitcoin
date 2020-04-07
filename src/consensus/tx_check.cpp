@@ -9,6 +9,8 @@
 #include <consensus/upgrades.h>
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
+#include <tinyformat.h>
+#include <util/strencodings.h>
 
 #include <zcashparams.h>
 
@@ -40,13 +42,30 @@ bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state,
 
     bool overwinterActive = chainparams.GetConsensus().NetworkUpgradeActive(nHeight, Consensus::UPGRADE_OVERWINTER);
     bool saplingActive = chainparams.GetConsensus().NetworkUpgradeActive(nHeight, Consensus::UPGRADE_SAPLING);
+    bool alpheratzActive = chainparams.GetConsensus().NetworkUpgradeActive(nHeight, Consensus::UPGRADE_ALPHERATZ);
     bool isSprout = !overwinterActive;
 
     // If Sprout rules apply, reject transactions which are intended for Overwinter and beyond
     if (isSprout && tx.fOverwintered)
         return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "tx-overwinter-not-active");
 
-    if (saplingActive) {
+    if (alpheratzActive) {
+        // Reject transactions with valid version but missing overwintered flag
+        if (tx.nVersion >= ALPHERATZ_MIN_TX_VERSION && !tx.fOverwintered)
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "tx-overwintered-flag-not-set");
+
+        // Reject transactions with non-Alpheratz version group ID
+        if (tx.fOverwintered && tx.nVersionGroupId != ALPHERATZ_VERSION_GROUP_ID)
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-alpheratz-tx-version-group-id");
+
+        // Reject transactions with invalid version
+        if (tx.fOverwintered && tx.nVersion < ALPHERATZ_MIN_TX_VERSION)
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-tx-alpheratz-version-too-low");
+
+        // Reject transactions with invalid version
+        if (tx.fOverwintered && tx.nVersion > ALPHERATZ_MAX_TX_VERSION)
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-tx-alpheratz-version-too-high");
+    } else if (saplingActive) {
         // Reject transactions with valid version but missing overwintered flag
         if (tx.nVersion >= SAPLING_MIN_TX_VERSION && !tx.fOverwintered)
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "tx-overwintered-flag-not-set");
@@ -94,17 +113,18 @@ bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state,
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-oversize");
     }
 
+    auto consensusBranchId = CurrentEpochBranchId(nHeight, chainparams.GetConsensus());
+    auto prevConsensusBranchId = PrevEpochBranchId(consensusBranchId, chainparams.GetConsensus());
     uint256 dataToBeSigned;
+    uint256 prevDataToBeSigned;
 
     if (!tx.vJoinSplit.empty() ||
         !tx.vShieldedSpend.empty() ||
         !tx.vShieldedOutput.empty())
     {
-        auto consensusBranchId = CurrentEpochBranchId(nHeight, chainparams.GetConsensus());
-
         SigVersion sigversion = SigVersion::BASE;
         if (tx.fOverwintered) {
-            if (tx.nVersionGroupId == SAPLING_VERSION_GROUP_ID) {
+            if (tx.nVersionGroupId == SAPLING_VERSION_GROUP_ID || tx.nVersionGroupId == ALPHERATZ_VERSION_GROUP_ID) {
                 sigversion = SigVersion::SAPLING_V0;
             } else {
                 sigversion = SigVersion::OVERWINTER;
@@ -115,6 +135,7 @@ bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state,
         CScript scriptCode;
         try {
             dataToBeSigned = SignatureHash(scriptCode, tx, NOT_AN_INPUT, SIGHASH_ALL, 0, sigversion, consensusBranchId);
+            prevDataToBeSigned = SignatureHash(scriptCode, tx, NOT_AN_INPUT, SIGHASH_ALL, 0, sigversion, prevConsensusBranchId);
         } catch (std::logic_error& ex) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "error-computing-signature-hash");
         }
@@ -130,6 +151,18 @@ bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state,
                                         dataToBeSigned.begin(), 32,
                                         tx.joinSplitPubKey.begin()
                                         ) != 0) {
+            // Check whether the failure was caused by an outdated consensus
+            // branch ID; if so, inform the node that they need to upgrade. We
+            // only check the previous epoch's branch ID, on the assumption that
+            // users creating transactions will notice their transactions
+            // failing before a second network upgrade occurs.
+            if (crypto_sign_verify_detached(&tx.joinSplitSig[0],
+                                            prevDataToBeSigned.begin(), 32,
+                                            tx.joinSplitPubKey.begin()
+                                            ) == 0) {
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID,
+                       strprintf("old-consensus-branch-id (Expected %s, found %s)", HexInt(consensusBranchId), HexInt(prevConsensusBranchId)));
+            }
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-invalid-joinsplit-signature");
         }
     }
@@ -230,8 +263,12 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
     else if (tx.fOverwintered) {
         if (tx.nVersion < OVERWINTER_MIN_TX_VERSION)
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-tx-overwinter-version-too-low");
-        if (tx.nVersionGroupId != OVERWINTER_VERSION_GROUP_ID && tx.nVersionGroupId != SAPLING_VERSION_GROUP_ID)
+        if (tx.nVersionGroupId != OVERWINTER_VERSION_GROUP_ID &&
+            tx.nVersionGroupId != SAPLING_VERSION_GROUP_ID &&
+            tx.nVersionGroupId != ALPHERATZ_VERSION_GROUP_ID)
+        {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-tx-version-group-id");
+        }
         if (tx.nExpiryHeight >= TX_EXPIRY_HEIGHT_THRESHOLD)
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-tx-expiry-height-too-high");
     }

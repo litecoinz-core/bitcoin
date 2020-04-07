@@ -1,9 +1,9 @@
-Litecoinz Core
+LitecoinZ Core
 ==============
 
 Intro
 -----
-Litecoinz is a free open source peer-to-peer electronic cash system that is
+LitecoinZ is a free open source peer-to-peer electronic cash system that is
 completely decentralized, without the need for a central server or trusted
 parties.  Users hold the crypto keys to their own money and transact directly
 with each other, with the help of a P2P network to check for double-spending.
@@ -13,8 +13,8 @@ Setup
 -----
 Unpack the files into a directory and run litecoinz-qt.exe.
 
-Litecoinz Core is the original Litecoinz client and it builds the backbone of the network.
-However, it downloads and stores the entire history of Litecoinz transactions;
+LitecoinZ Core is the original LitecoinZ client and it builds the backbone of the network.
+However, it downloads and stores the entire history of LitecoinZ transactions;
 depending on the speed of your computer and network connection, the synchronization
 process can take anywhere from a few hours to a day or more.
 

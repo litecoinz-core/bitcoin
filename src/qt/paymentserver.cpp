@@ -250,7 +250,7 @@ void PaymentServer::handleURIOrFile(const QString& s)
             }
             else
                 Q_EMIT message(tr("URI handling"),
-                    tr("URI cannot be parsed! This can be caused by an invalid Litecoinz address or malformed URI parameters."),
+                    tr("URI cannot be parsed! This can be caused by an invalid LitecoinZ address or malformed URI parameters."),
                     CClientUIInterface::ICON_WARNING);
 
             return;

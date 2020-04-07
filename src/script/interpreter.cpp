@@ -1300,7 +1300,7 @@ template <class T>
 SigVersion SignatureHashVersion(const T& txTo)
 {
     if (txTo.fOverwintered) {
-        if (txTo.nVersionGroupId == SAPLING_VERSION_GROUP_ID) {
+        if (txTo.nVersionGroupId == SAPLING_VERSION_GROUP_ID || txTo.nVersionGroupId == ALPHERATZ_VERSION_GROUP_ID) {
             return SigVersion::SAPLING_V0;
         } else {
             return SigVersion::OVERWINTER;
@@ -1398,7 +1398,7 @@ uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn
             // The prevout may already be contained in hashPrevout, and the nSequence
             // may already be contained in hashSequence.
             ss << txTo.vin[nIn].prevout;
-            ss << static_cast<const CScriptBase&>(scriptCode);
+            ss << scriptCode;
             ss << amount;
             ss << txTo.vin[nIn].nSequence;
         }

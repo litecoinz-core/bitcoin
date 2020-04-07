@@ -1,15 +1,15 @@
 dnl require autoconf 2.60 (AS_ECHO/AS_ECHO_N)
 AC_PREREQ([2.60])
-define(_CLIENT_VERSION_MAJOR, 0)
-define(_CLIENT_VERSION_MINOR, 19)
+define(_CLIENT_VERSION_MAJOR, 3)
+define(_CLIENT_VERSION_MINOR, 0)
 define(_CLIENT_VERSION_REVISION, 0)
-define(_CLIENT_VERSION_BUILD, 1)
-define(_CLIENT_VERSION_RC, 0)
-define(_CLIENT_VERSION_IS_RELEASE, true)
-define(_COPYRIGHT_YEAR, 2019)
+define(_CLIENT_VERSION_BUILD, 0)
+define(_CLIENT_VERSION_RC, 2)
+define(_CLIENT_VERSION_IS_RELEASE, false)
+define(_COPYRIGHT_YEAR, 2020)
 define(_COPYRIGHT_HOLDERS,[The %s developers])
-define(_COPYRIGHT_HOLDERS_SUBSTITUTION,[[Litecoinz Core]])
-AC_INIT([Litecoinz Core],m4_join([.], _CLIENT_VERSION_MAJOR, _CLIENT_VERSION_MINOR, _CLIENT_VERSION_REVISION, m4_if(_CLIENT_VERSION_BUILD, [0], [], _CLIENT_VERSION_BUILD))m4_if(_CLIENT_VERSION_RC, [0], [], [rc]_CLIENT_VERSION_RC),[https://github.com/litecoinz-core/litecoinz/issues],[litecoinz],[https://litecoinz.org/])
+define(_COPYRIGHT_HOLDERS_SUBSTITUTION,[[LitecoinZ Core]])
+AC_INIT([LitecoinZ Core],m4_join([.], _CLIENT_VERSION_MAJOR, _CLIENT_VERSION_MINOR, _CLIENT_VERSION_REVISION, m4_if(_CLIENT_VERSION_BUILD, [0], [], _CLIENT_VERSION_BUILD))m4_if(_CLIENT_VERSION_RC, [0], [], [rc]_CLIENT_VERSION_RC),[https://github.com/litecoinz-core/litecoinz/issues],[litecoinz],[https://litecoinz.org/])
 AC_CONFIG_SRCDIR([src/validation.cpp])
 AC_CONFIG_HEADERS([src/config/bitcoin-config.h])
 AC_CONFIG_AUX_DIR([build-aux])
@@ -76,6 +76,10 @@ fi
 AC_PROG_OBJCXX
 ])
 
+dnl Since libtool 1.5.2 (released 2004-01-25), on Linux libtool no longer
+dnl sets RPATH for any directories in the dynamic linker search path.
+dnl See more: https://wiki.debian.org/RpathIssue
+LT_PREREQ([1.5.2])
 dnl Libtool init checks.
 LT_INIT([pic-only])
 
@@ -486,11 +490,12 @@ AC_SEARCH_LIBS([dlsym],[dl])
 DL_LIBS="$LIBS"
 LIBS="$TEMP_LIBS"
 
+CARGO_FLAGS="$CARGO_FLAGS --verbose --release --locked"
 case $host in
-  ${host_cpu}-w64-mingw*) CARGO_FLAGS="$CARGO_FLAGS --verbose --release" CARGO_TARGET=${host_cpu}-pc-windows-gnu ;;
-  ${host_cpu}-pc-linux*) CARGO_FLAGS="$CARGO_FLAGS --verbose --release" CARGO_TARGET=${host_cpu}-unknown-${host_os} ;;
-  ${host_cpu}-apple-darwin*) CARGO_FLAGS="$CARGO_FLAGS --verbose --release" CARGO_TARGET=${host_cpu}-apple-darwin ;;
-  *) CARGO_FLAGS="$CARGO_FLAGS --verbose --release" CARGO_TARGET=${host} ;;
+  ${host_cpu}-w64-mingw*) CARGO_TARGET=${host_cpu}-pc-windows-gnu ;;
+  ${host_cpu}-pc-linux*) CARGO_TARGET=${host_cpu}-unknown-${host_os} ;;
+  ${host_cpu}-apple-darwin*) CARGO_TARGET=${host_cpu}-apple-darwin ;;
+  *) CARGO_TARGET=${host} ;;
 esac
 
 use_pkgconfig=yes
@@ -771,12 +776,17 @@ if test x$use_hardening != xno; then
   AX_CHECK_COMPILE_FLAG([-Wstack-protector],[HARDENED_CXXFLAGS="$HARDENED_CXXFLAGS -Wstack-protector"])
   AX_CHECK_COMPILE_FLAG([-fstack-protector-all],[HARDENED_CXXFLAGS="$HARDENED_CXXFLAGS -fstack-protector-all"])
 
-  AX_CHECK_PREPROC_FLAG([-D_FORTIFY_SOURCE=2],[
-    AX_CHECK_PREPROC_FLAG([-U_FORTIFY_SOURCE],[
-      HARDENED_CPPFLAGS="$HARDENED_CPPFLAGS -U_FORTIFY_SOURCE"
+  # When enable_debug is yes, all optimizations are disabled.
+  # However, FORTIFY_SOURCE requires that there is some level of optimization, otherwise it does nothing and just creates a compiler warning.
+  # Since FORTIFY_SOURCE is a no-op without optimizations, do not enable it when enable_debug is yes.
+  if test x$enable_debug != xyes; then
+    AX_CHECK_PREPROC_FLAG([-D_FORTIFY_SOURCE=2],[
+      AX_CHECK_PREPROC_FLAG([-U_FORTIFY_SOURCE],[
+        HARDENED_CPPFLAGS="$HARDENED_CPPFLAGS -U_FORTIFY_SOURCE"
+      ])
+      HARDENED_CPPFLAGS="$HARDENED_CPPFLAGS -D_FORTIFY_SOURCE=2"
     ])
-    HARDENED_CPPFLAGS="$HARDENED_CPPFLAGS -D_FORTIFY_SOURCE=2"
-  ])
+  fi
 
   AX_CHECK_LINK_FLAG([[-Wl,--dynamicbase]], [HARDENED_LDFLAGS="$HARDENED_LDFLAGS -Wl,--dynamicbase"])
   AX_CHECK_LINK_FLAG([[-Wl,--nxcompat]], [HARDENED_LDFLAGS="$HARDENED_LDFLAGS -Wl,--nxcompat"])
@@ -885,25 +895,6 @@ AC_LINK_IFELSE([AC_LANG_SOURCE([
     if test x$use_reduce_exports = xyes; then
       AC_MSG_ERROR([Cannot find a working visibility attribute. Use --disable-reduce-exports.])
     fi
-  ]
-)
-
-dnl Check for CWG1579 (http://www.open-std.org/jtc1/sc22/wg21/docs/cwg_defects.html#1579) fix in C++ compiler
-AC_MSG_CHECKING([whether $CXX has a fix for CWG1579])
-AC_COMPILE_IFELSE([AC_LANG_SOURCE([
-  #include <memory>
-  struct S1 {};
-  struct S2: S1 {};
-  std::unique_ptr<S1> f() {
-    std::unique_ptr<S2> s2(new S2);
-    return s2;
-  }
-  ])],
-  [
-    AC_DEFINE(HAVE_CXX_CWG1579_FIX,1,[Define this symbol when the C++ compiler has a fix for <http://www.open-std.org/jtc1/sc22/wg21/docs/cwg_defects.html#1579> "Return by converting move constructor".])
-    AC_MSG_RESULT([yes])
-  ],
-    [AC_MSG_RESULT([no])
   ]
 )
 
@@ -1665,17 +1656,6 @@ ac_configure_args="${ac_configure_args} --disable-shared --with-pic --enable-ben
 AC_CONFIG_SUBDIRS([src/secp256k1])
 
 AC_OUTPUT
-
-dnl Taken from https://wiki.debian.org/RpathIssue
-case $host in
-   *-*-linux-gnu)
-     AC_MSG_RESULT([Fixing libtool for -rpath problems.])
-     sed < libtool > libtool-2 \
-     's/^hardcode_libdir_flag_spec.*$'/'hardcode_libdir_flag_spec=" -D__LIBTOOL_IS_A_FOOL__ "/'
-     mv libtool-2 libtool
-     chmod 755 libtool
-   ;;
-esac
 
 dnl Replace the BUILDDIR path with the correct Windows path if compiling on Native Windows
 case ${OS} in

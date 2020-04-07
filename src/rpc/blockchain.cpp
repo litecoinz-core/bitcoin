@@ -1248,7 +1248,7 @@ static UniValue NetworkUpgradeDesc(const Consensus::Params& consensusParams, Con
 {
     UniValue rv(UniValue::VOBJ);
     auto upgrade = NetworkUpgradeInfo[idx];
-    rv.pushKV("name", upgrade.strName);
+    rv.pushKV("branchid", HexInt(upgrade.nBranchId));
     rv.pushKV("activationheight", consensusParams.vUpgrades[idx].nActivationHeight);
     switch (NetworkUpgradeState(height, consensusParams, idx)) {
         case UPGRADE_DISABLED: rv.pushKV("status", "disabled"); break;
@@ -1265,7 +1265,7 @@ void NetworkUpgradeDescPushBack(UniValue& networkUpgrades, const Consensus::Para
     // hidden. This is used when network upgrade implementations are merged
     // without specifying the activation height.
     if (consensusParams.vUpgrades[idx].nActivationHeight != Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT) {
-        networkUpgrades.pushKV(HexInt(NetworkUpgradeInfo[idx].nBranchId), NetworkUpgradeDesc(consensusParams, idx, height));
+        networkUpgrades.pushKV(NetworkUpgradeInfo[idx].strName, NetworkUpgradeDesc(consensusParams, idx, height));
     }
 }
 
@@ -1280,6 +1280,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "{\n"
             "  \"chain\": \"xxxx\",              (string) current network name (main, test, regtest)\n"
             "  \"blocks\": xxxxxx,             (numeric) the height of the most-work fully-validated chain. The genesis block has height 0\n"
+            "  \"synced\": xx,                 (boolean) true if the blockchain is in sync\n"
             "  \"headers\": xxxxxx,            (numeric) the current number of headers we have validated\n"
             "  \"bestblockhash\": \"...\",       (string) the hash of the currently best block\n"
             "  \"difficulty\": xxxxxx,         (numeric) the current difficulty\n"
@@ -1316,8 +1317,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "  }\n"
             "  ],\n"
             "  \"upgrades\": {                (object) status of network upgrades\n"
-            "     \"xxxx\" : {                (string) branch ID of the upgrade\n"
-            "        \"name\": \"xxxx\",        (string) name of upgrade\n"
+            "     \"xxxx\" : {                (string) name of the upgrade\n"
+            "        \"branchid\": \"xxxx\",          (string) branch ID of upgrade\n"
             "        \"activationheight\": xxxxxx,  (numeric) block height of activation\n"
             "        \"status\": \"xxxx\",      (string) status of upgrade\n"
             "        \"info\": \"xxxx\",        (string) additional information about upgrade\n"
@@ -1343,6 +1344,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     obj.pushKV("chain",                 Params().NetworkIDString());
     obj.pushKV("blocks",                (int)::ChainActive().Height());
     obj.pushKV("headers",               pindexBestHeader ? pindexBestHeader->nHeight : -1);
+    obj.pushKV("synced",                !::ChainstateActive().IsInitialBlockDownload());
     obj.pushKV("bestblockhash",         tip->GetBlockHash().GetHex());
     obj.pushKV("difficulty",            (double)GetNetworkDifficulty(tip));
     obj.pushKV("mediantime",            (int64_t)tip->GetMedianTimePast());
@@ -1384,7 +1386,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     BuriedForkDescPushBack(softforks, "bip65", consensusParams.BIP65Enabled ? 0 : std::numeric_limits<int>::max());
     BuriedForkDescPushBack(softforks, "bip66", consensusParams.BIP66Enabled ? 0 : std::numeric_limits<int>::max());
     BuriedForkDescPushBack(softforks, "csv", consensusParams.CSVHeight);
-    BuriedForkDescPushBack(softforks, "segwit", consensusParams.SegwitHeight);
+    BuriedForkDescPushBack(softforks, "segwit", consensusParams.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nActivationHeight);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);
 
@@ -2169,7 +2171,7 @@ UniValue scantxoutset(const JSONRPCRequest& request)
             "                                      \"start\" for starting a scan\n"
             "                                      \"abort\" for aborting the current scan (returns true when abort was successful)\n"
             "                                      \"status\" for progress report (in %) of the current scan"},
-                    {"scanobjects", RPCArg::Type::ARR, RPCArg::Optional::NO, "Array of scan objects\n"
+                    {"scanobjects", RPCArg::Type::ARR, RPCArg::Optional::OMITTED, "Array of scan objects. Required for \"start\" action\n"
             "                                  Every scan object is either a string descriptor or an object:",
                         {
                             {"descriptor", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "An output descriptor"},
@@ -2229,6 +2231,11 @@ UniValue scantxoutset(const JSONRPCRequest& request)
         if (!reserver.reserve()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Scan already in progress, use action \"abort\" or \"status\"");
         }
+
+        if (request.params.size() < 2) {
+            throw JSONRPCError(RPC_MISC_ERROR, "scanobjects argument is required for the start action");
+        }
+
         std::set<CScript> needles;
         std::map<CScript, std::string> descriptors;
         CAmount total_in = 0;

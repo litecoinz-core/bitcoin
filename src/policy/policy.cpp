@@ -84,8 +84,15 @@ bool IsStandardTx(const CTransaction& tx, bool permit_bare_multisig, const CFeeR
 
     bool overwinterActive = chainparams.GetConsensus().NetworkUpgradeActive(nHeight, Consensus::UPGRADE_OVERWINTER);
     bool saplingActive = chainparams.GetConsensus().NetworkUpgradeActive(nHeight, Consensus::UPGRADE_SAPLING);
+    bool alpheratzActive = chainparams.GetConsensus().NetworkUpgradeActive(nHeight, Consensus::UPGRADE_ALPHERATZ);
 
-    if (saplingActive) {
+    if (alpheratzActive) {
+        // Alpheratz standard rules apply
+        if (tx.nVersion > CTransaction::ALPHERATZ_MAX_CURRENT_VERSION || tx.nVersion < CTransaction::ALPHERATZ_MIN_CURRENT_VERSION) {
+            reason = "alpheratz-version";
+            return false;
+        }
+    } else if (saplingActive) {
         // Sapling standard rules apply
         if (tx.nVersion > CTransaction::SAPLING_MAX_CURRENT_VERSION || tx.nVersion < CTransaction::SAPLING_MIN_CURRENT_VERSION) {
             reason = "sapling-version";
@@ -194,7 +201,7 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs,
             std::vector<std::vector<unsigned char> > stack;
             // convert the scriptSig into a stack, so we can inspect the redeemScript
             SigVersion sigversion = SigVersion::BASE;
-            if (tx.nVersion == 4)
+            if (tx.nVersion == 4 || tx.nVersion == 5)
                 sigversion = SigVersion::SAPLING_V0;
             if (!EvalScript(stack, tx.vin[i].scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker(), sigversion, consensusBranchId))
                 return false;
@@ -233,7 +240,7 @@ bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs,
             // into a stack. We do not check IsPushOnly nor compare the hash as these will be done later anyway.
             // If the check fails at this stage, we know that this txid must be a bad one.
             SigVersion sigversion = SigVersion::BASE;
-            if (tx.nVersion == 4)
+            if (tx.nVersion == 4 || tx.nVersion == 5)
                 sigversion = SigVersion::SAPLING_V0;
             if (!EvalScript(stack, tx.vin[i].scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker(), sigversion, consensusBranchId))
                 return false;

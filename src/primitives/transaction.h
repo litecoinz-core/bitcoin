@@ -40,6 +40,11 @@ static const int32_t SAPLING_TX_VERSION = 4;
 static_assert(SAPLING_TX_VERSION >= SAPLING_MIN_TX_VERSION, "Sapling tx version must not be lower than minimum");
 static_assert(SAPLING_TX_VERSION <= SAPLING_MAX_TX_VERSION, "Sapling tx version must not be higher than maximum");
 
+// Alpheratz transaction version
+static const int32_t ALPHERATZ_TX_VERSION = 5;
+static_assert(ALPHERATZ_TX_VERSION >= ALPHERATZ_MIN_TX_VERSION, "Alpheratz tx version must not be lower than minimum");
+static_assert(ALPHERATZ_TX_VERSION <= ALPHERATZ_MAX_TX_VERSION, "Alpheratz tx version must not be higher than maximum");
+
 /**
  * A shielded input to a transaction. It contains data that describes a Spend transfer.
  */
@@ -349,6 +354,49 @@ public:
     }
 };
 
+/** A note outpoint */
+class SproutOutPoint
+{
+public:
+    // Transaction hash
+    uint256 hash;
+    // Index into CTransaction.vJoinSplit
+    uint64_t js;
+    // Index into JSDescription fields of length ZC_NUM_JS_OUTPUTS
+    uint8_t n;
+
+    SproutOutPoint() { SetNull(); }
+    SproutOutPoint(uint256 h, uint64_t js, uint8_t n) : hash {h}, js {js}, n {n} { }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(hash);
+        READWRITE(js);
+        READWRITE(n);
+    }
+
+    void SetNull() { hash.SetNull(); }
+    bool IsNull() const { return hash.IsNull(); }
+
+    friend bool operator<(const SproutOutPoint& a, const SproutOutPoint& b) {
+        return (a.hash < b.hash ||
+                (a.hash == b.hash && a.js < b.js) ||
+                (a.hash == b.hash && a.js == b.js && a.n < b.n));
+    }
+
+    friend bool operator==(const SproutOutPoint& a, const SproutOutPoint& b) {
+        return (a.hash == b.hash && a.js == b.js && a.n == b.n);
+    }
+
+    friend bool operator!=(const SproutOutPoint& a, const SproutOutPoint& b) {
+        return !(a == b);
+    }
+
+    std::string ToString() const;
+};
+
 /** An outpoint - a combination of a transaction hash and an index n into its vout */
 class COutPoint : public BaseOutPoint
 {
@@ -488,6 +536,118 @@ public:
     std::string ToString() const;
 };
 
+class SproutNoteData
+{
+public:
+    libzcash::SproutPaymentAddress address;
+
+    /**
+     * Cached note nullifier. May not be set if the wallet was not unlocked when
+     * this was SproutNoteData was created. If not set, we always assume that the
+     * note has not been spent.
+     *
+     * It's okay to cache the nullifier in the wallet, because we are storing
+     * the spending key there too, which could be used to derive this.
+     * If the wallet is encrypted, this means that someone with access to the
+     * locked wallet cannot spend notes, but can connect received notes to the
+     * transactions they are spent in. This is the same security semantics as
+     * for transparent addresses.
+     */
+    boost::optional<uint256> nullifier;
+
+    /**
+     * Cached incremental witnesses for spendable Notes.
+     * Beginning of the list is the most recent witness.
+     */
+    std::list<SproutWitness> witnesses;
+
+    /**
+     * Block height corresponding to the most current witness.
+     *
+     * When we first create a SproutNoteData in CWallet::FindMySproutNotes, this is set to
+     * -1 as a placeholder. The next time CWallet::ChainTip is called, we can
+     * determine what height the witness cache for this note is valid for (even
+     * if no witnesses were cached), and so can set the correct value in
+     * CWallet::BuildWitnessCache and CWallet::DecrementNoteWitnesses.
+     */
+    int witnessHeight;
+
+    // In Memory Only
+    bool witnessRootValidated;
+
+    SproutNoteData() : address(), nullifier(), witnessHeight {-1}, witnessRootValidated {false} { }
+    SproutNoteData(libzcash::SproutPaymentAddress a) :
+            address {a}, nullifier(), witnessHeight {-1}, witnessRootValidated {false} { }
+    SproutNoteData(libzcash::SproutPaymentAddress a, uint256 n) :
+            address {a}, nullifier {n}, witnessHeight {-1}, witnessRootValidated {false} { }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(address);
+        READWRITE(nullifier);
+        READWRITE(witnesses);
+        READWRITE(witnessHeight);
+    }
+
+    friend bool operator<(const SproutNoteData& a, const SproutNoteData& b) {
+        return (a.address < b.address ||
+                (a.address == b.address && a.nullifier < b.nullifier));
+    }
+
+    friend bool operator==(const SproutNoteData& a, const SproutNoteData& b) {
+        return (a.address == b.address && a.nullifier == b.nullifier);
+    }
+
+    friend bool operator!=(const SproutNoteData& a, const SproutNoteData& b) {
+        return !(a == b);
+    }
+};
+
+class SaplingNoteData
+{
+public:
+    /**
+     * We initialize the height to -1 for the same reason as we do in SproutNoteData.
+     * See the comment in that class for a full description.
+     */
+    SaplingNoteData() : witnessHeight {-1}, nullifier(), witnessRootValidated {false} { }
+    SaplingNoteData(libzcash::SaplingIncomingViewingKey ivk) : ivk {ivk}, witnessHeight {-1}, nullifier(), witnessRootValidated {false} { }
+    SaplingNoteData(libzcash::SaplingIncomingViewingKey ivk, uint256 n) : ivk {ivk}, witnessHeight {-1}, nullifier(n), witnessRootValidated {false} { }
+
+    libzcash::SaplingIncomingViewingKey ivk;
+    int witnessHeight;
+    boost::optional<uint256> nullifier;
+
+    std::list<SaplingWitness> witnesses;
+
+    // In Memory Only
+    bool witnessRootValidated;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        int nVersion = s.GetVersion();
+        if (!(s.GetType() & SER_GETHASH)) {
+            READWRITE(nVersion);
+        }
+        READWRITE(ivk);
+        READWRITE(nullifier);
+        READWRITE(witnesses);
+        READWRITE(witnessHeight);
+    }
+
+    friend bool operator==(const SaplingNoteData& a, const SaplingNoteData& b) {
+        return (a.ivk == b.ivk && a.nullifier == b.nullifier && a.witnessHeight == b.witnessHeight);
+    }
+
+    friend bool operator!=(const SaplingNoteData& a, const SaplingNoteData& b) {
+        return !(a == b);
+    }
+};
+
 // Overwinter version group id
 static constexpr uint32_t OVERWINTER_VERSION_GROUP_ID = 0x03C48270;
 static_assert(OVERWINTER_VERSION_GROUP_ID != 0, "version group id must be non-zero as specified in ZIP 202");
@@ -495,6 +655,10 @@ static_assert(OVERWINTER_VERSION_GROUP_ID != 0, "version group id must be non-ze
 // Sapling version group id
 static constexpr uint32_t SAPLING_VERSION_GROUP_ID = 0x892F2085;
 static_assert(SAPLING_VERSION_GROUP_ID != 0, "version group id must be non-zero as specified in ZIP 202");
+
+// Alpheratz version group id
+static constexpr uint32_t ALPHERATZ_VERSION_GROUP_ID = 0x7C531232;
+static_assert(ALPHERATZ_VERSION_GROUP_ID != 0, "version group id must be non-zero as specified in ZIP 202");
 
 struct CMutableTransaction;
 
@@ -504,38 +668,82 @@ struct CMutableTransaction;
  * - std::vector<CTxIn> vin
  * - std::vector<CTxOut> vout
  * - uint32_t nLockTime
+ * - std::vector<JSDescription> vJoinSplit
  *
- * Extended transaction serialization format:
+ * Overwinter transaction serialization format:
+ * - int32_t nVersion
+ * - uint32_t nVersionGroupId
+ * - std::vector<CTxIn> vin
+ * - std::vector<CTxOut> vout
+ * - uint32_t nLockTime
+ * - uint32_t nExpiryHeigh
+ * - std::vector<JSDescription> vJoinSplit
+ *
+ * Sapling transaction serialization format:
+ * - int32_t nVersion
+ * - uint32_t nVersionGroupId
+ * - std::vector<CTxIn> vin
+ * - std::vector<CTxOut> vout
+ * - uint32_t nLockTime
+ * - uint32_t nExpiryHeigh
+ * - CAmount valueBalance
+ * - std::vector<SpendDescription> vShieldedSpend
+ * - std::vector<OutputDescription> vShieldedOutput
+ * - std::vector<JSDescription> vJoinSplit
+ * - std::array<unsigned char, 64> bindingSig
+ *
+ * Alpheratz transaction serialization format:
  * - int32_t nVersion
  * - unsigned char dummy = 0x00
  * - unsigned char flags (!= 0)
+ * - uint32_t nVersionGroupId
  * - std::vector<CTxIn> vin
  * - std::vector<CTxOut> vout
  * - if (flags & 1):
  *   - CTxWitness wit;
  * - uint32_t nLockTime
+ * - uint32_t nExpiryHeigh
+ * - CAmount valueBalance
+ * - std::vector<SpendDescription> vShieldedSpend
+ * - std::vector<OutputDescription> vShieldedOutput
+ * - std::vector<JSDescription> vJoinSplit
+ * - std::array<unsigned char, 64> bindingSig
  */
 template<typename Stream, typename TxType>
 inline void UnserializeTransaction(TxType& tx, Stream& s) {
     uint32_t header;
+
     s >> header;
-    tx.fOverwintered = header >> 31;
     tx.nVersion = header & 0x7FFFFFFF;
-    if (tx.fOverwintered)
+    tx.fOverwintered = header >> 31;
+
+    if (tx.fOverwintered) {
+        /* Try to read the nVersionGroupId. In case the dummy is there, this will be read as an 0 value. */
         s >> tx.nVersionGroupId;
+    }
+
     bool isOverwinterV3 = tx.fOverwintered && tx.nVersionGroupId == OVERWINTER_VERSION_GROUP_ID && tx.nVersion == OVERWINTER_TX_VERSION;
     bool isSaplingV4 = tx.fOverwintered && tx.nVersionGroupId == SAPLING_VERSION_GROUP_ID && tx.nVersion == SAPLING_TX_VERSION;
-    if (tx.fOverwintered && !(isOverwinterV3 || isSaplingV4))
+    bool isAlpheratzV5 = tx.fOverwintered && tx.nVersionGroupId == ALPHERATZ_VERSION_GROUP_ID && tx.nVersion == ALPHERATZ_TX_VERSION;
+
+    if (tx.fOverwintered && !(isOverwinterV3 || isSaplingV4 || isAlpheratzV5))
         throw std::ios_base::failure("UnserializeTransaction() Unknown transaction format");
+
     tx.vin.clear();
     tx.vout.clear();
-    /* Try to read the vin. In case the dummy is there, this will be read as an empty vector. */
     s >> tx.vin;
     s >> tx.vout;
+
+    if (isAlpheratzV5) {
+        for (size_t i = 0; i < tx.vin.size(); i++) {
+            s >> tx.vin[i].scriptWitness.stack;
+        }
+    }
+
     s >> tx.nLockTime;
-    if (isOverwinterV3 || isSaplingV4)
+    if (isOverwinterV3 || isSaplingV4 || isAlpheratzV5)
         s >> tx.nExpiryHeight;
-    if (isSaplingV4) {
+    if (isSaplingV4 || isAlpheratzV5) {
         s >> tx.valueBalance;
         s >> tx.vShieldedSpend;
         s >> tx.vShieldedOutput;
@@ -548,7 +756,7 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
             s >> tx.joinSplitSig;
         }
     }
-    if (isSaplingV4 && !(tx.vShieldedSpend.empty() && tx.vShieldedOutput.empty())) {
+    if ((isSaplingV4 || isAlpheratzV5) && !(tx.vShieldedSpend.empty() && tx.vShieldedOutput.empty())) {
         s >> tx.bindingSig;
     }
 }
@@ -560,18 +768,31 @@ inline void SerializeTransaction(const TxType& tx, Stream& s) {
         header |= 1 << 31;
     }
     s << header;
-    if (tx.fOverwintered)
+
+    if (tx.fOverwintered) {
         s << tx.nVersionGroupId;
+    }
+
     bool isOverwinterV3 = tx.fOverwintered && tx.nVersionGroupId == OVERWINTER_VERSION_GROUP_ID && tx.nVersion == OVERWINTER_TX_VERSION;
     bool isSaplingV4 = tx.fOverwintered && tx.nVersionGroupId == SAPLING_VERSION_GROUP_ID && tx.nVersion == SAPLING_TX_VERSION;
-    if (tx.fOverwintered && !(isOverwinterV3 || isSaplingV4))
+    bool isAlpheratzV5 = tx.fOverwintered && tx.nVersionGroupId == ALPHERATZ_VERSION_GROUP_ID && tx.nVersion == ALPHERATZ_TX_VERSION;
+
+    if (tx.fOverwintered && !(isOverwinterV3 || isSaplingV4 || isAlpheratzV5))
         throw std::ios_base::failure("SerializeTransaction() Unknown transaction format");
+
     s << tx.vin;
     s << tx.vout;
+
+    if (isAlpheratzV5) {
+        for (size_t i = 0; i < tx.vin.size(); i++) {
+            s << tx.vin[i].scriptWitness.stack;
+        }
+    }
+
     s << tx.nLockTime;
-    if (isOverwinterV3 || isSaplingV4)
+    if (isOverwinterV3 || isSaplingV4 || isAlpheratzV5)
         s << tx.nExpiryHeight;
-    if (isSaplingV4) {
+    if (isSaplingV4 || isAlpheratzV5) {
         s << tx.valueBalance;
         s << tx.vShieldedSpend;
         s << tx.vShieldedOutput;
@@ -584,7 +805,7 @@ inline void SerializeTransaction(const TxType& tx, Stream& s) {
             s << tx.joinSplitSig;
         }
     }
-    if (isSaplingV4 && !(tx.vShieldedSpend.empty() && tx.vShieldedOutput.empty()))
+    if ((isSaplingV4 || isAlpheratzV5) && !(tx.vShieldedSpend.empty() && tx.vShieldedOutput.empty()))
         s << tx.bindingSig;
 }
 
@@ -605,6 +826,8 @@ public:
     static const int32_t OVERWINTER_MAX_CURRENT_VERSION = 3;
     static const int32_t SAPLING_MIN_CURRENT_VERSION = 4;
     static const int32_t SAPLING_MAX_CURRENT_VERSION = 4;
+    static const int32_t ALPHERATZ_MIN_CURRENT_VERSION = 5;
+    static const int32_t ALPHERATZ_MAX_CURRENT_VERSION = 5;
 
     static_assert(SPROUT_MIN_CURRENT_VERSION >= SPROUT_MIN_TX_VERSION,
                   "standard rule for tx version should be consistent with network rule");
@@ -612,25 +835,32 @@ public:
     static_assert(OVERWINTER_MIN_CURRENT_VERSION >= OVERWINTER_MIN_TX_VERSION,
                   "standard rule for tx version should be consistent with network rule");
 
-    static_assert( (OVERWINTER_MAX_CURRENT_VERSION <= OVERWINTER_MAX_TX_VERSION &&
-                    OVERWINTER_MAX_CURRENT_VERSION >= OVERWINTER_MIN_CURRENT_VERSION),
+    static_assert((OVERWINTER_MAX_CURRENT_VERSION <= OVERWINTER_MAX_TX_VERSION &&
+                   OVERWINTER_MAX_CURRENT_VERSION >= OVERWINTER_MIN_CURRENT_VERSION),
                   "standard rule for tx version should be consistent with network rule");
 
     static_assert(SAPLING_MIN_CURRENT_VERSION >= SAPLING_MIN_TX_VERSION,
                   "standard rule for tx version should be consistent with network rule");
 
-    static_assert( (SAPLING_MAX_CURRENT_VERSION <= SAPLING_MAX_TX_VERSION &&
-                    SAPLING_MAX_CURRENT_VERSION >= SAPLING_MIN_CURRENT_VERSION),
+    static_assert((SAPLING_MAX_CURRENT_VERSION <= SAPLING_MAX_TX_VERSION &&
+                   SAPLING_MAX_CURRENT_VERSION >= SAPLING_MIN_CURRENT_VERSION),
                   "standard rule for tx version should be consistent with network rule");
 
+    static_assert(ALPHERATZ_MIN_CURRENT_VERSION >= ALPHERATZ_MIN_TX_VERSION,
+                  "standard rule for tx version should be consistent with network rule");
+
+    static_assert((ALPHERATZ_MAX_CURRENT_VERSION <= ALPHERATZ_MAX_TX_VERSION &&
+                   ALPHERATZ_MAX_CURRENT_VERSION >= ALPHERATZ_MIN_CURRENT_VERSION),
+                   "standard rule for tx version should be consistent with network rule");
+
     // Default transaction version.
-    static const int32_t CURRENT_VERSION=4;
+    static const int32_t CURRENT_VERSION=5;
 
     // Changing the default transaction version requires a two step process: first
     // adapting relay policy by bumping MAX_STANDARD_VERSION, and then later date
     // bumping the default CURRENT_VERSION at which point both CURRENT_VERSION and
     // MAX_STANDARD_VERSION will be equal.
-    static const int32_t MAX_STANDARD_VERSION=4;
+    static const int32_t MAX_STANDARD_VERSION=5;
 
     // The local variables are made const to prevent unintended modification
     // without updating the cached hash value. However, CTransaction is not
@@ -744,6 +974,14 @@ public:
         }
         return false;
     }
+
+    bool HasAlpheratz() const
+    {
+        if (fOverwintered && nVersionGroupId == ALPHERATZ_VERSION_GROUP_ID && nVersion == ALPHERATZ_TX_VERSION) {
+            return true;
+        }
+        return false;
+    }
 };
 
 /** A mutable version of CTransaction. */
@@ -811,6 +1049,14 @@ struct CMutableTransaction
     bool HasSapling() const
     {
         if (fOverwintered && nVersionGroupId == SAPLING_VERSION_GROUP_ID && nVersion == SAPLING_TX_VERSION) {
+            return true;
+        }
+        return false;
+    }
+
+    bool HasAlpheratz() const
+    {
+        if (fOverwintered && nVersionGroupId == ALPHERATZ_VERSION_GROUP_ID && nVersion == ALPHERATZ_TX_VERSION) {
             return true;
         }
         return false;

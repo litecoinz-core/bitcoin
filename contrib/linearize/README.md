@@ -1,5 +1,5 @@
 # Linearize
-Construct a linear, no-fork, best version of the Litecoinz blockchain.
+Construct a linear, no-fork, best version of the LitecoinZ blockchain.
 
 ## Step 1: Download hash list
 

@@ -369,6 +369,8 @@ static CTransactionRef RandomOrphan()
 
 BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
 {
+    uint32_t consensusBranchId = SPROUT_BRANCH_ID;
+
     CKey key;
     key.MakeNewKey(true);
     FillableSigningProvider keystore;
@@ -401,7 +403,7 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         tx.vout.resize(1);
         tx.vout[0].nValue = 1*CENT;
         tx.vout[0].scriptPubKey = GetScriptForDestination(PKHash(key.GetPubKey()));
-        BOOST_CHECK(SignSignature(keystore, *txPrev, tx, 0, SIGHASH_ALL, 0));
+        BOOST_CHECK(SignSignature(keystore, *txPrev, tx, 0, SIGHASH_ALL, consensusBranchId));
 
         AddOrphanTx(MakeTransactionRef(tx), i);
     }
@@ -421,7 +423,7 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
             tx.vin[j].prevout.n = j;
             tx.vin[j].prevout.hash = txPrev->GetHash();
         }
-        BOOST_CHECK(SignSignature(keystore, *txPrev, tx, 0, SIGHASH_ALL, 0));
+        BOOST_CHECK(SignSignature(keystore, *txPrev, tx, 0, SIGHASH_ALL, consensusBranchId));
         // Re-use same signature for other inputs
         // (they don't have to be valid for this test)
         for (unsigned int j = 1; j < tx.vin.size(); j++)

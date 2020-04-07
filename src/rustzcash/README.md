@@ -1,18 +1,18 @@
-# Zcash Rust crates
+# librustzcash
 
-This repository contains a (work-in-progress) set of Rust crates for
-working with Zcash.
+`librustzcash` is an FFI library crate that exposes the Zcash Rust components to
+the `zcashd` full node.
 
-## Security Warnings
-
-These libraries are currently under development and have not been fully-reviewed.
+The FFI API does not have any stability guarantees, and will change as required
+by `zcashd`.
 
 ## License
 
-All code in this workspace is licensed under either of
+Licensed under either of
 
- * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
- * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+ * Apache License, Version 2.0, ([LICENSE-APACHE](../LICENSE-APACHE) or
+   http://www.apache.org/licenses/LICENSE-2.0)
+ * MIT license ([LICENSE-MIT](../LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
 at your option.
 

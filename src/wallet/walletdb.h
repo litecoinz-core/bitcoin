@@ -13,7 +13,6 @@
 #include <wallet/db.h>
 #include <key.h>
 #include <zcash/Address.hpp>
-#include <zcash/zip32.h>
 
 #include <list>
 #include <stdint.h>
@@ -375,6 +374,8 @@ public:
 
     bool WriteSproutViewingKey(const libzcash::SproutViewingKey &vk);
     bool EraseSproutViewingKey(const libzcash::SproutViewingKey &vk);
+    bool WriteSaplingExtendedFullViewingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk);
+    bool EraseSaplingExtendedFullViewingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk);
 
 private:
     BerkeleyBatch m_batch;

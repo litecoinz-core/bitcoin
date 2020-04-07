@@ -19,6 +19,14 @@
 const QString AddressTableModel::Send = "S";
 const QString AddressTableModel::Receive = "R";
 
+const QString AddressTableModel::Base = "base";
+const QString AddressTableModel::Sprout = "sprout";
+const QString AddressTableModel::Sapling = "sapling";
+
+const QString AddressTableModel::All = "A";
+const QString AddressTableModel::Transparent = "T";
+const QString AddressTableModel::Shielded = "Z";
+
 struct AddressTableEntry
 {
     enum Type {
@@ -28,12 +36,13 @@ struct AddressTableEntry
     };
 
     Type type;
+    QString addressbook;
     QString label;
     QString address;
 
     AddressTableEntry() {}
-    AddressTableEntry(Type _type, const QString &_label, const QString &_address):
-        type(_type), label(_label), address(_address) {}
+    AddressTableEntry(Type _type, const QString &_addressbook, const QString &_label, const QString &_address):
+        type(_type), addressbook(_addressbook), label(_label), address(_address) {}
 };
 
 struct AddressTableEntryLessThan
@@ -80,13 +89,34 @@ public:
     {
         cachedAddressTable.clear();
         {
+            // Transparent address
             for (const auto& address : wallet.getAddresses())
             {
                 AddressTableEntry::Type addressType = translateTransactionType(
                         QString::fromStdString(address.purpose), address.is_mine);
-                cachedAddressTable.append(AddressTableEntry(addressType,
+                cachedAddressTable.append(AddressTableEntry(addressType, AddressTableModel::Base,
                                   QString::fromStdString(address.name),
                                   QString::fromStdString(EncodeDestination(address.dest))));
+            }
+
+            // Sprout addresses
+            for (const auto& address : wallet.getSproutAddresses())
+            {
+                AddressTableEntry::Type addressType = translateTransactionType(
+                        QString::fromStdString(address.purpose), address.is_mine);
+                cachedAddressTable.append(AddressTableEntry(addressType, AddressTableModel::Sprout,
+                                  QString::fromStdString(address.name),
+                                  QString::fromStdString(EncodePaymentAddress(address.dest))));
+            }
+
+            // Sapling addresses
+            for (const auto& address : wallet.getSaplingAddresses())
+            {
+                AddressTableEntry::Type addressType = translateTransactionType(
+                        QString::fromStdString(address.purpose), address.is_mine);
+                cachedAddressTable.append(AddressTableEntry(addressType, AddressTableModel::Sapling,
+                                  QString::fromStdString(address.name),
+                                  QString::fromStdString(EncodePaymentAddress(address.dest))));
             }
         }
         // std::lower_bound() and std::upper_bound() require our cachedAddressTable list to be sorted in asc order
@@ -95,7 +125,7 @@ public:
         std::sort(cachedAddressTable.begin(), cachedAddressTable.end(), AddressTableEntryLessThan());
     }
 
-    void updateEntry(const QString &address, const QString &label, bool isMine, const QString &purpose, int status)
+    void updateEntry(const QString &addressbook, const QString &address, const QString &label, bool isMine, const QString &purpose, int status)
     {
         // Find address / label in model
         QList<AddressTableEntry>::iterator lower = std::lower_bound(
@@ -116,7 +146,7 @@ public:
                 break;
             }
             parent->beginInsertRows(QModelIndex(), lowerIndex, lowerIndex);
-            cachedAddressTable.insert(lowerIndex, AddressTableEntry(newEntryType, label, address));
+            cachedAddressTable.insert(lowerIndex, AddressTableEntry(newEntryType, addressbook, label, address));
             parent->endInsertRows();
             break;
         case CT_UPDATED:
@@ -126,6 +156,7 @@ public:
                 break;
             }
             lower->type = newEntryType;
+            lower->addressbook = addressbook;
             lower->label = label;
             parent->emitDataChanged(lowerIndex);
             break;
@@ -229,6 +260,13 @@ QVariant AddressTableModel::data(const QModelIndex &index, int role) const
         default: break;
         }
     }
+    else if (role == FilterRole)
+    {
+        if (rec->addressbook == AddressTableModel::Base)
+            return Transparent;
+        if ((rec->addressbook == AddressTableModel::Sprout) || (rec->addressbook == AddressTableModel::Sapling))
+            return Shielded;
+    }
     return QVariant();
 }
 
@@ -242,45 +280,136 @@ bool AddressTableModel::setData(const QModelIndex &index, const QVariant &value,
 
     if(role == Qt::EditRole)
     {
-        CTxDestination curAddress = DecodeDestination(rec->address.toStdString());
-        if(index.column() == Label)
+        if(rec->addressbook == AddressTableModel::Base)
         {
-            // Do nothing, if old label == new label
-            if(rec->label == value.toString())
+            CTxDestination curAddress = DecodeDestination(rec->address.toStdString());
+            if(index.column() == Label)
             {
-                editStatus = NO_CHANGES;
-                return false;
+                // Do nothing, if old label == new label
+                if(rec->label == value.toString())
+                {
+                    editStatus = NO_CHANGES;
+                    return false;
+                }
+                walletModel->wallet().setAddressBook(curAddress, value.toString().toStdString(), strPurpose);
+            } else if(index.column() == Address) {
+                CTxDestination newAddress = DecodeDestination(value.toString().toStdString());
+                // Refuse to set invalid address, set error status and return false
+                if(boost::get<CNoDestination>(&newAddress))
+                {
+                    editStatus = INVALID_ADDRESS;
+                    return false;
+                }
+                // Do nothing, if old address == new address
+                else if(newAddress == curAddress)
+                {
+                    editStatus = NO_CHANGES;
+                    return false;
+                }
+                // Check for duplicate addresses to prevent accidental deletion of addresses, if you try
+                // to paste an existing address over another address (with a different label)
+                if (walletModel->wallet().getAddress(
+                        newAddress, /* name= */ nullptr, /* is_mine= */ nullptr, /* purpose= */ nullptr))
+                {
+                    editStatus = DUPLICATE_ADDRESS;
+                    return false;
+                }
+                // Double-check that we're not overwriting a receiving address
+                else if(rec->type == AddressTableEntry::Sending)
+                {
+                    // Remove old entry
+                    walletModel->wallet().delAddressBook(curAddress);
+                    // Add new entry with new address
+                    walletModel->wallet().setAddressBook(newAddress, value.toString().toStdString(), strPurpose);
+                }
             }
-            walletModel->wallet().setAddressBook(curAddress, value.toString().toStdString(), strPurpose);
-        } else if(index.column() == Address) {
-            CTxDestination newAddress = DecodeDestination(value.toString().toStdString());
-            // Refuse to set invalid address, set error status and return false
-            if(boost::get<CNoDestination>(&newAddress))
+        }
+        else if(rec->addressbook == AddressTableModel::Sprout)
+        {
+            libzcash::PaymentAddress curAddress = DecodePaymentAddress(rec->address.toStdString());
+            if(index.column() == Label)
             {
-                editStatus = INVALID_ADDRESS;
-                return false;
+                // Do nothing, if old label == new label
+                if(rec->label == value.toString())
+                {
+                    editStatus = NO_CHANGES;
+                    return false;
+                }
+                walletModel->wallet().setSproutAddressBook(curAddress, value.toString().toStdString(), strPurpose);
+            } else if(index.column() == Address) {
+                libzcash::PaymentAddress newAddress = DecodePaymentAddress(value.toString().toStdString());
+                // Refuse to set invalid address, set error status and return false
+                if(boost::get<libzcash::InvalidEncoding>(&newAddress))
+                {
+                    editStatus = INVALID_ADDRESS;
+                    return false;
+                }
+                // Do nothing, if old address == new address
+                else if(newAddress == curAddress)
+                {
+                    editStatus = NO_CHANGES;
+                    return false;
+                }
+                // Check for duplicate addresses to prevent accidental deletion of addresses, if you try
+                // to paste an existing address over another address (with a different label)
+                if (walletModel->wallet().getSproutAddress(
+                        newAddress, /* name= */ nullptr, /* is_mine= */ nullptr, /* purpose= */ nullptr))
+                {
+                    editStatus = DUPLICATE_ADDRESS;
+                    return false;
+                }
+                // Double-check that we're not overwriting a receiving address
+                else if(rec->type == AddressTableEntry::Sending)
+                {
+                    // Remove old entry
+                    walletModel->wallet().delSproutAddressBook(curAddress);
+                    // Add new entry with new address
+                    walletModel->wallet().setSproutAddressBook(newAddress, value.toString().toStdString(), strPurpose);
+                }
             }
-            // Do nothing, if old address == new address
-            else if(newAddress == curAddress)
+        }
+        else if(rec->addressbook == AddressTableModel::Sapling)
+        {
+            libzcash::PaymentAddress curAddress = DecodePaymentAddress(rec->address.toStdString());
+            if(index.column() == Label)
             {
-                editStatus = NO_CHANGES;
-                return false;
-            }
-            // Check for duplicate addresses to prevent accidental deletion of addresses, if you try
-            // to paste an existing address over another address (with a different label)
-            if (walletModel->wallet().getAddress(
-                    newAddress, /* name= */ nullptr, /* is_mine= */ nullptr, /* purpose= */ nullptr))
-            {
-                editStatus = DUPLICATE_ADDRESS;
-                return false;
-            }
-            // Double-check that we're not overwriting a receiving address
-            else if(rec->type == AddressTableEntry::Sending)
-            {
-                // Remove old entry
-                walletModel->wallet().delAddressBook(curAddress);
-                // Add new entry with new address
-                walletModel->wallet().setAddressBook(newAddress, value.toString().toStdString(), strPurpose);
+                // Do nothing, if old label == new label
+                if(rec->label == value.toString())
+                {
+                    editStatus = NO_CHANGES;
+                    return false;
+                }
+                walletModel->wallet().setSaplingAddressBook(curAddress, value.toString().toStdString(), strPurpose);
+            } else if(index.column() == Address) {
+                libzcash::PaymentAddress newAddress = DecodePaymentAddress(value.toString().toStdString());
+                // Refuse to set invalid address, set error status and return false
+                if(boost::get<libzcash::InvalidEncoding>(&newAddress))
+                {
+                    editStatus = INVALID_ADDRESS;
+                    return false;
+                }
+                // Do nothing, if old address == new address
+                else if(newAddress == curAddress)
+                {
+                    editStatus = NO_CHANGES;
+                    return false;
+                }
+                // Check for duplicate addresses to prevent accidental deletion of addresses, if you try
+                // to paste an existing address over another address (with a different label)
+                if (walletModel->wallet().getSaplingAddress(
+                        newAddress, /* name= */ nullptr, /* is_mine= */ nullptr, /* purpose= */ nullptr))
+                {
+                    editStatus = DUPLICATE_ADDRESS;
+                    return false;
+                }
+                // Double-check that we're not overwriting a receiving address
+                else if(rec->type == AddressTableEntry::Sending)
+                {
+                    // Remove old entry
+                    walletModel->wallet().delSaplingAddressBook(curAddress);
+                    // Add new entry with new address
+                    walletModel->wallet().setSaplingAddressBook(newAddress, value.toString().toStdString(), strPurpose);
+                }
             }
         }
         return true;
@@ -331,14 +460,13 @@ QModelIndex AddressTableModel::index(int row, int column, const QModelIndex &par
     }
 }
 
-void AddressTableModel::updateEntry(const QString &address,
-        const QString &label, bool isMine, const QString &purpose, int status)
+void AddressTableModel::updateEntry(const QString &addressbook, const QString &address, const QString &label, bool isMine, const QString &purpose, int status)
 {
     // Update address book model from Bitcoin core
-    priv->updateEntry(address, label, isMine, purpose, status);
+    priv->updateEntry(addressbook, address, label, isMine, purpose, status);
 }
 
-QString AddressTableModel::addRow(const QString &type, const QString &label, const QString &address, const OutputType address_type)
+QString AddressTableModel::addRow(const QString &type, const QString &addressbook, const QString &label, const QString &address, const OutputType address_type)
 {
     std::string strLabel = label.toStdString();
     std::string strAddress = address.toStdString();
@@ -347,44 +475,132 @@ QString AddressTableModel::addRow(const QString &type, const QString &label, con
 
     if(type == Send)
     {
-        if(!walletModel->validateAddress(address))
+        if(addressbook == AddressTableModel::Base)
         {
-            editStatus = INVALID_ADDRESS;
-            return QString();
-        }
-        // Check for duplicate addresses
-        {
-            if (walletModel->wallet().getAddress(
-                    DecodeDestination(strAddress), /* name= */ nullptr, /* is_mine= */ nullptr, /* purpose= */ nullptr))
+            if(!walletModel->validateAddress(address))
             {
-                editStatus = DUPLICATE_ADDRESS;
+                editStatus = INVALID_ADDRESS;
                 return QString();
             }
-        }
+            // Check for duplicate addresses
+            {
+                if (walletModel->wallet().getAddress(
+                        DecodeDestination(strAddress), /* name= */ nullptr, /* is_mine= */ nullptr, /* purpose= */ nullptr))
+                {
+                    editStatus = DUPLICATE_ADDRESS;
+                    return QString();
+                }
+            }
 
-        // Add entry
-        walletModel->wallet().setAddressBook(DecodeDestination(strAddress), strLabel, "send");
+            // Add entry
+            walletModel->wallet().setAddressBook(DecodeDestination(strAddress), strLabel, "send");
+        }
+        else if(addressbook == AddressTableModel::Sprout)
+        {
+            if(!walletModel->validatePaymentAddress(address))
+            {
+                editStatus = INVALID_ADDRESS;
+                return QString();
+            }
+            // Check for duplicate addresses
+            {
+                if (walletModel->wallet().getSproutAddress(
+                        DecodePaymentAddress(strAddress), /* name= */ nullptr, /* is_mine= */ nullptr, /* purpose= */ nullptr))
+                {
+                    editStatus = DUPLICATE_ADDRESS;
+                    return QString();
+                }
+            }
+
+            // Add entry
+            walletModel->wallet().setSproutAddressBook(DecodePaymentAddress(strAddress), strLabel, "send");
+        }
+        else if(addressbook == AddressTableModel::Sapling)
+        {
+            if(!walletModel->validatePaymentAddress(address))
+            {
+                editStatus = INVALID_ADDRESS;
+                return QString();
+            }
+            // Check for duplicate addresses
+            {
+                if (walletModel->wallet().getSaplingAddress(
+                        DecodePaymentAddress(strAddress), /* name= */ nullptr, /* is_mine= */ nullptr, /* purpose= */ nullptr))
+                {
+                    editStatus = DUPLICATE_ADDRESS;
+                    return QString();
+                }
+            }
+
+            // Add entry
+            walletModel->wallet().setSaplingAddressBook(DecodePaymentAddress(strAddress), strLabel, "send");
+        }
     }
     else if(type == Receive)
     {
-        // Generate a new address to associate with given label
-        CTxDestination dest;
-        if(!walletModel->wallet().getNewDestination(address_type, strLabel, dest))
+        if(addressbook == AddressTableModel::Base)
         {
-            WalletModel::UnlockContext ctx(walletModel->requestUnlock());
-            if(!ctx.isValid())
-            {
-                // Unlock wallet failed or was cancelled
-                editStatus = WALLET_UNLOCK_FAILURE;
-                return QString();
-            }
+            // Generate a new address to associate with given label
+            CTxDestination dest;
             if(!walletModel->wallet().getNewDestination(address_type, strLabel, dest))
             {
-                editStatus = KEY_GENERATION_FAILURE;
-                return QString();
+                WalletModel::UnlockContext ctx(walletModel->requestUnlock());
+                if(!ctx.isValid())
+                {
+                    // Unlock wallet failed or was cancelled
+                    editStatus = WALLET_UNLOCK_FAILURE;
+                    return QString();
+                }
+                if(!walletModel->wallet().getNewDestination(address_type, strLabel, dest))
+                {
+                    editStatus = KEY_GENERATION_FAILURE;
+                    return QString();
+                }
             }
+            strAddress = EncodeDestination(dest);
         }
-        strAddress = EncodeDestination(dest);
+        else if(addressbook == AddressTableModel::Sprout)
+        {
+            // Generate a new address to associate with given label
+            libzcash::PaymentAddress dest;
+            if(!walletModel->wallet().getNewSproutDestination(strLabel, dest))
+            {
+                WalletModel::UnlockContext ctx(walletModel->requestUnlock());
+                if(!ctx.isValid())
+                {
+                    // Unlock wallet failed or was cancelled
+                    editStatus = WALLET_UNLOCK_FAILURE;
+                    return QString();
+                }
+                if(!walletModel->wallet().getNewSproutDestination(strLabel, dest))
+                {
+                    editStatus = KEY_GENERATION_FAILURE;
+                    return QString();
+                }
+            }
+            strAddress = EncodePaymentAddress(dest);
+        }
+        else if(addressbook == AddressTableModel::Sapling)
+        {
+            // Generate a new address to associate with given label
+            libzcash::PaymentAddress dest;
+            if(!walletModel->wallet().getNewSaplingDestination(strLabel, dest))
+            {
+                WalletModel::UnlockContext ctx(walletModel->requestUnlock());
+                if(!ctx.isValid())
+                {
+                    // Unlock wallet failed or was cancelled
+                    editStatus = WALLET_UNLOCK_FAILURE;
+                    return QString();
+                }
+                if(!walletModel->wallet().getNewSaplingDestination(strLabel, dest))
+                {
+                    editStatus = KEY_GENERATION_FAILURE;
+                    return QString();
+                }
+            }
+            strAddress = EncodePaymentAddress(dest);
+        }
     }
     else
     {
@@ -403,7 +619,12 @@ bool AddressTableModel::removeRows(int row, int count, const QModelIndex &parent
         // Also refuse to remove receiving addresses.
         return false;
     }
-    walletModel->wallet().delAddressBook(DecodeDestination(rec->address.toStdString()));
+    if(rec->addressbook == AddressTableModel::Base)
+        walletModel->wallet().delAddressBook(DecodeDestination(rec->address.toStdString()));
+    else if(rec->addressbook == AddressTableModel::Sprout)
+        walletModel->wallet().delSproutAddressBook(DecodePaymentAddress(rec->address.toStdString()));
+    else if(rec->addressbook == AddressTableModel::Sapling)
+        walletModel->wallet().delSaplingAddressBook(DecodePaymentAddress(rec->address.toStdString()));
     return true;
 }
 
@@ -428,8 +649,38 @@ QString AddressTableModel::purposeForAddress(const QString &address) const
 bool AddressTableModel::getAddressData(const QString &address,
         std::string* name,
         std::string* purpose) const {
-    CTxDestination destination = DecodeDestination(address.toStdString());
-    return walletModel->wallet().getAddress(destination, name, /* is_mine= */ nullptr, purpose);
+    bool ret = false;
+
+    std::string strAddress = address.toStdString();
+    QString addressbook;
+
+    if(IsValidDestinationString(strAddress))
+        addressbook = AddressTableModel::Base;
+    else
+    {
+        libzcash::PaymentAddress dest = DecodePaymentAddress(strAddress);
+        if(boost::get<libzcash::SproutPaymentAddress>(&dest))
+            addressbook = AddressTableModel::Sprout;
+        else if(boost::get<libzcash::SaplingPaymentAddress>(&dest))
+            addressbook = AddressTableModel::Sapling;
+    }
+
+    if(addressbook == AddressTableModel::Base)
+    {
+        CTxDestination destination = DecodeDestination(address.toStdString());
+        ret = walletModel->wallet().getAddress(destination, name, /* is_mine= */ nullptr, purpose);
+    }
+    else if(addressbook == AddressTableModel::Sprout)
+    {
+        libzcash::PaymentAddress destination = DecodePaymentAddress(address.toStdString());
+        ret = walletModel->wallet().getSproutAddress(destination, name, /* is_mine= */ nullptr, purpose);
+    }
+    else if(addressbook == AddressTableModel::Sapling)
+    {
+        libzcash::PaymentAddress destination = DecodePaymentAddress(address.toStdString());
+        ret = walletModel->wallet().getSaplingAddress(destination, name, /* is_mine= */ nullptr, purpose);
+    }
+    return ret;
 }
 
 int AddressTableModel::lookupAddress(const QString &address) const

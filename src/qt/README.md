@@ -32,7 +32,7 @@ Tests.
 
 ### bitcoingui.(h/cpp)
 
-Represents the main window of the Litecoinz UI.
+Represents the main window of the LitecoinZ UI.
 
 ### \*model.(h/cpp)
 

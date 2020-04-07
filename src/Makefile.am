@@ -67,15 +67,11 @@ endif
 $(LIBSECP256K1): $(wildcard secp256k1/src/*.h) $(wildcard secp256k1/src/*.c) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
 
-# A phony target is included here to ensure librustzcash is built first, so that its
-# header files are collated for use in later build steps.
-# See https://stackoverflow.com/a/10726725
--include collate-librustzcash
-collate-librustzcash: $(LIBRUSTZCASH)
-
-$(LIBRUSTZCASH): $(wildcard rustzcash/*.c)
+cargo-build:
 	$(CARGO) build $(CARGO_FLAGS) --manifest-path=rustzcash/Cargo.toml --target=$(CARGO_TARGET) && \
 	cp -f rustzcash/target/$(CARGO_TARGET)/release/librustzcash.a rustzcash/librustzcash.a
+
+$(LIBRUSTZCASH): cargo-build
 
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
@@ -114,19 +110,21 @@ if BUILD_BITCOIN_WALLET
 endif
 endif
 
-.PHONY: FORCE collate-librustzcash check-symbols check-security
+.PHONY: FORCE cargo-build check-symbols check-security
 # zcash #
 LIBZCASH_H = \
   zcash/IncrementalMerkleTree.hpp \
   zcash/NoteEncryption.hpp \
   zcash/Address.hpp \
+  zcash/address/sapling.hpp \
+  zcash/address/sprout.hpp \
+  zcash/address/zip32.h \
   zcash/JoinSplit.hpp \
   zcash/Note.hpp \
   zcash/prf.h \
   zcash/Proof.hpp \
   zcash/util.h \
-  zcash/Zcash.h \
-  zcash/zip32.h
+  zcash/Zcash.h
 
 # litecoinz core #
 BITCOIN_CORE_H = \
@@ -267,6 +265,7 @@ BITCOIN_CORE_H = \
   wallet/asyncrpcoperation_sendmany.h \
   wallet/asyncrpcoperation_shieldcoinbase.h \
   wallet/coincontrol.h \
+  wallet/inputcontrol.h \
   wallet/crypter.h \
   wallet/db.h \
   wallet/feebumper.h \
@@ -386,6 +385,7 @@ libbitcoin_wallet_a_SOURCES = \
   wallet/asyncrpcoperation_sendmany.cpp \
   wallet/asyncrpcoperation_shieldcoinbase.cpp \
   wallet/coincontrol.cpp \
+  wallet/inputcontrol.cpp \
   wallet/crypter.cpp \
   wallet/db.cpp \
   wallet/feebumper.cpp \
@@ -702,18 +702,14 @@ zcash_libzcash_a_SOURCES = \
   zcash/IncrementalMerkleTree.cpp \
   zcash/NoteEncryption.cpp \
   zcash/Address.cpp \
+  zcash/address/sapling.cpp \
+  zcash/address/sprout.cpp \
+  zcash/address/zip32.cpp \
   zcash/JoinSplit.cpp \
   zcash/Proof.cpp \
   zcash/Note.cpp \
   zcash/prf.cpp \
-  zcash/util.cpp \
-  zcash/zip32.cpp \
-  zcash/circuit/commitment.tcc \
-  zcash/circuit/gadget.tcc \
-  zcash/circuit/merkle.tcc \
-  zcash/circuit/note.tcc \
-  zcash/circuit/prfs.tcc \
-  zcash/circuit/utils.tcc
+  zcash/util.cpp
 
 zcash_libzcash_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 zcash_libzcash_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
@@ -786,13 +782,13 @@ clean-local:
 check-symbols: $(bin_PROGRAMS)
 if GLIBC_BACK_COMPAT
 	@echo "Checking glibc back compat..."
-	$(AM_V_at) READELF=$(READELF) CPPFILT=$(CPPFILT) $(PYTHON) $(top_srcdir)/contrib/devtools/symbol-check.py < $(bin_PROGRAMS)
+	$(AM_V_at) READELF=$(READELF) CPPFILT=$(CPPFILT) $(PYTHON) $(top_srcdir)/contrib/devtools/symbol-check.py $(bin_PROGRAMS)
 endif
 
 check-security: $(bin_PROGRAMS)
 if HARDEN
 	@echo "Checking binary security..."
-	$(AM_V_at) READELF=$(READELF) OBJDUMP=$(OBJDUMP) $(PYTHON) $(top_srcdir)/contrib/devtools/security-check.py < $(bin_PROGRAMS)
+	$(AM_V_at) READELF=$(READELF) OBJDUMP=$(OBJDUMP) $(PYTHON) $(top_srcdir)/contrib/devtools/security-check.py $(bin_PROGRAMS)
 endif
 
 if EMBEDDED_LEVELDB

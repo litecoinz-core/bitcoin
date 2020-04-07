@@ -19,8 +19,8 @@ BEGIN
     BEGIN
         BLOCK "040904E4" // U.S. English - multilingual (hex)
         BEGIN
-            VALUE "CompanyName",        "Litecoinz"
-            VALUE "FileDescription",    PACKAGE_NAME " (GUI node for Litecoinz)"
+            VALUE "CompanyName",        "LitecoinZ"
+            VALUE "FileDescription",    PACKAGE_NAME " (GUI node for LitecoinZ)"
             VALUE "FileVersion",        VER_FILEVERSION_STR
             VALUE "InternalName",       "litecoinz-qt"
             VALUE "LegalCopyright",     COPYRIGHT_STR

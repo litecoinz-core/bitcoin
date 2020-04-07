@@ -35,7 +35,8 @@ public:
     };
 
     enum RoleIndex {
-        TypeRole = Qt::UserRole /**< Type of address (#Send or #Receive) */
+        TypeRole = Qt::UserRole,        /**< Type of address (#Send or #Receive) */
+        FilterRole = (Qt::UserRole + 1) /**< Type of address (#All, #Transparent or #Shielded) */
     };
 
     /** Return status of edit/insert operation */
@@ -50,6 +51,14 @@ public:
 
     static const QString Send;      /**< Specifies send address */
     static const QString Receive;   /**< Specifies receive address */
+
+    static const QString Base;     /**< Specifies base address */
+    static const QString Sprout;   /**< Specifies sprout address */
+    static const QString Sapling;  /**< Specifies sapling address */
+
+    static const QString All;
+    static const QString Transparent;
+    static const QString Shielded;
 
     /** @name Methods overridden from QAbstractTableModel
         @{*/
@@ -66,7 +75,7 @@ public:
     /* Add an address to the model.
        Returns the added address on success, and an empty string otherwise.
      */
-    QString addRow(const QString &type, const QString &label, const QString &address, const OutputType address_type);
+    QString addRow(const QString &type, const QString &addressbook, const QString &label, const QString &address, const OutputType address_type);
 
     /** Look up label for address in address book, if not found return empty string. */
     QString labelForAddress(const QString &address) const;
@@ -98,7 +107,7 @@ private:
 public Q_SLOTS:
     /* Update address list from core.
      */
-    void updateEntry(const QString &address, const QString &label, bool isMine, const QString &purpose, int status);
+    void updateEntry(const QString &addressbook, const QString &address, const QString &label, bool isMine, const QString &purpose, int status);
 
     friend class AddressTablePriv;
 };

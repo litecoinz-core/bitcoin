@@ -93,6 +93,9 @@ QValidator::State BitcoinAddressCheckValidator::validate(QString &input, int &po
     if (IsValidDestinationString(input.toStdString())) {
         return QValidator::Acceptable;
     }
+    else if (IsValidPaymentAddressString(input.toStdString())) {
+        return QValidator::Acceptable;
+    }
 
     return QValidator::Invalid;
 }

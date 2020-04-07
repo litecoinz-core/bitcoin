@@ -355,7 +355,12 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 pwallet->LoadSproutViewingKey(vk);
         } else if (strType == DBKeys::SAPLING_WATCHS) {
             wss.nSaplingWatchKeys++;
-            /** TO-DO */
+            libzcash::SaplingExtendedFullViewingKey extfvk;
+            ssKey >> extfvk;
+            char fYes;
+            ssValue >> fYes;
+            if (fYes == '1')
+                pwallet->LoadSaplingFullViewingKey(extfvk);
         } else if (strType == DBKeys::KEY) {
             CPubKey vchPubKey;
             ssKey >> vchPubKey;
@@ -658,6 +663,7 @@ bool WalletBatch::IsKeyType(const std::string& strType)
             strType == DBKeys::ZEC_HDSEED || strType == DBKeys::ZEC_CRYPTED_HDSEED ||
             strType == DBKeys::SPROUT_KEY || strType == DBKeys::SPROUT_CRYPTED_KEY ||
             strType == DBKeys::SAPLING_KEY || strType == DBKeys::SAPLING_CRYPTED_KEY ||
+            strType == DBKeys::SPROUT_WATCHS || strType == DBKeys::SAPLING_WATCHS ||
             strType == DBKeys::MASTER_KEY || strType == DBKeys::CRYPTED_KEY);
 }
 
@@ -1103,4 +1109,14 @@ bool WalletBatch::WriteSproutViewingKey(const libzcash::SproutViewingKey &vk)
 bool WalletBatch::EraseSproutViewingKey(const libzcash::SproutViewingKey &vk)
 {
     return EraseIC(std::make_pair(DBKeys::SPROUT_WATCHS, vk));
+}
+
+bool WalletBatch::WriteSaplingExtendedFullViewingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk)
+{
+    return WriteIC(std::make_pair(DBKeys::SAPLING_WATCHS, extfvk), '1', false);
+}
+
+bool WalletBatch::EraseSaplingExtendedFullViewingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk)
+{
+    return EraseIC(std::make_pair(DBKeys::SAPLING_WATCHS, extfvk));
 }

@@ -380,6 +380,15 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
         mapNextTx.insert(std::make_pair(&tx.vin[i].prevout, &tx));
         setParentTransactions.insert(tx.vin[i].prevout.hash);
     }
+    for (const JSDescription &joinsplit : tx.vJoinSplit) {
+        for (const uint256 &nf : joinsplit.nullifiers) {
+            mapSproutNullifiers[nf] = &tx;
+        }
+    }
+    for (const SpendDescription &spendDescription : tx.vShieldedSpend) {
+        mapSaplingNullifiers[spendDescription.nullifier] = &tx;
+    }
+
     // Don't bother worrying about child transactions of this one.
     // Normal case of a new transaction arriving is that there can't be any
     // children, because such children would be orphans.
@@ -394,16 +403,6 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
     UpdateAncestorsOf(true, newit, setAncestors);
     UpdateEntryForAncestors(newit, setAncestors);
 
-    for (const JSDescription &joinsplit : tx.vJoinSplit) {
-        for (const uint256 &nf : joinsplit.nullifiers) {
-            mapSproutNullifiers[nf] = &tx;
-        }
-    }
-
-    for (const SpendDescription &spendDescription : tx.vShieldedSpend) {
-        mapSaplingNullifiers[spendDescription.nullifier] = &tx;
-    }
-
     nTransactionsUpdated++;
     totalTxSize += entry.GetTxSize();
     if (minerPolicyEstimator) {minerPolicyEstimator->processTransaction(entry, validFeeEstimate);}
@@ -414,6 +413,15 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
 
 void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
 {
+    for (const JSDescription& joinsplit : it->GetTx().vJoinSplit) {
+        for (const uint256& nf : joinsplit.nullifiers) {
+            mapSproutNullifiers.erase(nf);
+        }
+    }
+    for (const SpendDescription &spendDescription : it->GetTx().vShieldedSpend) {
+        mapSaplingNullifiers.erase(spendDescription.nullifier);
+    }
+
     NotifyEntryRemoved(it->GetSharedTx(), reason);
     const uint256 hash = it->GetTx().GetHash();
     for (const CTxIn& txin : it->GetTx().vin)
@@ -486,14 +494,6 @@ void CTxMemPool::removeRecursive(const CTransaction &origTx, MemPoolRemovalReaso
             txiter nextit = mapTx.find(it->second->GetHash());
             assert(nextit != mapTx.end());
             txToRemove.insert(nextit);
-        }
-        for (const JSDescription& joinsplit : origTx.vJoinSplit) {
-            for (const uint256& nf : joinsplit.nullifiers) {
-                mapSproutNullifiers.erase(nf);
-            }
-        }
-        for (const SpendDescription &spendDescription : origTx.vShieldedSpend) {
-            mapSaplingNullifiers.erase(spendDescription.nullifier);
         }
     }
     setEntries setAllRemoves;

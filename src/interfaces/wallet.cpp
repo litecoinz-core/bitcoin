@@ -94,6 +94,57 @@ WalletTxOut MakeWalletTxOut(interfaces::Chain::Lock& locked_chain,
     return result;
 }
 
+//! Construct wallet SproutNote struct.
+WalletSproutNote MakeWalletSproutNote(interfaces::Chain::Lock& locked_chain,
+    CWallet& wallet,
+    const CWalletTx& wtx,
+    libzcash::SproutPaymentAddress address,
+    libzcash::SproutNote note,
+    SproutOutPoint jsop,
+    SproutNoteData nd,
+    std::array<unsigned char, ZC_MEMO_SIZE> memo,
+    uint64_t js,
+    uint8_t n,
+    int depth) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
+{
+    WalletSproutNote result;
+    result.address = address;
+    result.note = note;
+    result.jsop = jsop;
+    result.nd = nd;
+    result.memo = memo;
+    result.time = wtx.GetTxTime();
+    result.depth_in_main_chain = depth;
+    bool hasSproutSpendingKey = HaveSpendingKeyForPaymentAddress(&wallet)(address);
+    result.is_spent = hasSproutSpendingKey;
+    return result;
+}
+
+//! Construct wallet SaplingNote struct.
+WalletSaplingNote MakeWalletSaplingNote(interfaces::Chain::Lock& locked_chain,
+    CWallet& wallet,
+    const CWalletTx& wtx,
+    libzcash::SaplingPaymentAddress address,
+    libzcash::SaplingNote note,
+    SaplingOutPoint op,
+    SaplingNoteData nd,
+    std::array<unsigned char, ZC_MEMO_SIZE> memo,
+    uint32_t n,
+    int depth) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
+{
+    WalletSaplingNote result;
+    result.address = address;
+    result.note = note;
+    result.op = op;
+    result.nd = nd;
+    result.memo = memo;
+    result.time = wtx.GetTxTime();
+    result.depth_in_main_chain = depth;
+    bool hasSaplingSpendingKey = HaveSpendingKeyForPaymentAddress(&wallet)(address);
+    result.is_spent = hasSaplingSpendingKey;
+    return result;
+}
+
 class WalletImpl : public Wallet
 {
 public:
@@ -141,9 +192,25 @@ public:
     {
         return m_wallet->SetAddressBook(dest, name, purpose);
     }
+    bool setSproutAddressBook(const libzcash::PaymentAddress& dest, const std::string& name, const std::string& purpose) override
+    {
+        return m_wallet->SetSproutAddressBook(dest, name, purpose);
+    }
+    bool setSaplingAddressBook(const libzcash::PaymentAddress& dest, const std::string& name, const std::string& purpose) override
+    {
+        return m_wallet->SetSaplingAddressBook(dest, name, purpose);
+    }
     bool delAddressBook(const CTxDestination& dest) override
     {
         return m_wallet->DelAddressBook(dest);
+    }
+    bool delSproutAddressBook(const libzcash::PaymentAddress& dest) override
+    {
+        return m_wallet->DelSproutAddressBook(dest);
+    }
+    bool delSaplingAddressBook(const libzcash::PaymentAddress& dest) override
+    {
+        return m_wallet->DelSaplingAddressBook(dest);
     }
     bool getAddress(const CTxDestination& dest,
         std::string* name,
@@ -166,11 +233,71 @@ public:
         }
         return true;
     }
+    bool getSproutAddress(const libzcash::PaymentAddress& dest,
+        std::string* name,
+        isminetype* is_mine,
+        std::string* purpose) override
+    {
+        LOCK(m_wallet->cs_wallet);
+        auto it = m_wallet->mapSproutAddressBook.find(dest);
+        if (it == m_wallet->mapSproutAddressBook.end()) {
+            return false;
+        }
+        if (name) {
+            *name = it->second.name;
+        }
+        if (is_mine) {
+            *is_mine = IsMine(*m_wallet, dest);
+        }
+        if (purpose) {
+            *purpose = it->second.purpose;
+        }
+        return true;
+    }
+    bool getSaplingAddress(const libzcash::PaymentAddress& dest,
+        std::string* name,
+        isminetype* is_mine,
+        std::string* purpose) override
+    {
+        LOCK(m_wallet->cs_wallet);
+        auto it = m_wallet->mapSaplingAddressBook.find(dest);
+        if (it == m_wallet->mapSaplingAddressBook.end()) {
+            return false;
+        }
+        if (name) {
+            *name = it->second.name;
+        }
+        if (is_mine) {
+            *is_mine = IsMine(*m_wallet, dest);
+        }
+        if (purpose) {
+            *purpose = it->second.purpose;
+        }
+        return true;
+    }
     std::vector<WalletAddress> getAddresses() override
     {
         LOCK(m_wallet->cs_wallet);
         std::vector<WalletAddress> result;
         for (const auto& item : m_wallet->mapAddressBook) {
+            result.emplace_back(item.first, IsMine(*m_wallet, item.first), item.second.name, item.second.purpose);
+        }
+        return result;
+    }
+    std::vector<WalletShieldedAddress> getSproutAddresses() override
+    {
+        LOCK(m_wallet->cs_wallet);
+        std::vector<WalletShieldedAddress> result;
+        for (const auto& item : m_wallet->mapSproutAddressBook) {
+            result.emplace_back(item.first, IsMine(*m_wallet, item.first), item.second.name, item.second.purpose);
+        }
+        return result;
+    }
+    std::vector<WalletShieldedAddress> getSaplingAddresses() override
+    {
+        LOCK(m_wallet->cs_wallet);
+        std::vector<WalletShieldedAddress> result;
+        for (const auto& item : m_wallet->mapSaplingAddressBook) {
             result.emplace_back(item.first, IsMine(*m_wallet, item.first), item.second.name, item.second.purpose);
         }
         return result;
@@ -376,16 +503,17 @@ public:
 
         return result;
     }
-    bool tryGetBalances(WalletBalances& balances, int& num_blocks) override
+    bool tryGetBalances(WalletBalances& balances, int& num_blocks, bool force, int cached_num_blocks) override
     {
         auto locked_chain = m_wallet->chain().lock(true /* try_lock */);
         if (!locked_chain) return false;
+        num_blocks = locked_chain->getHeight().get_value_or(-1);
+        if (!force && num_blocks == cached_num_blocks) return false;
         TRY_LOCK(m_wallet->cs_wallet, locked_wallet);
         if (!locked_wallet) {
             return false;
         }
         balances = getBalances();
-        num_blocks = locked_chain->getHeight().get_value_or(-1);
         return true;
     }
     CAmount getBalance() override { return m_wallet->GetBalance().m_mine_trusted; }
@@ -434,6 +562,34 @@ public:
         }
         return result;
     }
+    SproutNotesList listSproutNotes() override
+    {
+        auto locked_chain = m_wallet->chain().lock();
+        LOCK(m_wallet->cs_wallet);
+        SproutNotesList result;
+        for (const auto& entry : m_wallet->ListSproutNotes(*locked_chain)) {
+            auto& group = result[entry.first];
+            for (const auto& note : entry.second) {
+                group.emplace_back(SproutOutPoint(note.tx->GetHash(), note.js, note.n),
+                    MakeWalletSproutNote(*locked_chain, *m_wallet, *note.tx, note.address, note.note, note.jsop, note.nd, note.memo, note.js, note.n, note.nDepth));
+            }
+        }
+        return result;
+    }
+    SaplingNotesList listSaplingNotes() override
+    {
+        auto locked_chain = m_wallet->chain().lock();
+        LOCK(m_wallet->cs_wallet);
+        SaplingNotesList result;
+        for (const auto& entry : m_wallet->ListSaplingNotes(*locked_chain)) {
+            auto& group = result[entry.first];
+            for (const auto& note : entry.second) {
+                group.emplace_back(SaplingOutPoint(note.tx->GetHash(), note.n),
+                    MakeWalletSaplingNote(*locked_chain, *m_wallet, *note.tx, note.address, note.note, note.op, note.nd, note.memo, note.n, note.nDepth));
+            }
+        }
+        return result;
+    }
     std::vector<WalletTxOut> getCoins(const std::vector<COutPoint>& outputs) override
     {
         auto locked_chain = m_wallet->chain().lock();
@@ -465,12 +621,16 @@ public:
         if (reason) *reason = fee_calc.reason;
         return result;
     }
+    CAmount getCustomFee(const CInputControl& input_control) override
+    {
+        return GetCustomFee(*m_wallet, input_control);
+    }
     unsigned int getConfirmTarget() override { return m_wallet->m_confirm_target; }
     bool hdEnabled() override { return m_wallet->IsHDEnabled(); }
     bool canGetAddresses() override { return m_wallet->CanGetAddresses(); }
     bool IsWalletFlagSet(uint64_t flag) override { return m_wallet->IsWalletFlagSet(flag); }
-    OutputType getDefaultAddressType() override { return m_wallet->m_default_address_type; }
-    OutputType getDefaultChangeType() override { return m_wallet->m_default_change_type; }
+    OutputType getDefaultAddressType() override { return m_wallet->GetDefaultAddressType(); }
+    OutputType getDefaultChangeType() override { return m_wallet->GetDefaultChangeType(); }
     CAmount getDefaultMaxTxFee() override { return m_wallet->m_default_max_tx_fee; }
     void remove() override
     {
@@ -497,14 +657,14 @@ public:
     std::unique_ptr<Handler> handleSproutAddressBookChanged(SproutAddressBookChangedFn fn) override
     {
         return MakeHandler(m_wallet->NotifySproutAddressBookChanged.connect(
-            [fn](CWallet*, const libzcash::PaymentAddress& address, const std::string& label,
-                const std::string& purpose, ChangeType status) { fn(address, label, purpose, status); }));
+            [fn](CWallet*, const libzcash::PaymentAddress& address, const std::string& label, bool is_mine,
+                const std::string& purpose, ChangeType status) { fn(address, label, is_mine, purpose, status); }));
     }
     std::unique_ptr<Handler> handleSaplingAddressBookChanged(SaplingAddressBookChangedFn fn) override
     {
         return MakeHandler(m_wallet->NotifySaplingAddressBookChanged.connect(
-            [fn](CWallet*, const libzcash::PaymentAddress& address, const std::string& label,
-                const std::string& purpose, ChangeType status) { fn(address, label, purpose, status); }));
+            [fn](CWallet*, const libzcash::PaymentAddress& address, const std::string& label, bool is_mine,
+                const std::string& purpose, ChangeType status) { fn(address, label, is_mine, purpose, status); }));
     }
     std::unique_ptr<Handler> handleTransactionChanged(TransactionChangedFn fn) override
     {

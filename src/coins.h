@@ -229,7 +229,7 @@ public:
     virtual bool GetSaplingAnchorAt(const uint256 &rt, SaplingMerkleTree &tree) const;
 
     //! Determine whether a nullifier is spent or not
-    virtual bool GetNullifier(const uint256 &nullifier, ShieldedType type) const;
+    virtual bool GetNullifier(const uint256 &nf, ShieldedType type) const;
 
     /** Retrieve the Coin (unspent transaction output) for a given outpoint.
      *  Returns true only when an unspent coin was found, which is returned in coin.
@@ -284,7 +284,7 @@ public:
     CCoinsViewBacked(CCoinsView *viewIn);
     bool GetSproutAnchorAt(const uint256 &rt, SproutMerkleTree &tree) const override;
     bool GetSaplingAnchorAt(const uint256 &rt, SaplingMerkleTree &tree) const override;
-    bool GetNullifier(const uint256 &nullifier, ShieldedType type) const override;
+    bool GetNullifier(const uint256 &nf, ShieldedType type) const override;
     bool GetCoin(const COutPoint &outpoint, Coin &coin) const override;
     bool HaveCoin(const COutPoint &outpoint) const override;
     uint256 GetBestBlock() const override;
@@ -335,7 +335,7 @@ public:
     // Standard CCoinsView methods
     bool GetSproutAnchorAt(const uint256 &rt, SproutMerkleTree &tree) const override;
     bool GetSaplingAnchorAt(const uint256 &rt, SaplingMerkleTree &tree) const override;
-    bool GetNullifier(const uint256 &nullifier, ShieldedType type) const override;
+    bool GetNullifier(const uint256 &nf, ShieldedType type) const override;
     bool GetCoin(const COutPoint &outpoint, Coin &coin) const override;
     bool HaveCoin(const COutPoint &outpoint) const override;
     uint256 GetBestBlock() const override;
