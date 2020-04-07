@@ -88,7 +88,7 @@ src/qt/litecoinz-qt.includes
 *.qm
 Makefile
 !depends/Makefile
-litecoinz-qt
+src/qt/litecoinz-qt
 Litecoinz-Qt.app
 background.tiff*
 

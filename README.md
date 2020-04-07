@@ -12,7 +12,7 @@ with no central authority: managing transactions and issuing money are carried
 out collectively by the network. LitecoinZ Core is the name of open source
 software which enables the use of this currency.
 
-For more information, as well as an immediately useable, binary version of
+For more information, as well as an immediately usable, binary version of
 the LitecoinZ Core software, see https://litecoinz.org/download/, or read the
 [original whitepaper](https://litecoinz.org/litecoinz.pdf).
 

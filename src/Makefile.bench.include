@@ -46,7 +46,7 @@ bench_bench_litecoinz_SOURCES = \
 
 nodist_bench_bench_litecoinz_SOURCES = $(GENERATED_BENCH_FILES)
 
-bench_bench_litecoinz_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CLFAGS) $(EVENT_PTHREADS_CFLAGS) -I$(builddir)/bench/
+bench_bench_litecoinz_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS) -I$(builddir)/bench/
 bench_bench_litecoinz_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 bench_bench_litecoinz_LDADD = \
   $(LIBBITCOIN_SERVER) \

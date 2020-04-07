@@ -565,13 +565,12 @@ void SetupServerArgs()
 std::string LicenseInfo()
 {
     const std::string URL_SOURCE_CODE = "<https://github.com/litecoinz-core/litecoinz>";
-    const std::string URL_WEBSITE = "<https://litecoinz.org>";
 
     return CopyrightHolders(strprintf(_("Copyright (C) %i-%i").translated, 2017, COPYRIGHT_YEAR) + " ") + "\n" +
            "\n" +
            strprintf(_("Please contribute if you find %s useful. "
                        "Visit %s for further information about the software.").translated,
-               PACKAGE_NAME, URL_WEBSITE) +
+               PACKAGE_NAME, "<" PACKAGE_URL ">") +
            "\n" +
            strprintf(_("The source code is available from %s.").translated,
                URL_SOURCE_CODE) +
@@ -1356,7 +1355,7 @@ bool AppInitMain(InitInterfaces& interfaces)
     InitSignatureCache();
     InitScriptExecutionCache();
 
-    LogPrintf("Using %u threads for script verification\n", nScriptCheckThreads);
+    LogPrintf("Script verification uses %d additional threads\n", std::max(nScriptCheckThreads - 1, 0));
     if (nScriptCheckThreads) {
         for (int i=0; i<nScriptCheckThreads-1; i++)
             threadGroup.create_thread([i]() { return ThreadScriptCheck(i); });
