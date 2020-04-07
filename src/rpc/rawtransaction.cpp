@@ -678,7 +678,7 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
             "\"hex\"            (string) The hex-encoded raw transaction with signature(s)\n"
                 },
                 RPCExamples{
-                    HelpExampleCli("combinerawtransaction", "[\"myhex1\", \"myhex2\", \"myhex3\"]")
+                    HelpExampleCli("combinerawtransaction", R"('["myhex1", "myhex2", "myhex3"]')")
                 },
             }.Check(request);
 
@@ -957,7 +957,7 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
             "Sign the transaction, and get back the hex\n"
             + HelpExampleCli("signrawtransactionwithwallet", "\"myhex\"") +
             "\nTest acceptance of the transaction (signed hex)\n"
-            + HelpExampleCli("testmempoolaccept", "[\"signedhex\"]") +
+            + HelpExampleCli("testmempoolaccept", R"('["signedhex"]')") +
             "\nAs a JSON-RPC call\n"
             + HelpExampleRpc("testmempoolaccept", "[\"signedhex\"]")
                 },
@@ -1341,7 +1341,7 @@ UniValue combinepsbt(const JSONRPCRequest& request)
             "  \"psbt\"          (string) The base64-encoded partially signed transaction\n"
                 },
                 RPCExamples{
-                    HelpExampleCli("combinepsbt", "[\"mybase64_1\", \"mybase64_2\", \"mybase64_3\"]")
+                    HelpExampleCli("combinepsbt", R"('["mybase64_1", "mybase64_2", "mybase64_3"]')")
                 },
             }.Check(request);
 
@@ -1736,7 +1736,7 @@ UniValue joinpsbts(const JSONRPCRequest& request)
     std::vector<int> output_indices(merged_psbt.outputs.size());
     std::iota(output_indices.begin(), output_indices.end(), 0);
 
-    // Shuffle input and output indicies lists
+    // Shuffle input and output indices lists
     Shuffle(input_indices.begin(), input_indices.end(), FastRandomContext());
     Shuffle(output_indices.begin(), output_indices.end(), FastRandomContext());
 

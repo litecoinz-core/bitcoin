@@ -94,7 +94,7 @@ chain for " target " development."))
                                   (base-kernel-headers linux-libre-headers-4.19)
                                   (base-libc glibc-2.27)
                                   (base-gcc (make-gcc-rpath-link gcc-9)))
-  "Convienience wrapper around MAKE-CROSS-TOOLCHAIN with default values
+  "Convenience wrapper around MAKE-CROSS-TOOLCHAIN with default values
 desirable for building LitecoinZ Core release binaries."
   (make-cross-toolchain target
                    base-gcc-for-libc

@@ -1265,7 +1265,7 @@ if test x$use_pkgconfig = xyes; then
       if test x$use_qr != xno; then
         BITCOIN_QT_CHECK([PKG_CHECK_MODULES([QR], [libqrencode], [have_qrencode=yes], [have_qrencode=no])])
       fi
-      if test x$build_bitcoin_cli$build_bitcoind$bitcoin_enable_qt$use_tests != xnononono; then
+      if test x$build_bitcoin_cli$build_bitcoind$bitcoin_enable_qt$use_tests$use_bench != xnonononono; then
         PKG_CHECK_MODULES([EVENT], [libevent],, [AC_MSG_ERROR(libevent not found.)])
         if test x$TARGET_OS != xwindows; then
           PKG_CHECK_MODULES([EVENT_PTHREADS], [libevent_pthreads],, [AC_MSG_ERROR(libevent_pthreads not found.)])
@@ -1289,7 +1289,7 @@ else
   AC_CHECK_HEADER([sodium.h],,AC_MSG_ERROR(libsodium headers missing))
   AC_CHECK_LIB([sodium],[sodium_init],SODIUM_LIBS=-lsodium,AC_MSG_ERROR(libsodium missing))
 
-  if test x$build_bitcoin_cli$build_bitcoind$bitcoin_enable_qt$use_tests != xnononono; then
+  if test x$build_bitcoin_cli$build_bitcoind$bitcoin_enable_qt$use_tests$use_bench != xnonononono; then
     AC_CHECK_HEADER([event2/event.h],, AC_MSG_ERROR(libevent headers missing),)
     AC_CHECK_LIB([event],[main],EVENT_LIBS=-levent,AC_MSG_ERROR(libevent missing))
     if test x$TARGET_OS != xwindows; then
@@ -1487,18 +1487,16 @@ if test x$bitcoin_enable_qt != xno; then
   AC_MSG_CHECKING([whether to build GUI with support for QR codes])
   if test x$have_qrencode = xno; then
     if test x$use_qr = xyes; then
-     AC_MSG_ERROR("QR support requested but cannot be built. use --without-qrencode")
+      AC_MSG_ERROR([QR support requested but cannot be built. Use --without-qrencode])
     fi
-    AC_MSG_RESULT(no)
+    use_qr=no
   else
     if test x$use_qr != xno; then
-      AC_MSG_RESULT(yes)
       AC_DEFINE([USE_QRCODE],[1],[Define if QR support should be compiled in])
       use_qr=yes
-    else
-      AC_MSG_RESULT(no)
     fi
   fi
+  AC_MSG_RESULT([$use_qr])
 
   if test x$XGETTEXT = x; then
     AC_MSG_WARN("xgettext is required to update qt translations")
