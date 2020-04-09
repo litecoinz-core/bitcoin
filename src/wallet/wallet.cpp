@@ -5229,7 +5229,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
     return true;
 }
 
-void CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, bool forceError)
+void CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm)
 {
     auto locked_chain = chain().lock();
     LOCK(cs_wallet);
@@ -5265,12 +5265,7 @@ void CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::ve
     std::string err_string;
     if (!wtx.SubmitMemoryPoolAndRelay(err_string, true, *locked_chain)) {
         WalletLogPrintf("CommitTransaction(): Transaction cannot be broadcast immediately, %s\n", err_string);
-        if (forceError) {
-            if (AbandonTransaction(*locked_chain, wtx.GetHash())) {
-                WalletLogPrintf("CommitTransaction(): Transaction %s has been abandoned\n", wtx.GetHash().ToString());
-                throw std::runtime_error(strprintf("Could not commit transaction: %s", err_string));
-            }
-        }
+        // TODO: if we expect the failure to be long term or permanent, instead delete wtx from the wallet and return failure.
     }
 }
 

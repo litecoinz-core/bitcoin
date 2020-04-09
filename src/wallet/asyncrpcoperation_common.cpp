@@ -12,8 +12,9 @@
 #include <consensus/validation.h>
 
 extern UniValue signrawtransactionwithwallet(const JSONRPCRequest& request);
+extern CFeeRate minRelayTxFee;
 
-UniValue SendTransaction(CTransactionRef& tx, CWallet* const pwallet, bool testmode) {
+UniValue SendTransaction(CTransactionRef& tx, CWallet* const pwallet, CAmount nFee, bool testmode) {
     mapValue_t mapValue;
     UniValue o(UniValue::VOBJ);
 
@@ -21,14 +22,19 @@ UniValue SendTransaction(CTransactionRef& tx, CWallet* const pwallet, bool testm
     // almost as much to process as they cost the sender in fees, because
     // computing signature hashes is O(ninputs*txsize). Limiting transactions
     // to MAX_STANDARD_TX_WEIGHT mitigates CPU exhaustion attacks.
-    if (GetTransactionWeight(*tx) > MAX_STANDARD_TX_WEIGHT)
+    size_t sz = GetTransactionWeight(*tx);
+    if (sz > MAX_STANDARD_TX_WEIGHT)
     {
         throw JSONRPCError(RPC_WALLET_ERROR, "Transaction too large");
     }
 
+    if (nFee < ::minRelayTxFee.GetFee(sz)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("min relay fee not met: %d < %d", nFee, ::minRelayTxFee.GetFee(sz)));
+    }
+
     // Send the transaction
     if (!testmode) {
-        pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, true);
+        pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */);
         o.pushKV("txid", tx->GetHash().GetHex());
     } else {
         // Test mode does not send the transaction to the network.
@@ -39,7 +45,7 @@ UniValue SendTransaction(CTransactionRef& tx, CWallet* const pwallet, bool testm
     return o;
 }
 
-std::pair<CTransactionRef, UniValue> SignSendRawTransaction(UniValue obj, CWallet* const pwallet, bool testmode) {
+std::pair<CTransactionRef, UniValue> SignSendRawTransaction(UniValue obj, CWallet* const pwallet, CAmount nFee, bool testmode) {
     // Sign the raw transaction
     UniValue rawtxnValue = find_value(obj, "rawtxn");
     if (rawtxnValue.isNull()) {
@@ -72,7 +78,7 @@ std::pair<CTransactionRef, UniValue> SignSendRawTransaction(UniValue obj, CWalle
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
     }
     CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
-    UniValue sendResult = SendTransaction(tx, pwallet, testmode);
+    UniValue sendResult = SendTransaction(tx, pwallet, nFee, testmode);
 
     return std::make_pair(tx, sendResult);
 }
