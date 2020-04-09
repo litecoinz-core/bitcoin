@@ -373,7 +373,7 @@ public:
         bip44CoinType = 1;
         consensus.nApproxReleaseHeight = 200000;
         consensus.fCoinbaseMustBeShielded = false;
-        consensus.nSubsidyHalvingInterval = 150;
+        consensus.nSubsidyHalvingInterval = 1500;
         consensus.BIP16Enabled = true;
         consensus.BIP34Enabled = false;
         consensus.BIP65Enabled = false;

@@ -18,9 +18,8 @@ static void WalletBalance(benchmark::State& state, const bool set_dirty, const b
     {
         bool first_run;
         if (wallet.LoadWallet(first_run) != DBErrors::LOAD_OK) assert(false);
-        wallet.handleNotifications();
     }
-
+    auto handler = chain->handleNotifications({ &wallet, [](CWallet*) {} });
 
     const Optional<std::string> address_mine{add_mine ? Optional<std::string>{getnewaddress(wallet)} : nullopt};
     if (add_watchonly) importaddress(wallet, ADDRESS_WATCHONLY);
