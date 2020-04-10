@@ -1,5 +1,5 @@
 ---
-name: "litecoinz-core-osx-0.19"
+name: "litecoinz-core-osx-3.0"
 enable_cache: true
 distro: "ubuntu"
 suites:

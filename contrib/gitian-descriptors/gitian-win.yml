@@ -1,5 +1,5 @@
 ---
-name: "litecoinz-core-win-0.19"
+name: "litecoinz-core-win-3.0"
 enable_cache: true
 distro: "ubuntu"
 suites:
