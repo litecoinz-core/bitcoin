@@ -451,7 +451,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         // Build the transaction
         tx_ = builder_.Build().GetTxOrThrow();
 
-        UniValue sendResult = SendTransaction(tx_, pwallet, testmode);
+        UniValue sendResult = SendTransaction(tx_, pwallet, fee_, testmode);
         set_result(sendResult);
 
         return true;
@@ -493,7 +493,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
 
         UniValue obj(UniValue::VOBJ);
         obj.pushKV("rawtxn", EncodeHexTx(*tx_));
-        auto txAndResult = SignSendRawTransaction(obj, pwallet, testmode);
+        auto txAndResult = SignSendRawTransaction(obj, pwallet, fee_, testmode);
         tx_ = txAndResult.first;
         set_result(txAndResult.second);
         return true;
@@ -602,7 +602,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
             obj = perform_joinsplit(info);
         }
 
-        auto txAndResult = SignSendRawTransaction(obj, pwallet, testmode);
+        auto txAndResult = SignSendRawTransaction(obj, pwallet, fee_, testmode);
         tx_ = txAndResult.first;
         set_result(txAndResult.second);
         return true;
@@ -880,7 +880,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
     assert(zOutputsDeque.size() == 0);
     assert(vpubNewProcessed);
 
-    auto txAndResult = SignSendRawTransaction(obj, pwallet, testmode);
+    auto txAndResult = SignSendRawTransaction(obj, pwallet, fee_, testmode);
     tx_ = txAndResult.first;
     set_result(txAndResult.second);
     return true;

@@ -19,7 +19,7 @@
  * If testmode is true, do not commit the transaction,
  * return {"test": 1, "txid": tx.GetHash().ToString(), "hex": EncodeHexTx(tx)}
  */
-UniValue SendTransaction(CTransactionRef& tx, CWallet* const pwallet, bool testmode);
+UniValue SendTransaction(CTransactionRef& tx, CWallet* const pwallet, CAmount nFee, bool testmode);
 
 /**
  * Sign and send a raw transaction.
@@ -27,6 +27,6 @@ UniValue SendTransaction(CTransactionRef& tx, CWallet* const pwallet, bool testm
  *
  * Returns a pair of (the parsed transaction, and the result of sending)
  */
-std::pair<CTransactionRef, UniValue> SignSendRawTransaction(UniValue obj, CWallet* const pwallet, bool testmode);
+std::pair<CTransactionRef, UniValue> SignSendRawTransaction(UniValue obj, CWallet* const pwallet, CAmount nFee, bool testmode);
 
 #endif /* ASYNCRPCOPERATION_COMMON_H */

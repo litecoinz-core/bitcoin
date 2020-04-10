@@ -2367,22 +2367,19 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime4 = GetTimeMicros(); nTimeVerify += nTime4 - nTime2;
     LogPrint(BCLog::BENCH, "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs (%.2fms/blk)]\n", nInputs - 1, MILLI * (nTime4 - nTime2), nInputs <= 1 ? 0 : MILLI * (nTime4 - nTime2) / (nInputs-1), nTimeVerify * MICRO, nTimeVerify * MILLI / nBlocksTotal);
 
-    if (fJustCheck)
-        return true;
-
-    if (!WriteUndoDataForBlock(blockundo, state, pindex, chainparams))
-        return false;
-
     // Now that all consensus rules have been validated, set nCachedBranchId.
     // Move this if BLOCK_VALID_CONSENSUS is ever altered.
     static_assert(BLOCK_VALID_CONSENSUS == BLOCK_VALID_SCRIPTS, "nCachedBranchId must be set after all consensus rules have been validated.");
 
     if (IsActivationHeightForAnyUpgrade(pindex->nHeight, chainparams.GetConsensus())) {
         pindex->nStatus |= BLOCK_ACTIVATES_UPGRADE;
-        pindex->nCachedBranchId = CurrentEpochBranchId(pindex->nHeight, chainparams.GetConsensus());
-    } else if (pindex->pprev) {
-        pindex->nCachedBranchId = pindex->pprev->nCachedBranchId;
     }
+
+    if (fJustCheck)
+        return true;
+
+    if (!WriteUndoDataForBlock(blockundo, state, pindex, chainparams))
+        return false;
 
     if (!pindex->IsValid(BLOCK_VALID_SCRIPTS)) {
         pindex->RaiseValidity(BLOCK_VALID_SCRIPTS);
@@ -3412,6 +3409,7 @@ void CChainState::ReceivedBlockTransactions(const CBlock& block, CBlockIndex* pi
     pindexNew->nChainSproutValue = boost::none;
     pindexNew->nSaplingValue = saplingValue;
     pindexNew->nChainSaplingValue = boost::none;
+    pindexNew->nCachedBranchId = CurrentEpochBranchId(pindexNew->nHeight, consensusParams);
     pindexNew->nFile = pos.nFile;
     pindexNew->nDataPos = pos.nPos;
     pindexNew->nUndoPos = 0;
@@ -4397,10 +4395,6 @@ bool BlockManager::LoadBlockIndex(
             // Fall back to hardcoded Sprout value pool balance
             FallbackSproutValuePoolBalance(pindex, Params());
         }
-        if (!(pindex->nStatus & BLOCK_FAILED_MASK) && pindex->pprev && (pindex->pprev->nStatus & BLOCK_FAILED_MASK)) {
-            pindex->nStatus |= BLOCK_FAILED_CHILD;
-            setDirtyBlockIndex.insert(pindex);
-        }
         // Construct in-memory chain of branch IDs.
         // Relies on invariant: a block that does not activate a network upgrade
         // will always be valid under the same consensus rules as its parent.
@@ -4413,6 +4407,10 @@ bool BlockManager::LoadBlockIndex(
             }
         } else {
             pindex->nCachedBranchId = SPROUT_BRANCH_ID;
+        }
+        if (!(pindex->nStatus & BLOCK_FAILED_MASK) && pindex->pprev && (pindex->pprev->nStatus & BLOCK_FAILED_MASK)) {
+            pindex->nStatus |= BLOCK_FAILED_CHILD;
+            setDirtyBlockIndex.insert(pindex);
         }
         if (pindex->IsValid(BLOCK_VALID_TRANSACTIONS) && (pindex->HaveTxsDownloaded() || pindex->pprev == nullptr)) {
             block_index_candidates.insert(pindex);
