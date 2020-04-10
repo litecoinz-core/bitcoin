@@ -39,7 +39,7 @@ No other options are needed, the paths are automatically configured.
 
     sudo apt-get install curl librsvg2-bin libtiff-tools bsdmainutils cmake imagemagick libcap-dev libz-dev libbz2-dev python3-setuptools
 
-#### For Win32/Win64 cross compilation
+#### For Win64 cross compilation
 
 - see [build-windows.md](../doc/build-windows.md#cross-compilation-for-ubuntu-and-windows-subsystem-for-linux)
 

@@ -269,7 +269,6 @@ The list of files should be:
 ```
 litecoinz-${VERSION}-aarch64-linux-gnu.tar.gz
 litecoinz-${VERSION}-arm-linux-gnueabihf.tar.gz
-litecoinz-${VERSION}-i686-pc-linux-gnu.tar.gz
 litecoinz-${VERSION}-riscv64-linux-gnu.tar.gz
 litecoinz-${VERSION}-x86_64-linux-gnu.tar.gz
 litecoinz-${VERSION}-osx64.tar.gz
