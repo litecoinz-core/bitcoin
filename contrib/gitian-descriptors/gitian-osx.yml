@@ -160,6 +160,12 @@ script: |
     cd installed
     find . -name "lib*.la" -delete
     find . -name "lib*.a" -delete
+
+    # LitecoinZ: Delete libbitcoin from binary distribution for now, see https://github.com/litecoin-project/litecoin/issues/192
+    rm -rf ${DISTNAME}/lib/
+    rm -rf ${DISTNAME}/include/
+    # LitecoinZ: ends
+
     rm -rf ${DISTNAME}/lib/pkgconfig
     find ${DISTNAME} | sort | tar --mtime="$REFERENCE_DATETIME" --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ${OUTDIR}/${DISTNAME}-${i}.tar.gz
     cd ../../
