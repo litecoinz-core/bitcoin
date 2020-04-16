@@ -1,4 +1,4 @@
-packages:=boost openssl libevent libsodium curl
+packages:=boost openssl libevent libsodium curl rust vendored-sources
 
 qt_packages = qrencode zlib
 

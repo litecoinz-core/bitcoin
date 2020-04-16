@@ -33,7 +33,7 @@ LIBBITCOIN_UTIL=libbitcoin_util.a
 LIBBITCOIN_CRYPTO_BASE=crypto/libbitcoin_crypto_base.a
 LIBBITCOINQT=qt/libbitcoinqt.a
 LIBSECP256K1=secp256k1/libsecp256k1.la
-LIBRUSTZCASH=rustzcash/librustzcash.a
+LIBRUSTZCASH=rustzcash/target/$(CARGO_TARGET)/release/librustzcash.a
 LIBZCASH=zcash/libzcash.a
 
 LIBZCASH_LIBS=$(BOOST_SYSTEM_LIB) $(CRYPTO_LIBS) $(SODIUM_LIBS) $(DL_LIBS)
@@ -66,11 +66,10 @@ endif
 $(LIBSECP256K1): $(wildcard secp256k1/src/*.h) $(wildcard secp256k1/src/*.c) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
 
-cargo-build:
-	$(CARGO) build $(CARGO_FLAGS) --manifest-path=rustzcash/Cargo.toml --target=$(CARGO_TARGET) && \
-	cp -f rustzcash/target/$(CARGO_TARGET)/release/librustzcash.a rustzcash/librustzcash.a
+$(LIBRUSTZCASH): $(wildcard rustzcash/include/*)
+	RUSTC="$(RUSTC)" $(CARGO) build $(CARGO_FLAGS) --manifest-path=$(top_srcdir)/src/rustzcash/Cargo.toml --target=$(CARGO_TARGET)
 
-$(LIBRUSTZCASH): cargo-build
+cargo-build: $(LIBRUSTZCASH)
 
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
@@ -768,7 +767,7 @@ $(top_srcdir)/$(subdir)/config/bitcoin-config.h.in:  $(am__configure_deps)
 clean-local:
 	-$(MAKE) -C secp256k1 clean
 	-$(MAKE) -C univalue clean
-	-rm -rf rustzcash/target/ rustzcash/librustzcash.a
+	-rm -rf rustzcash/target/
 	-rm -f leveldb/*/*.gcda leveldb/*/*.gcno leveldb/helpers/memenv/*.gcda leveldb/helpers/memenv/*.gcno
 	-rm -f config.h
 	-rm -rf test/__pycache__

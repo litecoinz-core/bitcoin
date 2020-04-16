@@ -4,6 +4,9 @@ cross_compiling=maybe
 host_alias=@HOST@
 ac_tool_prefix=${host_alias}-
 
+RUST_TARGET="@rust_target@"
+RUST_VENDORED_SOURCES="$depends_prefix/vendored-sources"
+
 if test -z $with_boost; then
   with_boost=$depends_prefix
 fi

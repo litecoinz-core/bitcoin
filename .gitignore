@@ -38,6 +38,7 @@ src/config/stamp-h1
 src/obj
 share/setup.nsi
 share/qt/Info.plist
+.cargo/config
 
 src/univalue/gen
 
