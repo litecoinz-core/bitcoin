@@ -19,6 +19,8 @@
 #include <curl/curl.h>
 #include <openssl/sha.h>
 
+#include <boost/thread.hpp>
+
 std::string filename;
 int reportDone;
 

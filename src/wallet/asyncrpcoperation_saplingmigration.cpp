@@ -244,6 +244,6 @@ UniValue AsyncRPCOperation_saplingmigration::getStatus() const {
     UniValue v = AsyncRPCOperation::getStatus();
     UniValue obj = v.get_obj();
     obj.pushKV("method", "saplingmigration");
-    obj.pushKV("target_height", targetHeight_);
+    obj.pushKV("target_height", (int32_t)targetHeight_);
     return obj;
 }

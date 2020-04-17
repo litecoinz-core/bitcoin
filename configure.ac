@@ -535,6 +535,7 @@ case $host in
      AC_CHECK_LIB([shlwapi],      [main],, AC_MSG_ERROR(libshlwapi missing))
      AC_CHECK_LIB([iphlpapi],      [main],, AC_MSG_ERROR(libiphlpapi missing))
      AC_CHECK_LIB([crypt32],      [main],, AC_MSG_ERROR(libcrypt32 missing))
+     AC_CHECK_LIB([bcrypt],      [main],, AC_MSG_ERROR(libbcrypt missing))
 
      # -static is interpreted by libtool, where it has a different meaning.
      # In libtool-speak, it's -all-static.
@@ -1298,6 +1299,8 @@ else
   AC_CHECK_LIB([crypto],[main],CRYPTO_LIBS=-lcrypto,AC_MSG_ERROR(libcrypto missing))
   AC_CHECK_HEADER([sodium.h],,AC_MSG_ERROR(libsodium headers missing))
   AC_CHECK_LIB([sodium],[sodium_init],SODIUM_LIBS=-lsodium,AC_MSG_ERROR(libsodium missing))
+  AC_CHECK_HEADER([curl/curl.h],,AC_MSG_ERROR(libcurl headers missing))
+  AC_CHECK_LIB([curl], [main],CURL_LIBS=-lcurl, AC_MSG_ERROR(libcurl missing))
 
   if test x$build_bitcoin_cli$build_bitcoind$bitcoin_enable_qt$use_tests$use_bench != xnonononono; then
     AC_CHECK_HEADER([event2/event.h],, AC_MSG_ERROR(libevent headers missing),)

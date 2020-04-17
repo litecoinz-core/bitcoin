@@ -66,10 +66,22 @@ endif
 $(LIBSECP256K1): $(wildcard secp256k1/src/*.h) $(wildcard secp256k1/src/*.c) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
 
-$(LIBRUSTZCASH): $(wildcard rustzcash/include/*)
+cargo-build: $(wildcard rustzcash/include/*.h)
 	RUSTC="$(RUSTC)" $(CARGO) build $(CARGO_FLAGS) --manifest-path=$(top_srcdir)/src/rustzcash/Cargo.toml --target=$(CARGO_TARGET)
 
-cargo-build: $(LIBRUSTZCASH)
+if TARGET_WINDOWS
+LIBRUSTZCASH_WIN=rustzcash/target/$(CARGO_TARGET)/release/rustzcash.lib
+
+$(LIBRUSTZCASH_WIN): cargo-build
+
+# This ensures that the Rust library is correctly linked in by libtool.
+# See https://github.com/rust-lang/rust/issues/69904 for the underlying cause.
+$(LIBRUSTZCASH): $(LIBRUSTZCASH_WIN)
+	$(AM_V_at)cp $< $@
+
+else
+$(LIBRUSTZCASH): cargo-build
+endif
 
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
