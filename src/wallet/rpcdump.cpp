@@ -1654,7 +1654,7 @@ UniValue z_importkey(const JSONRPCRequest& request)
                 RPCResult{
             "{\n"
             "  \"type\" : \"xxxx\",                         (string) \"sprout\" or \"sapling\"\n"
-            "  \"address\" : \"address|DefaultAddress\",    (string) The address(sprout) or the DefaultAddress(sapling)\n"
+            "  \"address\" : \"address|DefaultAddress\",    (string) The address corresponding to the spending key (for Sapling, this is the default address).\n"
             "}\n"
                 },
                 RPCExamples{
@@ -1765,7 +1765,12 @@ UniValue z_importviewingkey(const JSONRPCRequest& request)
                     {"label", RPCArg::Type::STR, /* default */ "\"\"", "An optional label"},
                     {"rescan", RPCArg::Type::BOOL, /* default */ "true", "Rescan the wallet for transactions"},
                 },
-                RPCResults{},
+                RPCResult{
+             "{\n"
+             "  \"type\" : \"xxxx\",                         (string) \"sprout\" or \"sapling\"\n"
+             "  \"address\" : \"address|DefaultAddress\",    (string) The address corresponding to the viewing key (for Sapling, this is the default address).\n"
+             "}\n"
+                },
                 RPCExamples{
             "\nImport a viewing key with rescan\n"
             + HelpExampleCli("z_importviewingkey", "\"vkey\"") +
@@ -1806,11 +1811,16 @@ UniValue z_importviewingkey(const JSONRPCRequest& request)
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
 
+    auto addrInfo = boost::apply_visitor(libzcash::AddressInfoFromViewingKey{}, viewingkey);
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("type", addrInfo.first);
+    result.pushKV("address", EncodePaymentAddress(addrInfo.second));
+
     auto addResult = boost::apply_visitor(AddViewingKeyToWallet(pwallet), viewingkey);
     if (addResult == SpendingKeyExists) {
         throw JSONRPCError(RPC_WALLET_ERROR, "The wallet already contains the private key for this viewing key");
     } else if (addResult == KeyAlreadyExists) {
-        return NullUniValue;
+        return result;
     }
     pwallet->MarkDirty();
     if (addResult == KeyNotAdded) {
@@ -1828,7 +1838,7 @@ UniValue z_importviewingkey(const JSONRPCRequest& request)
         }
     }
 
-    return NullUniValue;
+    return result;
 }
 
 UniValue z_exportviewingkey(const JSONRPCRequest& request)
