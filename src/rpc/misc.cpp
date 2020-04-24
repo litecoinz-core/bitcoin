@@ -14,6 +14,8 @@
 #include <util/system.h>
 #include <util/strencodings.h>
 #include <util/validation.h>
+#include <wallet/rpcwallet.h>
+#include <wallet/wallet.h>
 
 #include <stdint.h>
 #include <tuple>
@@ -25,6 +27,15 @@
 
 static UniValue validateaddress(const JSONRPCRequest& request)
 {
+#ifdef ENABLE_WALLET
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+#endif
+
             RPCHelpMan{"validateaddress",
                 "\nReturn information about the given litecoinz address.\n",
                 {
@@ -47,6 +58,10 @@ static UniValue validateaddress(const JSONRPCRequest& request)
                 },
             }.Check(request);
 
+#ifdef ENABLE_WALLET
+    LOCK(pwallet->cs_wallet);
+#endif
+
     CTxDestination dest = DecodeDestination(request.params[0].get_str());
     bool isValid = IsValidDestination(dest);
 
@@ -59,6 +74,12 @@ static UniValue validateaddress(const JSONRPCRequest& request)
 
         CScript scriptPubKey = GetScriptForDestination(dest);
         ret.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
+
+#ifdef ENABLE_WALLET
+        isminetype mine = pwallet ? IsMine(*pwallet, dest) : ISMINE_NO;
+        ret.pushKV("ismine", bool(mine & ISMINE_SPENDABLE));
+        ret.pushKV("iswatchonly", bool(mine & ISMINE_WATCH_ONLY));
+#endif
 
         UniValue detail = DescribeAddress(dest);
         ret.pushKVs(detail);
@@ -90,6 +111,15 @@ public:
 
 static UniValue z_validateaddress(const JSONRPCRequest& request)
 {
+#ifdef ENABLE_WALLET
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+#endif
+
             RPCHelpMan{"z_validateaddress",
                 "\nReturn information about the given litecoinz zaddress.\n",
                 {
@@ -100,6 +130,7 @@ static UniValue z_validateaddress(const JSONRPCRequest& request)
             "  \"isvalid\" : true|false,       (boolean) If the address is valid or not. If not, this is the only property returned.\n"
             "  \"address\" : \"zaddress\",       (string) The litecoinz zaddress validated\n"
             "  \"type\" : \"xxxx\",              (string) \"sprout\" or \"sapling\"\n"
+            "  \"ismine\" : true|false,        (boolean) If the address is yours or not\n"
             "  \"payingkey\" : \"hex\",          (string) [sprout] The hex value of the paying key, a_pk\n"
             "  \"transmissionkey\" : \"hex\",    (string) [sprout] The hex value of the transmission key, pk_enc\n"
             "  \"diversifier\" : \"hex\",        (string) [sapling] The hex value of the diversifier, d\n"
@@ -112,6 +143,10 @@ static UniValue z_validateaddress(const JSONRPCRequest& request)
                 },
             }.Check(request);
 
+#ifdef ENABLE_WALLET
+    LOCK(pwallet->cs_wallet);
+#endif
+
     std::string strAddress = request.params[0].get_str();
     auto address = DecodePaymentAddress(strAddress);
     bool isValid = IsValidPaymentAddress(address);
@@ -121,6 +156,12 @@ static UniValue z_validateaddress(const JSONRPCRequest& request)
     if (isValid)
     {
         ret.pushKV("address", strAddress);
+
+#ifdef ENABLE_WALLET
+        bool mine = boost::apply_visitor(HaveSpendingKeyForPaymentAddress(pwallet), address);
+        ret.pushKV("ismine", mine);
+#endif
+
         UniValue detail = boost::apply_visitor(DescribePaymentAddressVisitor(), address);
         ret.pushKVs(detail);
     }
