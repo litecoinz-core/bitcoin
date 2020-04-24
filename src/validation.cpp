@@ -3552,17 +3552,18 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     // Check Equihash solution is valid
     if (fCheckPOW) {
         const CChainParams& chainparams = Params();
-        size_t oldSize = chainparams.EquihashSolutionWidth(chainparams.EquihashForkHeight());
-        size_t newSize = chainparams.EquihashSolutionWidth(chainparams.EquihashForkHeight() - 1);
+        size_t oldSize = chainparams.EquihashSolutionWidth(chainparams.EquihashForkHeight() - 1);
+        size_t newSize = chainparams.EquihashSolutionWidth(chainparams.EquihashForkHeight());
+        size_t nSolSize = block.nSolution.size();
+
+        LogPrint(BCLog::POW, "Equihash Solution: size=%d, oldSize=%d, newSize=%d\n", nSolSize, oldSize, newSize);
 
         if ((block.nSolution.size() != oldSize) && (block.nSolution.size() != newSize))
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("CheckBlockHeader(): Equihash solution has invalid size have %d need [%d, %d]",
-                                        block.nSolution.size(), oldSize, newSize),
-                             REJECT_INVALID, "invalid-solution-size");
+            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "invalid-solution-size",
+                                 strprintf("Equihash solution has invalid size: have %d, need [%d, %d]", nSolSize, oldSize, newSize));
 
         if (!CheckEquihashSolution(&block))
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("CheckBlockHeader(): Equihash solution invalid"),
-                             REJECT_INVALID, "invalid-solution");
+            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "invalid-solution-size", "Equihash solution invalid");
     }
 
     // Check proof of work matches claimed amount
@@ -3749,6 +3750,13 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     if (block.nVersion < 4)
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_OBSOLETE, strprintf("bad-version(0x%08x)", block.nVersion),
                              strprintf("rejected nVersion=0x%08x block", block.nVersion));
+
+    // Reject invalid equihash solutions
+    size_t nSolSize = block.nSolution.size();
+    size_t nExpectedSolSize = params.EquihashSolutionWidth(nHeight);
+    if (nSolSize > 0 && nSolSize != nExpectedSolSize)
+        return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "invalid-equihash-solution",
+                             strprintf("Equihash solution has invalid size: have %d, need %d", nSolSize, nExpectedSolSize));
 
     return true;
 }
