@@ -70,7 +70,6 @@ AsyncRPCOperation_mergetoaddress::AsyncRPCOperation_mergetoaddress(
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
-    auto locked_chain = pwallet->chain().lock();
 
     if (fee < 0 || fee > MAX_MONEY) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Fee is out of range");
@@ -206,7 +205,6 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
-    auto locked_chain = pwallet->chain().lock();
 
     assert(isToTaddr_ != isToZaddr_);
 
@@ -264,6 +262,7 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
 
     // Grab the current consensus branch ID
     {
+        auto locked_chain = pwallet->chain().lock();
         LOCK(cs_main);
         consensusBranchId_ = CurrentEpochBranchId(::ChainActive().Height() + 1, Params().GetConsensus());
     }
@@ -304,6 +303,7 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
         uint256 anchor;
         std::vector<boost::optional<SaplingWitness>> witnesses;
         {
+            auto locked_chain = pwallet->chain().lock();
             LOCK2(cs_main, pwallet->cs_wallet);
             pwallet->GetSaplingNoteWitnesses(saplingOPs, witnesses, anchor);
         }
@@ -422,6 +422,7 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
     // change upon arrival of new blocks which contain joinsplit transactions.  This is likely
     // to happen as creating a chained joinsplit transaction can take longer than the block interval.
     {
+        auto locked_chain = pwallet->chain().lock();
         LOCK2(cs_main, pwallet->cs_wallet);
         for (auto t : sproutNoteInputs_) {
             SproutOutPoint jso = std::get<0>(t);
@@ -510,6 +511,7 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
         // Consume change as the first input of the JoinSplit.
         //
         if (jsChange > 0) {
+            auto locked_chain = pwallet->chain().lock();
             LOCK2(cs_main, pwallet->cs_wallet);
 
             // Update tree state with previous joinsplit
@@ -600,6 +602,7 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
             int wtxHeight = -1;
             int wtxDepth = -1;
             {
+                auto locked_chain = pwallet->chain().lock();
                 LOCK2(cs_main, pwallet->cs_wallet);
                 const CWalletTx& wtx = pwallet->mapWallet.at(jso.hash);
                 CBlockIndex* pindex = LookupBlockIndex(wtx.m_confirm.hashBlock);
@@ -713,9 +716,13 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
 
 UniValue AsyncRPCOperation_mergetoaddress::perform_joinsplit(MergeToAddressJSInfo& info)
 {
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
+    CWallet* const pwallet = wallet.get();
+
     std::vector<boost::optional<SproutWitness>> witnesses;
     uint256 anchor;
     {
+        auto locked_chain = pwallet->chain().lock();
         LOCK(cs_main);
         anchor = ::ChainstateActive().CoinsTip().GetBestAnchor(SPROUT); // As there are no inputs, ask the wallet for the best anchor
     }
@@ -726,11 +733,11 @@ UniValue AsyncRPCOperation_mergetoaddress::perform_joinsplit(MergeToAddressJSInf
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
-    auto locked_chain = pwallet->chain().lock();
 
     std::vector<boost::optional<SproutWitness>> witnesses;
     uint256 anchor;
     {
+        auto locked_chain = pwallet->chain().lock();
         LOCK(cs_main);
         pwallet->GetSproutNoteWitnesses(outPoints, witnesses, anchor);
     }
@@ -951,6 +958,7 @@ UniValue AsyncRPCOperation_mergetoaddress::getStatus() const
  * Lock input utxos
  */
  void AsyncRPCOperation_mergetoaddress::lock_utxos(CWallet* const pwallet) {
+    auto locked_chain = pwallet->chain().lock();
     LOCK2(cs_main, pwallet->cs_wallet);
     for (auto utxo : utxoInputs_) {
         pwallet->LockCoin(std::get<0>(utxo));
@@ -961,6 +969,7 @@ UniValue AsyncRPCOperation_mergetoaddress::getStatus() const
  * Unlock input utxos
  */
 void AsyncRPCOperation_mergetoaddress::unlock_utxos(CWallet* const pwallet) {
+    auto locked_chain = pwallet->chain().lock();
     LOCK2(cs_main, pwallet->cs_wallet);
     for (auto utxo : utxoInputs_) {
         pwallet->UnlockCoin(std::get<0>(utxo));
@@ -972,6 +981,7 @@ void AsyncRPCOperation_mergetoaddress::unlock_utxos(CWallet* const pwallet) {
  * Lock input notes
  */
  void AsyncRPCOperation_mergetoaddress::lock_notes(CWallet* const pwallet) {
+    auto locked_chain = pwallet->chain().lock();
     LOCK2(cs_main, pwallet->cs_wallet);
     for (auto note : sproutNoteInputs_) {
         pwallet->LockNote(std::get<0>(note));
@@ -985,6 +995,7 @@ void AsyncRPCOperation_mergetoaddress::unlock_utxos(CWallet* const pwallet) {
  * Unlock input notes
  */
 void AsyncRPCOperation_mergetoaddress::unlock_notes(CWallet* const pwallet) {
+    auto locked_chain = pwallet->chain().lock();
     LOCK2(cs_main, pwallet->cs_wallet);
     for (auto note : sproutNoteInputs_) {
         pwallet->UnlockNote(std::get<0>(note));

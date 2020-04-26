@@ -48,10 +48,6 @@ AsyncRPCOperation_shieldcoinbase::AsyncRPCOperation_shieldcoinbase(
         UniValue contextInfo) :
         request_(request), tx_(MakeTransactionRef(std::move(contextualTx))), t_inputs_(tInputs), z_output_(zOutput), fee_(fee), contextinfo_(contextInfo)
 {
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
-    CWallet* const pwallet = wallet.get();
-    auto locked_chain = pwallet->chain().lock();
-
     assert(fee_ >= 0);
     assert(contextualTx.nVersion >= 2);  // transaction format version must support vJoinSplit
 
@@ -150,7 +146,6 @@ void AsyncRPCOperation_shieldcoinbase::main() {
 bool AsyncRPCOperation_shieldcoinbase::main_impl() {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
-    auto locked_chain = pwallet->chain().lock();
 
     CAmount minersFee = fee_;
 
@@ -200,6 +195,7 @@ bool AsyncRPCOperation_shieldcoinbase::main_impl() {
         HDSeed seed = pwallet->GetZecHDSeedForRPC(pwallet);
         uint256 ovk = ovkForShieldingFromTaddr(seed);
 
+        auto locked_chain = pwallet->chain().lock();
         LOCK(pwallet->cs_wallet);
         EnsureWalletIsUnlocked(pwallet);
 
@@ -220,6 +216,7 @@ bool AsyncRPCOperation_shieldcoinbase::main_impl() {
     {
         // Grab the current consensus branch ID
         {
+            auto locked_chain = pwallet->chain().lock();
             LOCK(cs_main);
             consensusBranchId_ = CurrentEpochBranchId(::ChainActive().Height() + 1, Params().GetConsensus());
         }
@@ -250,9 +247,13 @@ bool AsyncRPCOperation_shieldcoinbase::main_impl() {
 
 UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(ShieldCoinbaseJSInfo& info)
 {
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
+    CWallet* const pwallet = wallet.get();
+
     std::vector<boost::optional<SproutWitness>> witnesses;
     uint256 anchor;
     {
+        auto locked_chain = pwallet->chain().lock();
         LOCK(cs_main);
         anchor = ::ChainstateActive().CoinsTip().GetBestAnchor(SPROUT);    // As there are no inputs, ask the wallet for the best anchor
     }
@@ -263,11 +264,11 @@ UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(ShieldCoinbaseJSInf
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
-    auto locked_chain = pwallet->chain().lock();
 
     std::vector<boost::optional<SproutWitness>> witnesses;
     uint256 anchor;
     {
+        auto locked_chain = pwallet->chain().lock();
         LOCK(cs_main);
         pwallet->GetSproutNoteWitnesses(outPoints, witnesses, anchor);
     }

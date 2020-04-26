@@ -81,7 +81,6 @@ void AsyncRPCOperation_saplingmigration::main() {
 bool AsyncRPCOperation_saplingmigration::main_impl() {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
-    auto locked_chain = pwallet->chain().lock();
 
     LogPrint(BCLog::ZRPC, "%s: Beginning AsyncRPCOperation_saplingmigration.\n", getId());
     auto consensusParams = Params().GetConsensus();
@@ -95,6 +94,7 @@ bool AsyncRPCOperation_saplingmigration::main_impl() {
     std::vector<SproutNoteEntry> sproutEntries;
     std::vector<SaplingNoteEntry> saplingEntries;
     {
+        auto locked_chain = pwallet->chain().lock();
         LOCK2(cs_main, pwallet->cs_wallet);
         // We set minDepth to 11 to avoid unconfirmed notes and in anticipation of specifying
         // an anchor at height N-10 for each Sprout JoinSplit description
