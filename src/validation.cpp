@@ -747,8 +747,9 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
                 strprintf("%d", nSigOpsCost));
 
     // No transactions are allowed below minRelayTxFee except from disconnected
-    // blocks
-    if (!bypass_limits && !CheckFeeRate(nSize, nModifiedFees, state)) return false;
+    // blocks or shielding operations using default fee (10000 sat)
+    if (!((tx.vJoinSplit.size() > 0 || tx.vShieldedSpend.size() > 0 || tx.vShieldedOutput.size() > 0) && nFees == 10000))
+        if (!bypass_limits && !CheckFeeRate(nSize, nModifiedFees, state)) return false;
 
     if (nAbsurdFee && nFees > nAbsurdFee)
         return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, false,

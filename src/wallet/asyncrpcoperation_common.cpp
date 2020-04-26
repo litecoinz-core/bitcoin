@@ -28,10 +28,6 @@ UniValue SendTransaction(CTransactionRef& tx, CWallet* const pwallet, CAmount nF
         throw JSONRPCError(RPC_WALLET_ERROR, "Transaction too large");
     }
 
-    if (nFee < ::minRelayTxFee.GetFee(sz)) {
-        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("min relay fee not met: %d < %d", nFee, ::minRelayTxFee.GetFee(sz)));
-    }
-
     // Send the transaction
     if (!testmode) {
         pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */);
