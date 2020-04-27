@@ -5824,11 +5824,7 @@ UniValue z_gettotalbalance(const JSONRPCRequest& request)
                 },
                  RPCResult{
             "{\n"
-            "  \"transparent\":                     (json object) the total balance of transparent funds\n"
-            "    {\n"
-            "      \"available\" : xxxx             (numeric) spendable funds\n"
-            "      \"to_shield\" : x.xxxx,          (numeric) funds that need to be shielded before they become spendable\n"
-            "    }\n"
+            "  \"transparent\": xxxxx,  (numeric) the total balance of transparent funds\n"
             "  \"private\": xxxxx,      (numeric) the total balance of shielded funds (in both Sprout and Sapling addresses)\n"
             "  \"total\": xxxxx,        (numeric) the total balance of both transparent and shielded funds\n"
             "}\n"
@@ -5872,9 +5868,7 @@ UniValue z_gettotalbalance(const JSONRPCRequest& request)
     CAmount nTotalBalance = nBalance + nPrivateBalance + nToShield;
     UniValue result(UniValue::VOBJ);
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("available", FormatMoney(nBalance));
-    obj.pushKV("to_shield", FormatMoney(nToShield));
-    result.pushKV("transparent", obj);
+    result.pushKV("transparent", FormatMoney(nBalance + nToShield));
     result.pushKV("private", FormatMoney(nPrivateBalance));
     result.pushKV("total", FormatMoney(nTotalBalance));
     return result;
