@@ -113,9 +113,16 @@ bool IsStandardTx(const CTransaction& tx, bool permit_bare_multisig, const CFeeR
     // Extremely large transactions with lots of inputs can cost the network
     // almost as much to process as they cost the sender in fees, because
     // computing signature hashes is O(ninputs*txsize). Limiting transactions
-    // to MAX_STANDARD_TX_WEIGHT mitigates CPU exhaustion attacks.
+    // to max_tx_size mitigates CPU exhaustion attacks.
     unsigned int sz = GetTransactionWeight(tx);
-    if (sz > MAX_STANDARD_TX_WEIGHT) {
+    unsigned int max_tx_size = MAX_STANDARD_TX_WEIGHT;
+    if (tx.vJoinSplit.size() > 0 || tx.vShieldedSpend.size() > 0 || tx.vShieldedOutput.size() > 0) {
+        if (tx.nVersion >= 4)
+            max_tx_size = MAX_TX_SIZE_AFTER_SAPLING;
+        else
+            max_tx_size = MAX_TX_SIZE_BEFORE_SAPLING;
+    }
+    if (sz > max_tx_size) {
         reason = "tx-size";
         return false;
     }

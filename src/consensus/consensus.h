@@ -46,7 +46,7 @@ static constexpr unsigned int LOCKTIME_VERIFY_SEQUENCE = (1 << 0);
 static constexpr unsigned int LOCKTIME_MEDIAN_TIME_PAST = (1 << 1);
 
 static const unsigned int MAX_TX_SIZE_BEFORE_SAPLING = 100000;
-static const unsigned int MAX_TX_SIZE_AFTER_SAPLING = MAX_BLOCK_WEIGHT;
+static const unsigned int MAX_TX_SIZE_AFTER_SAPLING = 2000000;
 
 /** The minimum value which is invalid for expiry height, used by CTransaction and CMutableTransaction */
 static constexpr uint32_t TX_EXPIRY_HEIGHT_THRESHOLD = 500000000;
