@@ -5796,9 +5796,9 @@ static UniValue z_getbalance(const JSONRPCRequest& request)
 
     CAmount nBalance = 0;
     if (fromTaddr) {
-        nBalance = pwallet->GetBalanceTaddr(fromaddress, min_depth, false);
+        nBalance = pwallet->GetBalanceTaddr(fromaddress, min_depth, true);
     } else {
-        nBalance = pwallet->GetBalanceZaddr(fromaddress, min_depth, INT_MAX, false);
+        nBalance = pwallet->GetBalanceZaddr(fromaddress, min_depth, INT_MAX, true);
     }
 
     return ValueFromAmount(nBalance);
