@@ -1865,11 +1865,15 @@ int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Para
     LOCK(cs_main);
     int32_t nVersion = VERSIONBITS_TOP_BITS;
 
-    for (int i = 0; i < (int)Consensus::MAX_VERSION_BITS_DEPLOYMENTS; i++) {
-        ThresholdState state = VersionBitsState(pindexPrev, params, static_cast<Consensus::DeploymentPos>(i), versionbitscache);
-        if (state == ThresholdState::LOCKED_IN || state == ThresholdState::STARTED) {
-            nVersion |= VersionBitsMask(params, static_cast<Consensus::DeploymentPos>(i));
+    if (::ChainActive().Height() >= params.CSVHeight) {
+        for (int i = 0; i < (int)Consensus::MAX_VERSION_BITS_DEPLOYMENTS; i++) {
+            ThresholdState state = VersionBitsState(pindexPrev, params, static_cast<Consensus::DeploymentPos>(i), versionbitscache);
+            if (state == ThresholdState::LOCKED_IN || state == ThresholdState::STARTED) {
+                nVersion |= VersionBitsMask(params, static_cast<Consensus::DeploymentPos>(i));
+            }
         }
+    } else {
+        nVersion = 4;
     }
 
     return nVersion;
