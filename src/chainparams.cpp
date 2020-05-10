@@ -240,8 +240,8 @@ public:
         consensus.BIP65Enabled = true;
         consensus.BIP66Enabled = true;
         consensus.ZIP209Enabled = true;
-        consensus.CSVHeight = 770112; // 00000000025e930139bac5c6c31a403776da130831ab85be56578f3fa75369bb
-        consensus.MinBIP9WarningHeight = 836640; // segwit activation height + miner confirmation window
+        consensus.CSVHeight = 5500;
+        consensus.MinBIP9WarningHeight = 8016; // segwit activation height + miner confirmation window
         consensus.powLimit = uint256S("07ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowAveragingWindow = 17;
         assert(maxUint/UintToArith256(consensus.powLimit) >= consensus.nPowAveragingWindow);
@@ -249,7 +249,7 @@ public:
         consensus.nPowMaxAdjustUp = 16; // 16% adjustment up
         consensus.nPowTargetTimespan = 3.5 * 24 * 60 * 60; // 3.5 days
         consensus.nPowTargetSpacing = 2.5 * 60;
-        consensus.fPowAllowMinDifficultyBlocks = true;
+        consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
         consensus.nRuleChangeActivationThreshold = 1512; // 75% for testchains
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
@@ -265,7 +265,7 @@ public:
         consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nProtocolVersion = 170007;
         consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight = 4000;
         consensus.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nProtocolVersion = 170008;
-        consensus.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
+        consensus.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nActivationHeight = 6000;
         consensus.vUpgrades[Consensus::UPGRADE_PEGASI].nProtocolVersion = 170009;
         consensus.vUpgrades[Consensus::UPGRADE_PEGASI].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
         const size_t N1 = 200, K1 = 9;
@@ -283,7 +283,7 @@ public:
         consensus.nMinimumChainWork = uint256S("0x0000000000000000000000000000000000000000000000000000000000f1eb9b");
 
         // By default assume that the signatures in ancestors of this block are valid.
-        consensus.defaultAssumeValid = uint256S("0x00000000000000b7ab6ce61eb6d571003fbe5fe892da4c9b740c49a07542462d"); // 1580000
+        consensus.defaultAssumeValid = uint256S("000382f922603bec442e45c4d25529bb0ab4340d88228775a3b883ecfc94fa51"); // 4180
 
         pchMessageStart[0] = 0xfe;
         pchMessageStart[1] = 0x90;
@@ -344,14 +344,15 @@ public:
         checkpointData = {
             {
                 {0, uint256S("0x000777e63f7c2efb3c554405a07a4f3dd1def8ea5cef4fda65b2c57247171141")},
+                {4959, uint256S("0x00018e8ba19c3e8841ea67dffba6dcf4fa43d2ae951bf9cec854570acef8b456")},
             }
         };
 
         chainTxData = ChainTxData{
-            // Data from RPC: getchaintxstats 4096 00000000000000b7ab6ce61eb6d571003fbe5fe892da4c9b740c49a07542462d
-            /* nTime    */ 1511954736,
-            /* nTxCount */ 1,
-            /* dTxRate  */ 0.1517002392872353,
+            // Data from RPC: getchaintxstats 4096 00018e8ba19c3e8841ea67dffba6dcf4fa43d2ae951bf9cec854570acef8b456
+            /* nTime    */ 1588208103,
+            /* nTxCount */ 8492,
+            /* dTxRate  */ 0.0001216201489260297,
         };
 
         // Hardcoded fallback value for the Sprout shielded value pool balance
