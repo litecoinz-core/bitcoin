@@ -155,7 +155,6 @@ public:
         // This is fine at runtime as we'll fall back to using them as a oneshot if they don't support the
         // service bits we want, but we should get them updated to support all service bits wanted by any
         // release ASAP to avoid it where possible.
-        vSeeds.emplace_back("dnsseed.litecoinz.info");
         vSeeds.emplace_back("dnsseed.litecoinz.org");
 
         // guarantees the first 2 characters, when base58 encoded, are "L1"
@@ -307,7 +306,6 @@ public:
         vFixedSeeds.clear();
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
-        vSeeds.emplace_back("dnsseed-testnet.litecoinz.info");
         vSeeds.emplace_back("dnsseed-testnet.litecoinz.org");
 
         // guarantees the first 2 characters, when base58 encoded, are "T1"
