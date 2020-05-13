@@ -9,6 +9,7 @@
 #include <crypto/common.h>
 #include <prevector.h>
 #include <serialize.h>
+#include <uint256.h>
 
 #include <assert.h>
 #include <climits>
@@ -538,9 +539,19 @@ public:
      */
     unsigned int GetSigOpCount(const CScript& scriptSig) const;
 
+    enum ScriptType : int {
+        UNKNOWN = 0,
+        P2PKH = 1,
+        P2SH = 2,
+    };
+
+    bool IsPayToPublicKeyHash() const;
     bool IsPayToScriptHash() const;
     bool IsPayToWitnessScriptHash() const;
     bool IsWitnessProgram(int& version, std::vector<unsigned char>& program) const;
+
+    ScriptType GetType() const;
+    uint160 AddressHash() const;
 
     /** Called by IsStandardTx and P2SH/BIP62 VerifyScript (which makes it consensus-critical). */
     bool IsPushOnly(const_iterator pc) const;

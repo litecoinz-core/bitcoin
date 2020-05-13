@@ -138,6 +138,7 @@ LIBZCASH_H = \
 
 # litecoinz core #
 BITCOIN_CORE_H = \
+  addressindex.h \
   addrdb.h \
   addrman.h \
   asyncrpcoperation.h \
@@ -232,6 +233,7 @@ BITCOIN_CORE_H = \
   script/signingprovider.h \
   script/standard.h \
   shutdown.h \
+  spentindex.h \
   streams.h \
   support/allocators/secure.h \
   support/allocators/zeroafterfree.h \
@@ -242,6 +244,7 @@ BITCOIN_CORE_H = \
   threadsafety.h \
   threadinterrupt.h \
   timedata.h \
+  timestampindex.h \
   torcontrol.h \
   transaction_builder.h \
   txdb.h \
