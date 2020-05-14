@@ -47,7 +47,7 @@
  */
 static const CFeeRate DEFAULT_MAX_RAW_TX_FEE_RATE{COIN / 10};
 
-static void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
+static void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry, bool expanded = false)
 {
     // Call into TxToUniv() in bitcoin-common to decode the transaction hex.
     //
@@ -55,6 +55,53 @@ static void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& 
     // available to code in bitcoin-common, so we query them here and push the
     // data into the returned UniValue.
     TxToUniv(tx, uint256(), entry, true, RPCSerializationFlags());
+
+    if (expanded) {
+        uint256 txid = tx.GetHash();
+        if (!(tx.IsCoinBase())) {
+            const UniValue& oldVin = entry["vin"];
+            UniValue newVin(UniValue::VARR);
+            for (unsigned int i = 0; i < tx.vin.size(); i++) {
+                const CTxIn& txin = tx.vin[i];
+                UniValue in = oldVin[i];
+
+                // Add address and value info if spentindex enabled
+                CSpentIndexValue spentInfo;
+                CSpentIndexKey spentKey(txin.prevout.hash, txin.prevout.n);
+                if (fSpentIndex && GetSpentIndex(spentKey, spentInfo)) {
+                    in.pushKV("value", ValueFromAmount(spentInfo.satoshis));
+                    in.pushKV("valueSat", spentInfo.satoshis);
+
+                    CTxDestination dest = DestFromAddressHash(spentInfo.addressType, spentInfo.addressHash);
+                    if (IsValidDestination(dest)) {
+                        in.pushKV("address", EncodeDestination(dest));
+                    }
+                }
+                newVin.push_back(in);
+            }
+            entry.pushKV("vin", newVin);
+        }
+
+        const UniValue& oldVout = entry["vout"];
+        UniValue newVout(UniValue::VARR);
+        for (unsigned int i = 0; i < tx.vout.size(); i++) {
+            const CTxOut& txout = tx.vout[i];
+            UniValue out = oldVout[i];
+
+            // Add spent information if spentindex is enabled
+            CSpentIndexValue spentInfo;
+            CSpentIndexKey spentKey(txid, i);
+            if (fSpentIndex && GetSpentIndex(spentKey, spentInfo)) {
+                out.pushKV("spentTxId", spentInfo.txid.GetHex());
+                out.pushKV("spentIndex", (int)spentInfo.inputIndex);
+                out.pushKV("spentHeight", spentInfo.blockHeight);
+            }
+            out.pushKV("valueZat", txout.nValue);
+            out.pushKV("valueSat", txout.nValue);
+            newVout.push_back(out);
+        }
+        entry.pushKV("vout", newVout);
+    }
 
     if (!hashBlock.IsNull()) {
         LOCK(cs_main);
@@ -245,7 +292,7 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
 
     UniValue result(UniValue::VOBJ);
     if (blockindex) result.pushKV("in_active_chain", in_active_chain);
-    TxToJSON(*tx, hash_block, result);
+    TxToJSON(*tx, hash_block, result, true);
     return result;
 }
 

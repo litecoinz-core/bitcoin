@@ -402,9 +402,11 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
             packageSigOpsCost = modit->nSigOpCostWithAncestors;
         }
 
-        if (packageFees < blockMinFeeRate.GetFee(packageSize)) {
-            // Everything else we might consider has a lower fee rate
-            return;
+        if (!((iter->GetTx().vJoinSplit.size() > 0 || iter->GetTx().vShieldedSpend.size() > 0 || iter->GetTx().vShieldedOutput.size() > 0) && packageFees == 10000)) {
+            if (packageFees < blockMinFeeRate.GetFee(packageSize)) {
+                // Everything else we might consider has a lower fee rate
+                return;
+            }
         }
 
         if (!TestPackage(packageSize, packageSigOpsCost)) {

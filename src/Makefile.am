@@ -34,7 +34,7 @@ LIBBITCOIN_UTIL=libbitcoin_util.a
 LIBBITCOIN_CRYPTO_BASE=crypto/libbitcoin_crypto_base.a
 LIBBITCOINQT=qt/libbitcoinqt.a
 LIBSECP256K1=secp256k1/libsecp256k1.la
-LIBRUSTZCASH=rustzcash/librustzcash.a
+LIBRUSTZCASH=rustzcash/target/$(CARGO_TARGET)/release/librustzcash.a
 LIBZCASH=zcash/libzcash.a
 
 LIBZCASH_LIBS=$(BOOST_SYSTEM_LIB) $(CRYPTO_LIBS) $(SODIUM_LIBS) $(DL_LIBS)
@@ -67,11 +67,22 @@ endif
 $(LIBSECP256K1): $(wildcard secp256k1/src/*.h) $(wildcard secp256k1/src/*.c) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
 
-cargo-build:
-	$(CARGO) build $(CARGO_FLAGS) --manifest-path=rustzcash/Cargo.toml --target=$(CARGO_TARGET) && \
-	cp -f rustzcash/target/$(CARGO_TARGET)/release/librustzcash.a rustzcash/librustzcash.a
+cargo-build: $(wildcard rustzcash/include/*.h)
+	RUSTC="$(RUSTC)" $(CARGO) build $(CARGO_FLAGS) --manifest-path=$(top_srcdir)/src/rustzcash/Cargo.toml --target=$(CARGO_TARGET)
 
+if TARGET_WINDOWS
+LIBRUSTZCASH_WIN=rustzcash/target/$(CARGO_TARGET)/release/rustzcash.lib
+
+$(LIBRUSTZCASH_WIN): cargo-build
+
+# This ensures that the Rust library is correctly linked in by libtool.
+# See https://github.com/rust-lang/rust/issues/69904 for the underlying cause.
+$(LIBRUSTZCASH): $(LIBRUSTZCASH_WIN)
+	$(AM_V_at)cp $< $@
+
+else
 $(LIBRUSTZCASH): cargo-build
+endif
 
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
@@ -128,6 +139,7 @@ LIBZCASH_H = \
 
 # litecoinz core #
 BITCOIN_CORE_H = \
+  addressindex.h \
   addrdb.h \
   addrman.h \
   asyncrpcoperation.h \
@@ -222,6 +234,7 @@ BITCOIN_CORE_H = \
   script/signingprovider.h \
   script/standard.h \
   shutdown.h \
+  spentindex.h \
   streams.h \
   support/allocators/secure.h \
   support/allocators/zeroafterfree.h \
@@ -232,6 +245,7 @@ BITCOIN_CORE_H = \
   threadsafety.h \
   threadinterrupt.h \
   timedata.h \
+  timestampindex.h \
   torcontrol.h \
   transaction_builder.h \
   txdb.h \
@@ -769,7 +783,7 @@ $(top_srcdir)/$(subdir)/config/bitcoin-config.h.in:  $(am__configure_deps)
 clean-local:
 	-$(MAKE) -C secp256k1 clean
 	-$(MAKE) -C univalue clean
-	-rm -rf rustzcash/target/ rustzcash/librustzcash.a
+	-rm -rf rustzcash/target/
 	-rm -f leveldb/*/*.gcda leveldb/*/*.gcno leveldb/helpers/memenv/*.gcda leveldb/helpers/memenv/*.gcno
 	-rm -f config.h
 	-rm -rf test/__pycache__

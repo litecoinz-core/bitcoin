@@ -482,6 +482,11 @@ if test x$CARGO = xnone; then
   AC_MSG_ERROR("cargo required to enable rust support.")
 fi
 
+AC_PATH_PROG(RUSTC,rustc,none)
+if test x$RUSTC = xnone; then
+  AC_MSG_ERROR("rustc required to enable rust support.")
+fi
+
 dnl Find the additional lib (if any) responsible for handling
 dnl dlopen/dlsym/etc.
 TEMP_LIBS="$LIBS"
@@ -490,13 +495,18 @@ AC_SEARCH_LIBS([dlsym],[dl])
 DL_LIBS="$LIBS"
 LIBS="$TEMP_LIBS"
 
-CARGO_FLAGS="$CARGO_FLAGS --verbose --release --locked"
+CARGO_FLAGS="$CARGO_FLAGS --lib --verbose --release --locked"
 case $host in
   ${host_cpu}-w64-mingw*) CARGO_TARGET=${host_cpu}-pc-windows-gnu ;;
   ${host_cpu}-pc-linux*) CARGO_TARGET=${host_cpu}-unknown-${host_os} ;;
   ${host_cpu}-apple-darwin*) CARGO_TARGET=${host_cpu}-apple-darwin ;;
   *) CARGO_TARGET=${host} ;;
 esac
+
+if test x$RUST_VENDORED_SOURCES != x; then
+  AC_CONFIG_FILES([.cargo/config:.cargo/config.in])
+  CARGO_FLAGS="$CARGO_FLAGS --offline"
+fi
 
 use_pkgconfig=yes
 case $host in
@@ -525,6 +535,7 @@ case $host in
      AC_CHECK_LIB([shlwapi],      [main],, AC_MSG_ERROR(libshlwapi missing))
      AC_CHECK_LIB([iphlpapi],      [main],, AC_MSG_ERROR(libiphlpapi missing))
      AC_CHECK_LIB([crypt32],      [main],, AC_MSG_ERROR(libcrypt32 missing))
+     AC_CHECK_LIB([bcrypt],      [main],, AC_MSG_ERROR(libbcrypt missing))
 
      # -static is interpreted by libtool, where it has a different meaning.
      # In libtool-speak, it's -all-static.
@@ -1288,6 +1299,8 @@ else
   AC_CHECK_LIB([crypto],[main],CRYPTO_LIBS=-lcrypto,AC_MSG_ERROR(libcrypto missing))
   AC_CHECK_HEADER([sodium.h],,AC_MSG_ERROR(libsodium headers missing))
   AC_CHECK_LIB([sodium],[sodium_init],SODIUM_LIBS=-lsodium,AC_MSG_ERROR(libsodium missing))
+  AC_CHECK_HEADER([curl/curl.h],,AC_MSG_ERROR(libcurl headers missing))
+  AC_CHECK_LIB([curl], [main],CURL_LIBS=-lcurl, AC_MSG_ERROR(libcurl missing))
 
   if test x$build_bitcoin_cli$build_bitcoind$bitcoin_enable_qt$use_tests$use_bench != xnonononono; then
     AC_CHECK_HEADER([event2/event.h],, AC_MSG_ERROR(libevent headers missing),)
@@ -1615,6 +1628,7 @@ AC_SUBST(DL_LIBS)
 AC_SUBST(CURL_LIBS)
 AC_SUBST(CARGO_FLAGS)
 AC_SUBST(CARGO_TARGET)
+AC_SUBST(RUST_VENDORED_SOURCES)
 AC_CONFIG_FILES([Makefile src/Makefile doc/man/Makefile share/setup.nsi share/qt/Info.plist test/config.ini])
 AC_CONFIG_FILES([contrib/devtools/split-debug.sh],[chmod +x contrib/devtools/split-debug.sh])
 AM_COND_IF([HAVE_DOXYGEN], [AC_CONFIG_FILES([doc/Doxyfile])])

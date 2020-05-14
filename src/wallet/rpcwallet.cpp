@@ -2518,8 +2518,6 @@ static UniValue getbalances(const JSONRPCRequest& request)
     auto locked_chain = wallet.chain().lock();
     LOCK(wallet.cs_wallet);
 
-    UniValue obj(UniValue::VOBJ);
-
     const auto bal = wallet.GetBalance();
     const auto zbal = wallet.GetShieldedBalance();
 
@@ -2965,6 +2963,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
             "  {\n"
             "    \"txid\" : \"txid\",          (string) the transaction id \n"
             "    \"vout\" : n,               (numeric) the vout value\n"
+            "    \"generated\" : xxx,        (bool) true if txout is a coinbase transaction output\n"
             "    \"address\" : \"address\",    (string) the litecoinz address\n"
             "    \"label\" : \"label\",        (string) The associated label, or \"\" for the default label\n"
             "    \"scriptPubKey\" : \"key\",   (string) the script key\n"
@@ -3060,8 +3059,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
         cctl.m_max_depth = nMaxDepth;
         auto locked_chain = pwallet->chain().lock();
         LOCK(pwallet->cs_wallet);
-        bool fIncludeCoinbase = !Params().GetConsensus().fCoinbaseMustBeShielded;
-        pwallet->AvailableCoins(*locked_chain, false, fIncludeCoinbase, vecOutputs, !include_unsafe, &cctl, nMinimumAmount, nMaximumAmount, nMinimumSumAmount, nMaximumCount);
+        pwallet->AvailableCoins(*locked_chain, false, true, vecOutputs, !include_unsafe, &cctl, nMinimumAmount, nMaximumAmount, nMinimumSumAmount, nMaximumCount);
     }
 
     LOCK(pwallet->cs_wallet);
@@ -3080,6 +3078,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
         UniValue entry(UniValue::VOBJ);
         entry.pushKV("txid", out.tx->GetHash().GetHex());
         entry.pushKV("vout", out.i);
+        entry.pushKV("generated", out.tx->IsCoinBase());
 
         if (fValidAddress) {
             entry.pushKV("address", EncodeDestination(address));
@@ -3659,7 +3658,7 @@ static UniValue bumpfee(const JSONRPCRequest& request)
             "                         the dust threshold."},
                             {"fee_rate", RPCArg::Type::NUM, /* default */ "fallback to 'confTarget'", "FeeRate (NOT total fee) to pay, in " + CURRENCY_UNIT + " per kB\n"
             "                         Specify a fee rate instead of relying on the built-in fee estimator.\n"
-            "                         Must be at least 0.0001 LTZ per kB higher than the current transaction fee rate.\n"},
+            "                         Must be at least 0.0001 " + CURRENCY_UNIT + " per kB higher than the current transaction fee rate.\n"},
                             {"replaceable", RPCArg::Type::BOOL, /* default */ "true", "Whether the new transaction should still be\n"
             "                         marked bip-125 replaceable. If true, the sequence numbers in the transaction will\n"
             "                         be left unchanged from the original. If false, any input sequence numbers in the\n"
@@ -5798,9 +5797,9 @@ static UniValue z_getbalance(const JSONRPCRequest& request)
 
     CAmount nBalance = 0;
     if (fromTaddr) {
-        nBalance = pwallet->GetBalanceTaddr(fromaddress, min_depth, false);
+        nBalance = pwallet->GetBalanceTaddr(fromaddress, min_depth, true);
     } else {
-        nBalance = pwallet->GetBalanceZaddr(fromaddress, min_depth, INT_MAX, false);
+        nBalance = pwallet->GetBalanceZaddr(fromaddress, min_depth, INT_MAX, true);
     }
 
     return ValueFromAmount(nBalance);
@@ -5826,11 +5825,7 @@ UniValue z_gettotalbalance(const JSONRPCRequest& request)
                 },
                  RPCResult{
             "{\n"
-            "  \"transparent\":                     (json object) the total balance of transparent funds\n"
-            "    {\n"
-            "      \"available\" : xxxx             (numeric) spendable funds\n"
-            "      \"to_shield\" : x.xxxx,          (numeric) funds that need to be shielded before they become spendable\n"
-            "    }\n"
+            "  \"transparent\": xxxxx,  (numeric) the total balance of transparent funds\n"
             "  \"private\": xxxxx,      (numeric) the total balance of shielded funds (in both Sprout and Sapling addresses)\n"
             "  \"total\": xxxxx,        (numeric) the total balance of both transparent and shielded funds\n"
             "}\n"
@@ -5874,9 +5869,7 @@ UniValue z_gettotalbalance(const JSONRPCRequest& request)
     CAmount nTotalBalance = nBalance + nPrivateBalance + nToShield;
     UniValue result(UniValue::VOBJ);
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("available", FormatMoney(nBalance));
-    obj.pushKV("to_shield", FormatMoney(nToShield));
-    result.pushKV("transparent", obj);
+    result.pushKV("transparent", FormatMoney(nBalance + nToShield));
     result.pushKV("private", FormatMoney(nPrivateBalance));
     result.pushKV("total", FormatMoney(nTotalBalance));
     return result;

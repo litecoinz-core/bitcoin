@@ -35,7 +35,10 @@ OSX_APP=LitecoinZ-Qt.app
 OSX_VOLNAME = $(subst $(space),-,$(PACKAGE_NAME))
 OSX_DMG = $(OSX_VOLNAME).dmg
 OSX_BACKGROUND_SVG=background.svg
+OSX_BACKGROUND_2X_SVG=background@2x.svg
 OSX_BACKGROUND_IMAGE=background.tiff
+OSX_BACKGROUND_IMAGE_PNG=background.tiff.png
+OSX_BACKGROUND_IMAGE_2X_PNG=background.tiff@2x.png
 OSX_BACKGROUND_IMAGE_DPIS=36 72
 OSX_DSSTORE_GEN=$(top_srcdir)/contrib/macdeploy/custom_dsstore.py
 OSX_DEPLOY_SCRIPT=$(top_srcdir)/contrib/macdeploy/macdeployqtplus
@@ -44,7 +47,10 @@ OSX_INSTALLER_ICONS=$(top_srcdir)/src/qt/res/icons/bitcoin.icns
 OSX_PLIST=$(top_builddir)/share/qt/Info.plist #not installed
 OSX_QT_TRANSLATIONS = da,de,es,hu,ru,uk,zh_CN,zh_TW
 
-DIST_DOCS = $(wildcard doc/*.md) $(wildcard doc/release-notes/*.md)
+DIST_DOCS = \
+  README.md \
+  $(wildcard doc/*.md) \
+  $(wildcard doc/release-notes/*.md)
 DIST_CONTRIB = $(top_srcdir)/contrib/litecoinz-cli.bash-completion \
 	       $(top_srcdir)/contrib/litecoinz-tx.bash-completion \
 	       $(top_srcdir)/contrib/litecoinzd.bash-completion \
@@ -123,11 +129,21 @@ if BUILD_DARWIN
 $(OSX_DMG): $(OSX_APP_BUILT) $(OSX_PACKAGING) $(OSX_BACKGROUND_IMAGE)
 	$(PYTHON) $(OSX_DEPLOY_SCRIPT) $(OSX_APP) -add-qt-tr $(OSX_QT_TRANSLATIONS) -translations-dir=$(QT_TRANSLATION_DIR) -dmg -fancy $(OSX_FANCY_PLIST) -verbose 2 -volname $(OSX_VOLNAME)
 
-$(OSX_BACKGROUND_IMAGE).png: contrib/macdeploy/$(OSX_BACKGROUND_SVG)
-	sed 's/PACKAGE_NAME/$(PACKAGE_NAME)/' < "$<" | $(RSVG_CONVERT) -f png -d 36 -p 36 -o $@
-$(OSX_BACKGROUND_IMAGE)@2x.png: contrib/macdeploy/$(OSX_BACKGROUND_SVG)
-	sed 's/PACKAGE_NAME/$(PACKAGE_NAME)/' < "$<" | $(RSVG_CONVERT) -f png -d 72 -p 72 -o $@
-$(OSX_BACKGROUND_IMAGE): $(OSX_BACKGROUND_IMAGE).png $(OSX_BACKGROUND_IMAGE)@2x.png
+$(OSX_BACKGROUND_IMAGE_PNG): contrib/macdeploy/$(OSX_BACKGROUND_SVG)
+	sed -e 's/PACKAGE_NAME/$(PACKAGE_NAME)/' \
+		-e 's/PACKAGE_VERSION/$(PACKAGE_VERSION)/' \
+		-e 's/COPYRIGHT_YEAR/$(COPYRIGHT_YEAR)/' \
+		-e 's/COPYRIGHT_HOLDERS_FINAL/$(COPYRIGHT_HOLDERS_FINAL)/' \
+		contrib/macdeploy/$(OSX_BACKGROUND_SVG) < "$<" | $(RSVG_CONVERT) -f png -h 320 -w 500 -d 144 -p 144 -o $@
+
+$(OSX_BACKGROUND_IMAGE_2X_PNG): contrib/macdeploy/$(OSX_BACKGROUND_2X_SVG)
+	sed -e 's/PACKAGE_NAME/$(PACKAGE_NAME)/' \
+		-e 's/PACKAGE_VERSION/$(PACKAGE_VERSION)/' \
+		-e 's/COPYRIGHT_YEAR/$(COPYRIGHT_YEAR)/' \
+		-e 's/COPYRIGHT_HOLDERS_FINAL/$(COPYRIGHT_HOLDERS_FINAL)/' \
+		contrib/macdeploy/$(OSX_BACKGROUND_2X_SVG) < "$<" | $(RSVG_CONVERT) -f png -h 640 -w 1000 -d 144 -p 144 -o $@
+
+$(OSX_BACKGROUND_IMAGE): $(OSX_BACKGROUND_IMAGE_PNG) $(OSX_BACKGROUND_IMAGE_2X_PNG)
 	tiffutil -cathidpicheck $^ -out $@
 
 deploydir: $(OSX_DMG)
@@ -184,7 +200,7 @@ $(BITCOIN_WALLET_BIN): FORCE
 	$(MAKE) -C src $(@F)
 
 if USE_LCOV
-LCOV_FILTER_PATTERN=-p "/usr/include/" -p "/usr/lib/" -p "src/leveldb/" -p "src/bench/" -p "src/univalue" -p "src/crypto/ctaes" -p "src/secp256k1"
+LCOV_FILTER_PATTERN=-p "/usr/include/" -p "/usr/lib/" -p "src/leveldb/" -p "src/bench/" -p "src/univalue" -p "src/crypto/ctaes" -p "src/secp256k1" -p "src/rustzcash"
 
 baseline.info:
 	$(LCOV) -c -i -d $(abs_builddir)/src -o $@
@@ -290,6 +306,8 @@ EXTRA_DIST += \
     test/util/data/txcreatesignv1.json \
     test/util/data/txcreatesignv2.hex \
     test/util/rpcauth-test.py
+
+EXTRA_DIST += src/rustzcash
 
 CLEANFILES = $(OSX_DMG) $(BITCOIN_WIN_INSTALLER)
 

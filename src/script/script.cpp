@@ -193,6 +193,17 @@ unsigned int CScript::GetSigOpCount(const CScript& scriptSig) const
     return subscript.GetSigOpCount(true);
 }
 
+bool CScript::IsPayToPublicKeyHash() const
+{
+    // Extra-fast test for pay-to-pubkey-hash CScripts:
+    return (this->size() == 25 &&
+	    (*this)[0] == OP_DUP &&
+	    (*this)[1] == OP_HASH160 &&
+	    (*this)[2] == 0x14 &&
+	    (*this)[23] == OP_EQUALVERIFY &&
+	    (*this)[24] == OP_CHECKSIG);
+}
+
 bool CScript::IsPayToScriptHash() const
 {
     // Extra-fast test for pay-to-script-hash CScripts:
@@ -248,6 +259,34 @@ bool CScript::IsPushOnly(const_iterator pc) const
 bool CScript::IsPushOnly() const
 {
     return this->IsPushOnly(begin());
+}
+
+CScript::ScriptType CScript::GetType() const
+{
+    if (this->IsPayToPublicKeyHash())
+        return CScript::P2PKH;
+    if (this->IsPayToScriptHash())
+        return CScript::P2SH;
+    // We don't know this script type
+    return CScript::UNKNOWN;
+}
+
+uint160 CScript::AddressHash() const
+{
+    // where the address bytes begin depends on the script type
+    int start;
+    if (this->IsPayToPublicKeyHash())
+        start = 3;
+    else if (this->IsPayToScriptHash())
+        start = 2;
+    else {
+        // unknown script type; return zeros (this can happen)
+        std::vector<unsigned char> hashBytes;
+        hashBytes.resize(20);
+        return uint160(hashBytes);
+    }
+    std::vector<unsigned char> hashBytes(this->begin()+start, this->begin()+start+20);
+    return uint160(hashBytes);
 }
 
 std::string CScriptWitness::ToString() const

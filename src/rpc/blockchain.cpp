@@ -16,6 +16,7 @@
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <hash.h>
+#include <key_io.h>
 #include <index/blockfilterindex.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
@@ -159,6 +160,94 @@ UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex
     result.pushKV("difficulty", GetDifficulty(blockindex));
     result.pushKV("chainwork", blockindex->nChainWork.GetHex());
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
+
+    if (blockindex->pprev)
+        result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
+    if (pnext)
+        result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
+    return result;
+}
+
+UniValue blockToDeltasJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex)
+{
+    AssertLockNotHeld(cs_main); // For performance reasons
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("hash", blockindex->GetBlockHash().GetHex());
+    const CBlockIndex* pnext;
+    int confirmations = ComputeNextBlockAndDepth(tip, blockindex, pnext);
+    result.pushKV("confirmations", confirmations);
+    result.pushKV("size", (int)::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION));
+    result.pushKV("height", blockindex->nHeight);
+    result.pushKV("version", block.nVersion);
+    result.pushKV("merkleroot", block.hashMerkleRoot.GetHex());
+
+    UniValue deltas(UniValue::VARR);
+    for (unsigned int i = 0; i < block.vtx.size(); i++) {
+        const CTransaction &tx = *(block.vtx[i]);
+        const uint256 txhash = tx.GetHash();
+
+        UniValue entry(UniValue::VOBJ);
+        entry.pushKV("txid", txhash.GetHex());
+        entry.pushKV("index", (int)i);
+
+        UniValue inputs(UniValue::VARR);
+        if (!tx.IsCoinBase()) {
+            for (size_t j = 0; j < tx.vin.size(); j++) {
+                const CTxIn input = tx.vin[j];
+                UniValue delta(UniValue::VOBJ);
+                CSpentIndexValue spentInfo;
+                CSpentIndexKey spentKey(input.prevout.hash, input.prevout.n);
+
+                if (GetSpentIndex(spentKey, spentInfo)) {
+                    CTxDestination dest = DestFromAddressHash(spentInfo.addressType, spentInfo.addressHash);
+                    if (IsValidDestination(dest)) {
+                        delta.pushKV("address", EncodeDestination(dest));
+                    }
+                    delta.pushKV("satoshis", -1 * spentInfo.satoshis);
+                    delta.pushKV("index", (int)j);
+                    delta.pushKV("prevtxid", input.prevout.hash.GetHex());
+                    delta.pushKV("prevout", (int)input.prevout.n);
+
+                    inputs.push_back(delta);
+                } else {
+                    throw JSONRPCError(RPC_INTERNAL_ERROR, "Spent information not available");
+                }
+            }
+        }
+        entry.pushKV("inputs", inputs);
+
+        UniValue outputs(UniValue::VARR);
+        for (unsigned int k = 0; k < tx.vout.size(); k++) {
+            const CTxOut &out = tx.vout[k];
+            UniValue delta(UniValue::VOBJ);
+            const uint160 addrhash = out.scriptPubKey.AddressHash();
+            CTxDestination dest;
+
+            if (out.scriptPubKey.IsPayToScriptHash()) {
+                dest = ScriptHash(addrhash);
+            } else if (out.scriptPubKey.IsPayToPublicKeyHash()) {
+                dest = PKHash(addrhash);
+            }
+            if (IsValidDestination(dest)) {
+                delta.pushKV("address", EncodeDestination(dest));
+            }
+            delta.pushKV("satoshis", out.nValue);
+            delta.pushKV("index", (int)k);
+
+            outputs.push_back(delta);
+        }
+        entry.pushKV("outputs", outputs);
+        deltas.push_back(entry);
+    }
+    result.pushKV("deltas", deltas);
+    result.pushKV("time", block.GetBlockTime());
+    result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
+    result.pushKV("nonceUint32", (uint64_t)((uint32_t)block.nNonce.GetUint64(0)));
+    result.pushKV("nonce", block.nNonce.GetHex());
+    result.pushKV("bits", strprintf("%08x", block.nBits));
+    result.pushKV("difficulty", GetDifficulty(blockindex));
+    result.pushKV("chainwork", blockindex->nChainWork.GetHex());
 
     if (blockindex->pprev)
         result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
@@ -966,6 +1055,160 @@ static UniValue getblock(const JSONRPCRequest& request)
     }
 
     return blockToJSON(block, tip, pblockindex, verbosity >= 2);
+}
+
+UniValue getblockdeltas(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 1) {
+        throw std::runtime_error(
+            "getblockdeltas \"blockhash\"\n"
+            "\nReturns the txid and index where an output is spent.\n"
+            "\nArguments:\n"
+            "1. \"hash\"          (string, required) The block hash\n"
+            "\nResult:\n"
+            "{                           (json object)\n"
+            "{\n"
+            "  \"hash\": \"hash\",              (string) block ID\n"
+            "  \"confirmations\": n,          (numeric) number of confirmations\n"
+            "  \"size\": n,                   (numeric) block size in bytes\n"
+            "  \"height\": n,                 (numeric) block height\n"
+            "  \"version\": n,                (numeric) block version (e.g. 4)\n"
+            "  \"merkleroot\": \"hash\",        (string) block Merkle root\n"
+            "  \"deltas\": [\n"
+            "    {\n"
+            "      \"txid\": \"hash\",          (string) transaction ID\n"
+            "      \"index\": n,              (numeric) tx index in block\n"
+            "      \"inputs\": [\n"
+            "        {\n"
+            "          \"address\": \"taddr\",  (string) transparent address\n"
+            "          \"satoshis\": n,       (numeric) negative of spend amount\n"
+            "          \"index\": n,          (numeric) vin index\n"
+            "          \"prevtxid\": \"hash\",  (string) source utxo tx ID\n"
+            "          \"prevout\": n         (numeric) source utxo index\n"
+            "        }, ...\n"
+            "      ],\n"
+            "      \"outputs\": [\n"
+            "        {\n"
+            "          \"address\": \"taddr\",  (string) transparent address\n"
+            "          \"satoshis\": n,       (numeric) amount\n"
+            "          \"index\": n           (numeric) vout index\n"
+            "        }, ...\n"
+            "      ]\n"
+            "    }, ...\n"
+            "  ],\n"
+            "  \"time\": n,\n"
+            "  \"mediantime\": n,\n"
+            "  \"nonce\": \"hexstring\",\n"
+            "  \"bits\": \"hexstring\",\n"
+            "  \"difficulty\": ,\n"
+            "  \"chainwork\": \"hexstring\",\n"
+            "  \"previousblockhash\": \"hash\",\n"
+            "  \"nextblockhash\": \"hash\"\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getblockdeltas", "\"00227e566682aebd6a7a5b772c96d7a999cadaebeaf1ce96f4191a3aad58b00b\"")
+            + HelpExampleRpc("getblockdeltas", "\"00227e566682aebd6a7a5b772c96d7a999cadaebeaf1ce96f4191a3aad58b00b\"")
+        );
+    }
+
+    std::string strHash = request.params[0].get_str();
+    uint256 hash(uint256S(strHash));
+
+    CBlock block;
+    const CBlockIndex* pblockindex;
+    const CBlockIndex* tip;
+    {
+        LOCK(cs_main);
+        pblockindex = LookupBlockIndex(hash);
+        tip = ::ChainActive().Tip();
+
+        if (!pblockindex) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
+        }
+
+        block = GetBlockChecked(pblockindex);
+    }
+
+    if (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0)
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Block not available (pruned data)");
+
+    if(!ReadBlockFromDisk(block, pblockindex, Params().GetConsensus()))
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
+
+    return blockToDeltasJSON(block, tip, pblockindex);
+}
+
+UniValue getblockhashes(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() < 2)
+        throw std::runtime_error(
+            "getblockhashes timestamp\n"
+            "\nReturns array of hashes of blocks within the timestamp range provided.\n"
+            "\nArguments:\n"
+            "1. high         (numeric, required) The newer block timestamp\n"
+            "2. low          (numeric, required) The older block timestamp\n"
+            "3. options      (string, required) A json object\n"
+            "    {\n"
+            "      \"noOrphans\":true   (boolean) will only include blocks on the main chain\n"
+            "      \"logicalTimes\":true   (boolean) will include logical timestamps with hashes\n"
+            "    }\n"
+            "\nResult:\n"
+            "[\n"
+            "  \"hash\"         (string) The block hash\n"
+            "]\n"
+            "[\n"
+            "  {\n"
+            "    \"blockhash\": (string) The block hash\n"
+            "    \"logicalts\": (numeric) The logical timestamp\n"
+            "  }\n"
+            "]\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getblockhashes", "1231614698 1231024505")
+            + HelpExampleRpc("getblockhashes", "1231614698, 1231024505")
+            + HelpExampleCli("getblockhashes", "1231614698 1231024505 '{\"noOrphans\":false, \"logicalTimes\":true}'")
+            );
+
+    unsigned int high = request.params[0].get_int();
+    unsigned int low = request.params[1].get_int();
+    bool fActiveOnly = false;
+    bool fLogicalTS = false;
+
+    if (request.params.size() > 2) {
+        if (request.params[2].isObject()) {
+            UniValue noOrphans = find_value(request.params[2].get_obj(), "noOrphans");
+            UniValue returnLogical = find_value(request.params[2].get_obj(), "logicalTimes");
+
+            if (noOrphans.isBool())
+                fActiveOnly = noOrphans.get_bool();
+
+            if (returnLogical.isBool())
+                fLogicalTS = returnLogical.get_bool();
+        }
+    }
+
+    std::vector<std::pair<uint256, unsigned int> > blockHashes;
+
+    if (fActiveOnly)
+        LOCK(cs_main);
+
+    if (!GetTimestampIndex(high, low, fActiveOnly, blockHashes)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for block hashes");
+    }
+
+    UniValue result(UniValue::VARR);
+
+    for (std::vector<std::pair<uint256, unsigned int> >::const_iterator it=blockHashes.begin(); it!=blockHashes.end(); it++) {
+        if (fLogicalTS) {
+            UniValue item(UniValue::VOBJ);
+            item.pushKV("blockhash", it->first.GetHex());
+            item.pushKV("logicalts", (int)it->second);
+            result.push_back(item);
+        } else {
+            result.push_back(it->first.GetHex());
+        }
+    }
+
+    return result;
 }
 
 static UniValue pruneblockchain(const JSONRPCRequest& request)
@@ -2384,6 +2627,8 @@ static const CRPCCommand commands[] =
     { "blockchain",         "getbestblockhash",       &getbestblockhash,       {} },
     { "blockchain",         "getblockcount",          &getblockcount,          {} },
     { "blockchain",         "getblock",               &getblock,               {"blockhash","verbosity|verbose"} },
+    { "blockchain",         "getblockdeltas",         &getblockdeltas,         {} },
+    { "blockchain",         "getblockhashes",         &getblockhashes,         {} },
     { "blockchain",         "getblockhash",           &getblockhash,           {"height"} },
     { "blockchain",         "getblockheader",         &getblockheader,         {"blockhash","verbose"} },
     { "blockchain",         "getchaintips",           &getchaintips,           {} },

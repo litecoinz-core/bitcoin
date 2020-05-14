@@ -39,7 +39,7 @@ No other options are needed, the paths are automatically configured.
 
     sudo apt-get install curl librsvg2-bin libtiff-tools bsdmainutils cmake imagemagick libcap-dev libz-dev libbz2-dev python3-setuptools
 
-#### For Win32/Win64 cross compilation
+#### For Win64 cross compilation
 
 - see [build-windows.md](../doc/build-windows.md#cross-compilation-for-ubuntu-and-windows-subsystem-for-linux)
 
@@ -70,7 +70,8 @@ The following can be set when running make: make FOO=bar
     SOURCES_PATH: downloaded sources will be placed here
     BASE_CACHE: built packages will be placed here
     SDK_PATH: Path where sdk's can be found (used by macOS)
-    FALLBACK_DOWNLOAD_PATH: If a source file can't be fetched, try here before giving up
+    FALLBACK1_DOWNLOAD_PATH: If a source file can't be fetched, try here before giving up
+    FALLBACK2_DOWNLOAD_PATH: Try also here before giving up
     NO_QT: Don't download/build/cache qt and its dependencies
     NO_ZMQ: Don't download/build/cache packages needed for enabling zeromq
     NO_WALLET: Don't download/build/cache libs needed to enable the wallet
@@ -89,6 +90,7 @@ options will be passed to litecoinz's configure. In this case, `--disable-wallet
     download-osx: run 'make download-osx' to fetch all sources needed for macOS builds
     download-win: run 'make download-win' to fetch all sources needed for win builds
     download-linux: run 'make download-linux' to fetch all sources needed for linux builds
+    download-aarch64: run 'make download-aarch64' to fetch all sources needed for aarch64 linux builds
 
 ### Other documentation
 

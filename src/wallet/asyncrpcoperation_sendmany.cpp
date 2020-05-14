@@ -71,7 +71,6 @@ AsyncRPCOperation_sendmany::AsyncRPCOperation_sendmany(
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
-    auto locked_chain = pwallet->chain().lock();
 
     assert(fee_ >= 0);
 
@@ -196,7 +195,6 @@ void AsyncRPCOperation_sendmany::main() {
 bool AsyncRPCOperation_sendmany::main_impl() {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
-    auto locked_chain = pwallet->chain().lock();
 
     assert(isfromtaddr_ != isfromzaddr_);
 
@@ -379,6 +377,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         // TODO: Should we just use fromtaddr_ as the change address?
         ReserveDestination reservedest(pwallet);
         if (isfromtaddr_) {
+            auto locked_chain = pwallet->chain().lock();
             LOCK(pwallet->cs_wallet);
 
             EnsureWalletIsUnlocked(pwallet);
@@ -412,6 +411,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         uint256 anchor;
         std::vector<boost::optional<SaplingWitness>> witnesses;
         {
+            auto locked_chain = pwallet->chain().lock();
             LOCK(pwallet->cs_wallet);
             pwallet->GetSaplingNoteWitnesses(ops, witnesses, anchor);
         }
@@ -463,6 +463,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
 
     // Grab the current consensus branch ID
     {
+        auto locked_chain = pwallet->chain().lock();
         LOCK(cs_main);
         consensusBranchId_ = CurrentEpochBranchId(::ChainActive().Height() + 1, Params().GetConsensus());
     }
@@ -528,6 +529,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
     // change upon arrival of new blocks which contain joinsplit transactions.  This is likely
     // to happen as creating a chained joinsplit transaction can take longer than the block interval.
     if (z_sprout_inputs_.size() > 0) {
+        auto locked_chain = pwallet->chain().lock();
         LOCK(pwallet->cs_wallet);
         for (auto t : z_sprout_inputs_) {
             SproutOutPoint jso = t.outpoint;
@@ -663,6 +665,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         // Consume change as the first input of the JoinSplit.
         //
         if (jsChange > 0) {
+            auto locked_chain = pwallet->chain().lock();
             LOCK(pwallet->cs_wallet);
 
             // Update tree state with previous joinsplit
@@ -750,6 +753,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
             int wtxHeight = -1;
             int wtxDepth = -1;
             {
+                auto locked_chain = pwallet->chain().lock();
                 LOCK(pwallet->cs_wallet);
                 const CWalletTx& wtx = pwallet->mapWallet.at(jso.hash);
                 // Zero-confirmation notes belong to transactions which have not yet been mined
@@ -890,15 +894,16 @@ bool AsyncRPCOperation_sendmany::main_impl() {
 bool AsyncRPCOperation_sendmany::find_utxos(bool fAcceptCoinbase=false) {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
-    auto locked_chain = pwallet->chain().lock();
 
     std::set<CTxDestination> destinations;
     destinations.insert(fromtaddr_);
     std::vector<COutput> vecOutputs;
 
-    LOCK(pwallet->cs_wallet);
-
-    pwallet->AvailableCoins(*locked_chain, false, fAcceptCoinbase, vecOutputs);
+    {
+        auto locked_chain = pwallet->chain().lock();
+        LOCK(pwallet->cs_wallet);
+        pwallet->AvailableCoins(*locked_chain, false, fAcceptCoinbase, vecOutputs);
+    }
 
     for (const COutput& out : vecOutputs) {
         if (!out.fSpendable) {
@@ -943,11 +948,11 @@ bool AsyncRPCOperation_sendmany::find_utxos(bool fAcceptCoinbase=false) {
 bool AsyncRPCOperation_sendmany::find_unspent_notes() {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
-    auto locked_chain = pwallet->chain().lock();
 
     std::vector<SproutNoteEntry> sproutEntries;
     std::vector<SaplingNoteEntry> saplingEntries;
     {
+        auto locked_chain = pwallet->chain().lock();
         LOCK(pwallet->cs_wallet);
         pwallet->GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, fromaddress_, mindepth_);
     }
@@ -1004,9 +1009,13 @@ bool AsyncRPCOperation_sendmany::find_unspent_notes() {
 
 UniValue AsyncRPCOperation_sendmany::perform_joinsplit(AsyncJoinSplitInfo& info)
 {
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
+    CWallet* const pwallet = wallet.get();
+
     std::vector<boost::optional<SproutWitness>> witnesses;
     uint256 anchor;
     {
+        auto locked_chain = pwallet->chain().lock();
         LOCK(cs_main);
         anchor = ::ChainstateActive().CoinsTip().GetBestAnchor(SPROUT);    // As there are no inputs, ask the wallet for the best anchor
     }
@@ -1017,11 +1026,11 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(AsyncJoinSplitInfo& info,
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
-    auto locked_chain = pwallet->chain().lock();
 
     std::vector<boost::optional<SproutWitness>> witnesses;
     uint256 anchor;
     {
+        auto locked_chain = pwallet->chain().lock();
         LOCK(cs_main);
         pwallet->GetSproutNoteWitnesses(outPoints, witnesses, anchor);
     }
@@ -1223,8 +1232,8 @@ void AsyncRPCOperation_sendmany::add_taddr_outputs_to_tx() {
 void AsyncRPCOperation_sendmany::add_taddr_change_output_to_tx(ReserveDestination& reservedest, CAmount amount) {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
-    auto locked_chain = pwallet->chain().lock();
 
+    auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
 
     EnsureWalletIsUnlocked(pwallet);

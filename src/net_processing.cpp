@@ -867,8 +867,14 @@ bool AddOrphanTx(const CTransactionRef& tx, NodeId peer) EXCLUSIVE_LOCKS_REQUIRE
     // 100 orphans, each of which is at most 100,000 bytes big is
     // at most 10 megabytes of orphans and somewhat more byprev index (in the worst case):
     unsigned int sz = GetTransactionWeight(*tx);
-    if (sz > MAX_STANDARD_TX_WEIGHT)
-    {
+    unsigned int max_tx_size = MAX_STANDARD_TX_WEIGHT;
+    if (tx->vJoinSplit.size() > 0 || tx->vShieldedSpend.size() > 0 || tx->vShieldedOutput.size() > 0) {
+        if (tx->nVersion >= 4)
+            max_tx_size = MAX_TX_SIZE_AFTER_SAPLING;
+        else
+            max_tx_size = MAX_TX_SIZE_BEFORE_SAPLING;
+    }
+    if (sz > max_tx_size) {
         LogPrint(BCLog::MEMPOOL, "ignoring large orphan tx (size: %u, hash: %s)\n", sz, hash.ToString());
         return false;
     }

@@ -22,15 +22,15 @@ UniValue SendTransaction(CTransactionRef& tx, CWallet* const pwallet, CAmount nF
     // Extremely large transactions with lots of inputs can cost the network
     // almost as much to process as they cost the sender in fees, because
     // computing signature hashes is O(ninputs*txsize). Limiting transactions
-    // to MAX_STANDARD_TX_WEIGHT mitigates CPU exhaustion attacks.
+    // to max_tx_size mitigates CPU exhaustion attacks.
     size_t sz = GetTransactionWeight(*tx);
-    if (sz > MAX_STANDARD_TX_WEIGHT)
-    {
+    unsigned int max_tx_size = MAX_STANDARD_TX_WEIGHT;
+    if (tx->nVersion >= 4)
+        max_tx_size = MAX_TX_SIZE_AFTER_SAPLING;
+    else
+        max_tx_size = MAX_TX_SIZE_BEFORE_SAPLING;
+    if (sz > max_tx_size) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Transaction too large");
-    }
-
-    if (nFee < ::minRelayTxFee.GetFee(sz)) {
-        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("min relay fee not met: %d < %d", nFee, ::minRelayTxFee.GetFee(sz)));
     }
 
     // Send the transaction

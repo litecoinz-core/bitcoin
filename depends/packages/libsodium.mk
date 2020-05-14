@@ -1,8 +1,8 @@
 package=libsodium
-$(package)_version=1.0.17
+$(package)_version=1.0.18
 $(package)_download_path=https://download.libsodium.org/libsodium/releases/
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=0CC3DAE33E642CC187B5CEB467E0AD0E1B51DCBA577DE1190E9FFA17766AC2B1
+$(package)_sha256_hash=6f504490b342a4f8a4c4a02fc9b866cbef8622d5df4e5452b46be121e46636c1
 $(package)_dependencies=
 $(package)_config_opts=
 $(package)_config_opts_linux=--with-pic
