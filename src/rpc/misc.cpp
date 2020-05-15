@@ -3,21 +3,28 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <chain.h>
+#include <core_io.h>
 #include <crypto/ripemd160.h>
 #include <key_io.h>
 #include <httpserver.h>
+#include <net.h>
+#include <netbase.h>
 #include <outputtype.h>
 #include <rpc/blockchain.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
 #include <script/descriptor.h>
+#include <timedata.h>
 #include <txmempool.h>
+#include <util/moneystr.h>
 #include <util/system.h>
 #include <util/strencodings.h>
 #include <util/validation.h>
 #include <validation.h>
 #include <wallet/rpcwallet.h>
 #include <wallet/wallet.h>
+#include <warnings.h>
 
 #include <stdint.h>
 #include <tuple>
@@ -26,6 +33,100 @@
 #endif
 
 #include <univalue.h>
+
+/**
+ * @note Do not add or change anything in the information returned by this
+ * method. `getinfo` exists for backwards-compatibility only. It combines
+ * information from wildly different sources in the program, which is a mess,
+ * and is thus planned to be deprecated eventually.
+ *
+ * Based on the source of the information, new information should be added to:
+ * - `getblockchaininfo`,
+ * - `getnetworkinfo` or
+ * - `getwalletinfo`
+ *
+ * Or alternatively, create a specific query method for the information.
+ **/
+UniValue getinfo(const JSONRPCRequest& request)
+{
+#ifdef ENABLE_WALLET
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+#endif
+
+    if (request.fHelp || request.params.size() != 0)
+        throw std::runtime_error(
+            "getinfo\n"
+            "\nDEPRECATED. Returns an object containing various state info.\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"deprecation-warning\": \"...\" (string) warning that the getinfo command is deprecated and will be removed in 3.1.0\n"
+            "  \"version\": xxxxx,           (numeric) the server version\n"
+            "  \"protocolversion\": xxxxx,   (numeric) the protocol version\n"
+            "  \"walletversion\": xxxxx,     (numeric) the wallet version\n"
+            "  \"balance\": xxxxxxx,         (numeric) the total bitcoin balance of the wallet\n"
+            "  \"blocks\": xxxxxx,           (numeric) the current number of blocks processed in the server\n"
+            "  \"timeoffset\": xxxxx,        (numeric) the time offset\n"
+            "  \"connections\": xxxxx,       (numeric) the number of connections\n"
+            "  \"proxy\": \"host:port\",       (string, optional) the proxy used by the server\n"
+            "  \"difficulty\": xxxxxx,       (numeric) the current difficulty\n"
+            "  \"testnet\": true|false,      (boolean) if the server is using testnet or not\n"
+            "  \"keypoololdest\": xxxxxx,    (numeric) the timestamp (seconds since Unix epoch) of the oldest pre-generated key in the key pool\n"
+            "  \"keypoolsize\": xxxx,        (numeric) how many new keys are pre-generated\n"
+            "  \"unlocked_until\": ttt,      (numeric) the timestamp in seconds since epoch (midnight Jan 1 1970 GMT) that the wallet is unlocked for transfers, or 0 if the wallet is locked\n"
+            "  \"paytxfee\": x.xxxx,         (numeric) the transaction fee set in " + CURRENCY_UNIT + "/kB\n"
+            "  \"relayfee\": x.xxxx,         (numeric) minimum relay fee for transactions in " + CURRENCY_UNIT + "/kB\n"
+            "  \"errors\": \"...\"             (string) any error messages\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getinfo", "")
+            + HelpExampleRpc("getinfo", "")
+        );
+
+#ifdef ENABLE_WALLET
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+#endif
+
+    proxyType proxy;
+    GetProxy(NET_IPV4, proxy);
+
+    UniValue obj(UniValue::VOBJ);
+    obj.pushKV("deprecation-warning", "WARNING: getinfo is deprecated and will be fully removed in 3.1.0."
+        " Projects should transition to using getblockchaininfo, getnetworkinfo, and getwalletinfo before upgrading to 3.1.0");
+    obj.pushKV("version", CLIENT_VERSION);
+    obj.pushKV("protocolversion", PROTOCOL_VERSION);
+#ifdef ENABLE_WALLET
+    if (pwallet) {
+        obj.pushKV("walletversion", pwallet->GetVersion());
+        obj.pushKV("balance",       ValueFromAmount(pwallet->GetBalance().m_mine_trusted));
+    }
+#endif
+    obj.pushKV("blocks",        (int)::ChainActive().Height());
+    obj.pushKV("timeoffset",    GetTimeOffset());
+    if(g_connman)
+        obj.pushKV("connections",   (int)g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL));
+    obj.pushKV("proxy",         (proxy.IsValid() ? proxy.proxy.ToStringIPPort() : std::string()));
+    obj.pushKV("difficulty",    (double)GetDifficulty(::ChainActive().Tip()));
+    obj.pushKV("testnet",       Params().NetworkIDString() == CBaseChainParams::TESTNET);
+#ifdef ENABLE_WALLET
+    if (pwallet) {
+        obj.pushKV("keypoololdest", pwallet->GetOldestKeyPoolTime());
+        obj.pushKV("keypoolsize",   (int)pwallet->GetKeyPoolSize());
+    }
+    if (pwallet && pwallet->IsCrypted()) {
+        obj.pushKV("unlocked_until", pwallet->nRelockTime);
+    }
+    obj.pushKV("paytxfee",      ValueFromAmount(::minRelayTxFee.GetFeePerK()));
+#endif
+    obj.pushKV("relayfee",      ValueFromAmount(::minRelayTxFee.GetFeePerK()));
+    obj.pushKV("errors",        GetWarnings("statusbar"));
+    return obj;
+}
 
 static UniValue validateaddress(const JSONRPCRequest& request)
 {
@@ -1201,6 +1302,7 @@ static const CRPCCommand commands[] =
   //  --------------------- ------------------------  -----------------------  ----------
     { "control",            "getmemoryinfo",          &getmemoryinfo,          {"mode"} },
     { "control",            "logging",                &logging,                {"include", "exclude"}},
+    { "control",            "getinfo",                &getinfo,                {} },
     { "util",               "validateaddress",        &validateaddress,        {"address"} },
     { "util",               "createmultisig",         &createmultisig,         {"nrequired","keys","address_type"} },
     { "util",               "deriveaddresses",        &deriveaddresses,        {"descriptor", "range"} },
