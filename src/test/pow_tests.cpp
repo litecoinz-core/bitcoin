@@ -23,7 +23,7 @@ BOOST_AUTO_TEST_CASE(get_next_work)
     pindexLast.nBits = 0x1d00ffff;
     arith_uint256 bnAvg;
     bnAvg.SetCompact(pindexLast.nBits);
-    BOOST_CHECK_EQUAL(CalculateNextWorkRequired(&pindexLast, bnAvg, nLastRetargetTime, chainParams->GetConsensus()), 0x1d0151eaU);
+    BOOST_CHECK_EQUAL(DigishieldCalculateNextWorkRequired(&pindexLast, bnAvg, nLastRetargetTime, chainParams->GetConsensus()), 0x1d0151eaU);
 }
 
 /* Test the constraint on the upper bound for next work */
@@ -37,7 +37,7 @@ BOOST_AUTO_TEST_CASE(get_next_work_pow_limit)
     pindexLast.nBits = 0x1d00ffff;
     arith_uint256 bnAvg;
     bnAvg.SetCompact(pindexLast.nBits);
-    BOOST_CHECK_EQUAL(CalculateNextWorkRequired(&pindexLast, bnAvg, nLastRetargetTime, chainParams->GetConsensus()), 0x1d0151eaU);
+    BOOST_CHECK_EQUAL(DigishieldCalculateNextWorkRequired(&pindexLast, bnAvg, nLastRetargetTime, chainParams->GetConsensus()), 0x1d0151eaU);
 }
 
 /* Test the constraint on the lower bound for actual time taken */
@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE(get_next_work_lower_limit_actual)
     pindexLast.nBits = 0x1c05a3f4;
     arith_uint256 bnAvg;
     bnAvg.SetCompact(pindexLast.nBits);
-    BOOST_CHECK_EQUAL(CalculateNextWorkRequired(&pindexLast, bnAvg, nLastRetargetTime, chainParams->GetConsensus()), 0x1c077204U);
+    BOOST_CHECK_EQUAL(DigishieldCalculateNextWorkRequired(&pindexLast, bnAvg, nLastRetargetTime, chainParams->GetConsensus()), 0x1c077204U);
 }
 
 /* Test the constraint on the upper bound for actual time taken */
@@ -65,7 +65,7 @@ BOOST_AUTO_TEST_CASE(get_next_work_upper_limit_actual)
     pindexLast.nBits = 0x1c387f6f;
     arith_uint256 bnAvg;
     bnAvg.SetCompact(pindexLast.nBits);
-    BOOST_CHECK_EQUAL(CalculateNextWorkRequired(&pindexLast, bnAvg, nLastRetargetTime, chainParams->GetConsensus()), 0x1c4a93bbU);
+    BOOST_CHECK_EQUAL(DigishieldCalculateNextWorkRequired(&pindexLast, bnAvg, nLastRetargetTime, chainParams->GetConsensus()), 0x1c4a93bbU);
 }
 
 BOOST_AUTO_TEST_CASE(CheckProofOfWork_test_negative_target)
@@ -142,6 +142,22 @@ BOOST_AUTO_TEST_CASE(GetBlockProofEquivalentTime_test)
         int64_t tdiff = GetBlockProofEquivalentTime(*p1, *p2, *p3, chainParams->GetConsensus());
         BOOST_CHECK_EQUAL(tdiff, p1->GetBlockTime() - p2->GetBlockTime());
     }
+}
+
+BOOST_AUTO_TEST_CASE(LwmaCalculateNextWorkRequired_test)
+{
+    const auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
+    std::vector<CBlockIndex> blocks(50);
+    for (int i = 0; i < 50; i++) {
+        blocks[i].pprev = i ? &blocks[i - 1] : nullptr;
+        blocks[i].nHeight = i;
+        blocks[i].nTime = 1269211443 + i * chainParams->GetConsensus().nPowTargetSpacing;
+        blocks[i].nBits = 0x1d00ffff;
+        blocks[i].nChainWork = i ? blocks[i - 1].nChainWork + GetBlockProof(blocks[i - 1]) : arith_uint256(0);
+    }
+
+    int bits = LwmaCalculateNextWorkRequired(&blocks.back(), chainParams->GetConsensus());
+    BOOST_CHECK_EQUAL(bits, 0x1d010084);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

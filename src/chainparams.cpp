@@ -84,12 +84,18 @@ public:
         consensus.CSVHeight = 419328; // 000000000000000004a1b34462cb8aeebd5799177f7a29cf28f2d1961716b5b5
         consensus.MinBIP9WarningHeight = 483840; // segwit activation height + miner confirmation window
         consensus.powLimit = uint256S("0007ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-        consensus.nPowAveragingWindow = 17;
-        assert(maxUint/UintToArith256(consensus.powLimit) >= consensus.nPowAveragingWindow);
-        consensus.nPowMaxAdjustDown = 32; // 32% adjustment down
-        consensus.nPowMaxAdjustUp = 16; // 16% adjustment up
-        consensus.nPowTargetTimespan = 3.5 * 24 * 60 * 60; // 3.5 days
-        consensus.nPowTargetSpacing = 2.5 * 60;
+
+        consensus.nDigishieldTargetSpacing = 2.5 * 60;
+        consensus.nDigishieldAveragingWindow = 17;
+        assert(maxUint/UintToArith256(consensus.powLimit) >= consensus.nDigishieldAveragingWindow);
+        consensus.nDigishieldMaxAdjustDown = 32; // 32% adjustment down
+        consensus.nDigishieldMaxAdjustUp = 16; // 16% adjustment up
+
+        consensus.nZawyLWMAHeight = std::numeric_limits<int>::max(); // Not activated on mainnet
+        consensus.nZawyLwmaAveragingWindow = 45;
+        consensus.nZawyLwmaAdjustedWeight = 13772;
+
+        consensus.nPowTargetSpacing = 10 * 60;
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
         consensus.nRuleChangeActivationThreshold = 1916; // 95% of 2016
@@ -242,12 +248,18 @@ public:
         consensus.CSVHeight = 5500;
         consensus.MinBIP9WarningHeight = 8016; // segwit activation height + miner confirmation window
         consensus.powLimit = uint256S("07ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-        consensus.nPowAveragingWindow = 17;
-        assert(maxUint/UintToArith256(consensus.powLimit) >= consensus.nPowAveragingWindow);
-        consensus.nPowMaxAdjustDown = 32; // 32% adjustment down
-        consensus.nPowMaxAdjustUp = 16; // 16% adjustment up
-        consensus.nPowTargetTimespan = 3.5 * 24 * 60 * 60; // 3.5 days
-        consensus.nPowTargetSpacing = 2.5 * 60;
+
+        consensus.nDigishieldTargetSpacing = 2.5 * 60;
+        consensus.nDigishieldAveragingWindow = 17;
+        assert(maxUint/UintToArith256(consensus.powLimit) >= consensus.nDigishieldAveragingWindow);
+        consensus.nDigishieldMaxAdjustDown = 32; // 32% adjustment down
+        consensus.nDigishieldMaxAdjustUp = 16; // 16% adjustment up
+
+        consensus.nZawyLWMAHeight = 6500;
+        consensus.nZawyLwmaAveragingWindow = 45;
+        consensus.nZawyLwmaAdjustedWeight = 13772;
+
+        consensus.nPowTargetSpacing = 10 * 60;
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
         consensus.nRuleChangeActivationThreshold = 1512; // 75% for testchains
@@ -381,12 +393,18 @@ public:
         consensus.CSVHeight = 432; // CSV activated on regtest (Used in rpc activation tests)
         consensus.MinBIP9WarningHeight = 3440;
         consensus.powLimit = uint256S("0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f");
-        consensus.nPowAveragingWindow = 17;
-        assert(maxUint/UintToArith256(consensus.powLimit) >= consensus.nPowAveragingWindow);
-        consensus.nPowMaxAdjustDown = 0; // Turn off adjustment down
-        consensus.nPowMaxAdjustUp = 0; // Turn off adjustment up
-        consensus.nPowTargetTimespan = 3.5 * 24 * 60 * 60; // 3.5 days
-        consensus.nPowTargetSpacing = 2.5 * 60;
+
+        consensus.nDigishieldTargetSpacing = 2.5 * 60;
+        consensus.nDigishieldAveragingWindow = 17;
+        assert(maxUint/UintToArith256(consensus.powLimit) >= consensus.nDigishieldAveragingWindow);
+        consensus.nDigishieldMaxAdjustDown = 0; // Turn off adjustment down
+        consensus.nDigishieldMaxAdjustUp = 0; // Turn off adjustment up
+
+        consensus.nZawyLWMAHeight = -1; // Activated on regtest
+        consensus.nZawyLwmaAveragingWindow = 45;
+        consensus.nZawyLwmaAdjustedWeight = 13772;
+
+        consensus.nPowTargetSpacing = 10 * 60;
         consensus.fPowAllowMinDifficultyBlocks = true;
         consensus.fPowNoRetargeting = true;
         consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
