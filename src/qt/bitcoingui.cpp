@@ -382,7 +382,7 @@ void BitcoinGUI::createActions()
 
     m_mask_values_action = new QAction(tr("&Mask values"), this);
     m_mask_values_action->setShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_M));
-    m_mask_values_action->setStatusTip(tr("Cloak values on Overview tab"));
+    m_mask_values_action->setStatusTip(tr("Mask the values in the Overview tab"));
     m_mask_values_action->setCheckable(true);
 
     connect(quitAction, &QAction::triggered, qApp, QApplication::quit);
@@ -1467,7 +1467,8 @@ void BitcoinGUI::unsubscribeFromCoreSignals()
 
 bool BitcoinGUI::isPrivacyModeActivated() const
 {
-    return m_mask_values_action && m_mask_values_action->isChecked();
+    assert(m_mask_values_action);
+    return m_mask_values_action->isChecked();
 }
 
 UnitDisplayStatusBarControl::UnitDisplayStatusBarControl(const PlatformStyle *platformStyle) :

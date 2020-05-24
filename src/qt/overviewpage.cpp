@@ -157,15 +157,13 @@ void OverviewPage::handleOutOfSyncWarningClicks()
 void OverviewPage::setPrivacy(bool privacy)
 {
     m_privacy = privacy;
-    if (walletModel && walletModel->getOptionsModel()) {
-        if (m_balances.balance != -1) {
-            setBalance(m_balances);
-        }
-
-        ui->listTransactions->setVisible(!m_privacy);
+    if (m_balances.balance != -1) {
+        setBalance(m_balances);
     }
 
-    const QString status_tip = m_privacy ? tr("PRIVACY mode is activated. To reveal cloaked values uncheck Menu->Settings->Mask values") : "";
+    ui->listTransactions->setVisible(!m_privacy);
+
+    const QString status_tip = m_privacy ? tr("Privacy mode activated for the Overview tab. To unmask the values, uncheck Settings->Mask values.") : "";
     setStatusTip(status_tip);
     QStatusTipEvent event(status_tip);
     QApplication::sendEvent(this, &event);

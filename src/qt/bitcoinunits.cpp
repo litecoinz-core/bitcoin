@@ -156,9 +156,11 @@ QString BitcoinUnits::formatHtmlWithUnit(int unit, const CAmount& amount, bool p
 QString BitcoinUnits::formatWithPrivacy(int unit, const CAmount& amount, SeparatorStyle separators, bool privacy)
 {
     assert(amount >= 0);
-    QString value = format(unit, privacy ? 0 : amount, false, separators, true);
+    QString value;
     if (privacy) {
-        value.replace('0', '#');
+        value = format(unit, 0, false, separators, true).replace('0', '#');
+    } else {
+        value = format(unit, amount, false, separators, true);
     }
     return value + QString(" ") + shortName(unit);
 }
