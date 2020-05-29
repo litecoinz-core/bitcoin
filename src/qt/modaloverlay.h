@@ -52,7 +52,7 @@ private:
     QVector<QPair<qint64, double> > blockProcessTime;
     bool layerIsVisible;
     bool userClosed;
-    QPropertyAnimation animation{};
+    QPropertyAnimation m_animation;
     void UpdateHeaderSyncLabel();
     bool verificationPauseActive;
     void eventuallyShowHeaderSyncing(int count);
