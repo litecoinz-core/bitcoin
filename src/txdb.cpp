@@ -537,6 +537,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->nTime            = diskindex.nTime;
                 pindexNew->nBits            = diskindex.nBits;
                 pindexNew->nNonce           = diskindex.nNonce;
+                pindexNew->nArrivalTime     = diskindex.nArrivalTime;
                 pindexNew->nSolution        = diskindex.nSolution;
                 pindexNew->nStatus          = diskindex.nStatus;
                 pindexNew->nCachedBranchId  = diskindex.nCachedBranchId;
