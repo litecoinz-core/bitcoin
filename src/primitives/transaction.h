@@ -39,11 +39,6 @@ static const int32_t SAPLING_TX_VERSION = 4;
 static_assert(SAPLING_TX_VERSION >= SAPLING_MIN_TX_VERSION, "Sapling tx version must not be lower than minimum");
 static_assert(SAPLING_TX_VERSION <= SAPLING_MAX_TX_VERSION, "Sapling tx version must not be higher than maximum");
 
-// Alpheratz transaction version
-static const int32_t ALPHERATZ_TX_VERSION = 5;
-static_assert(ALPHERATZ_TX_VERSION >= ALPHERATZ_MIN_TX_VERSION, "Alpheratz tx version must not be lower than minimum");
-static_assert(ALPHERATZ_TX_VERSION <= ALPHERATZ_MAX_TX_VERSION, "Alpheratz tx version must not be higher than maximum");
-
 /**
  * A shielded input to a transaction. It contains data that describes a Spend transfer.
  */
@@ -655,10 +650,6 @@ static_assert(OVERWINTER_VERSION_GROUP_ID != 0, "version group id must be non-ze
 static constexpr uint32_t SAPLING_VERSION_GROUP_ID = 0x892F2085;
 static_assert(SAPLING_VERSION_GROUP_ID != 0, "version group id must be non-zero as specified in ZIP 202");
 
-// Alpheratz version group id
-static constexpr uint32_t ALPHERATZ_VERSION_GROUP_ID = 0x7C531232;
-static_assert(ALPHERATZ_VERSION_GROUP_ID != 0, "version group id must be non-zero as specified in ZIP 202");
-
 struct CMutableTransaction;
 
 /**
@@ -691,7 +682,7 @@ struct CMutableTransaction;
  * - std::vector<JSDescription> vJoinSplit
  * - std::array<unsigned char, 64> bindingSig
  *
- * Alpheratz transaction serialization format:
+ * Extended transaction serialization format:
  * - int32_t nVersion
  * - unsigned char dummy = 0x00
  * - unsigned char flags (!= 0)
@@ -710,6 +701,8 @@ struct CMutableTransaction;
  */
 template<typename Stream, typename TxType>
 inline void UnserializeTransaction(TxType& tx, Stream& s) {
+    const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
+    unsigned char flags = 0;
     uint32_t header;
 
     s >> header;
@@ -719,13 +712,18 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
     if (tx.fOverwintered) {
         /* Try to read the nVersionGroupId. In case the dummy is there, this will be read as an 0 value. */
         s >> tx.nVersionGroupId;
+        if (tx.nVersionGroupId == 0 && fAllowWitness) {
+            /* We read a dummy nVersionGroupId. */
+            s >> flags;
+            /* Read real nVersionGroupId. */
+            s >> tx.nVersionGroupId;
+        }
     }
 
     bool isOverwinterV3 = tx.fOverwintered && tx.nVersionGroupId == OVERWINTER_VERSION_GROUP_ID && tx.nVersion == OVERWINTER_TX_VERSION;
     bool isSaplingV4 = tx.fOverwintered && tx.nVersionGroupId == SAPLING_VERSION_GROUP_ID && tx.nVersion == SAPLING_TX_VERSION;
-    bool isAlpheratzV5 = tx.fOverwintered && tx.nVersionGroupId == ALPHERATZ_VERSION_GROUP_ID && tx.nVersion == ALPHERATZ_TX_VERSION;
 
-    if (tx.fOverwintered && !(isOverwinterV3 || isSaplingV4 || isAlpheratzV5))
+    if (tx.fOverwintered && !(isOverwinterV3 || isSaplingV4))
         throw std::ios_base::failure("UnserializeTransaction() Unknown transaction format");
 
     tx.vin.clear();
@@ -733,16 +731,26 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
     s >> tx.vin;
     s >> tx.vout;
 
-    if (isAlpheratzV5) {
+    if ((flags & 1) && fAllowWitness) {
+        /* The witness flag is present, and we support witnesses. */
+        flags ^= 1;
         for (size_t i = 0; i < tx.vin.size(); i++) {
             s >> tx.vin[i].scriptWitness.stack;
         }
+        if (!tx.HasWitness()) {
+            /* It's illegal to encode witnesses when all witness stacks are empty. */
+            throw std::ios_base::failure("Superfluous witness record");
+        }
+    }
+    if (flags) {
+        /* Unknown flag in the serialization */
+        throw std::ios_base::failure("Unknown transaction optional data");
     }
 
     s >> tx.nLockTime;
-    if (isOverwinterV3 || isSaplingV4 || isAlpheratzV5)
+    if (isOverwinterV3 || isSaplingV4)
         s >> tx.nExpiryHeight;
-    if (isSaplingV4 || isAlpheratzV5) {
+    if (isSaplingV4) {
         s >> tx.valueBalance;
         s >> tx.vShieldedSpend;
         s >> tx.vShieldedOutput;
@@ -755,13 +763,16 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
             s >> tx.joinSplitSig;
         }
     }
-    if ((isSaplingV4 || isAlpheratzV5) && !(tx.vShieldedSpend.empty() && tx.vShieldedOutput.empty())) {
+    if (isSaplingV4 && !(tx.vShieldedSpend.empty() && tx.vShieldedOutput.empty())) {
         s >> tx.bindingSig;
     }
 }
 
 template<typename Stream, typename TxType>
 inline void SerializeTransaction(const TxType& tx, Stream& s) {
+    const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
+    unsigned char flags = 0;
+
     uint32_t header = tx.nVersion;
     if (tx.fOverwintered) {
         header |= 1 << 31;
@@ -769,29 +780,41 @@ inline void SerializeTransaction(const TxType& tx, Stream& s) {
     s << header;
 
     if (tx.fOverwintered) {
+        // Consistency check
+        if (fAllowWitness) {
+            /* Check whether witnesses need to be serialized. */
+            if (tx.HasWitness()) {
+                flags |= 1;
+            }
+        }
+        if (flags) {
+            /* Use extended format in case witnesses are to be serialized. */
+            const uint32_t nVersionGroupIdDummy = 0;
+            s << nVersionGroupIdDummy;
+            s << flags;
+        }
         s << tx.nVersionGroupId;
     }
 
     bool isOverwinterV3 = tx.fOverwintered && tx.nVersionGroupId == OVERWINTER_VERSION_GROUP_ID && tx.nVersion == OVERWINTER_TX_VERSION;
     bool isSaplingV4 = tx.fOverwintered && tx.nVersionGroupId == SAPLING_VERSION_GROUP_ID && tx.nVersion == SAPLING_TX_VERSION;
-    bool isAlpheratzV5 = tx.fOverwintered && tx.nVersionGroupId == ALPHERATZ_VERSION_GROUP_ID && tx.nVersion == ALPHERATZ_TX_VERSION;
 
-    if (tx.fOverwintered && !(isOverwinterV3 || isSaplingV4 || isAlpheratzV5))
+    if (tx.fOverwintered && !(isOverwinterV3 || isSaplingV4))
         throw std::ios_base::failure("SerializeTransaction() Unknown transaction format");
 
     s << tx.vin;
     s << tx.vout;
 
-    if (isAlpheratzV5) {
+    if (flags & 1) {
         for (size_t i = 0; i < tx.vin.size(); i++) {
             s << tx.vin[i].scriptWitness.stack;
         }
     }
 
     s << tx.nLockTime;
-    if (isOverwinterV3 || isSaplingV4 || isAlpheratzV5)
+    if (isOverwinterV3 || isSaplingV4)
         s << tx.nExpiryHeight;
-    if (isSaplingV4 || isAlpheratzV5) {
+    if (isSaplingV4) {
         s << tx.valueBalance;
         s << tx.vShieldedSpend;
         s << tx.vShieldedOutput;
@@ -804,8 +827,9 @@ inline void SerializeTransaction(const TxType& tx, Stream& s) {
             s << tx.joinSplitSig;
         }
     }
-    if ((isSaplingV4 || isAlpheratzV5) && !(tx.vShieldedSpend.empty() && tx.vShieldedOutput.empty()))
+    if (isSaplingV4 && !(tx.vShieldedSpend.empty() && tx.vShieldedOutput.empty())) {
         s << tx.bindingSig;
+    }
 }
 
 
@@ -825,8 +849,6 @@ public:
     static const int32_t OVERWINTER_MAX_CURRENT_VERSION = 3;
     static const int32_t SAPLING_MIN_CURRENT_VERSION = 4;
     static const int32_t SAPLING_MAX_CURRENT_VERSION = 4;
-    static const int32_t ALPHERATZ_MIN_CURRENT_VERSION = 5;
-    static const int32_t ALPHERATZ_MAX_CURRENT_VERSION = 5;
 
     static_assert(SPROUT_MIN_CURRENT_VERSION >= SPROUT_MIN_TX_VERSION,
                   "standard rule for tx version should be consistent with network rule");
@@ -845,21 +867,14 @@ public:
                    SAPLING_MAX_CURRENT_VERSION >= SAPLING_MIN_CURRENT_VERSION),
                   "standard rule for tx version should be consistent with network rule");
 
-    static_assert(ALPHERATZ_MIN_CURRENT_VERSION >= ALPHERATZ_MIN_TX_VERSION,
-                  "standard rule for tx version should be consistent with network rule");
-
-    static_assert((ALPHERATZ_MAX_CURRENT_VERSION <= ALPHERATZ_MAX_TX_VERSION &&
-                   ALPHERATZ_MAX_CURRENT_VERSION >= ALPHERATZ_MIN_CURRENT_VERSION),
-                   "standard rule for tx version should be consistent with network rule");
-
     // Default transaction version.
-    static const int32_t CURRENT_VERSION=5;
+    static const int32_t CURRENT_VERSION=4;
 
     // Changing the default transaction version requires a two step process: first
     // adapting relay policy by bumping MAX_STANDARD_VERSION, and then later date
     // bumping the default CURRENT_VERSION at which point both CURRENT_VERSION and
     // MAX_STANDARD_VERSION will be equal.
-    static const int32_t MAX_STANDARD_VERSION=5;
+    static const int32_t MAX_STANDARD_VERSION=4;
 
     // The local variables are made const to prevent unintended modification
     // without updating the cached hash value. However, CTransaction is not
@@ -973,14 +988,6 @@ public:
         }
         return false;
     }
-
-    bool HasAlpheratz() const
-    {
-        if (fOverwintered && nVersionGroupId == ALPHERATZ_VERSION_GROUP_ID && nVersion == ALPHERATZ_TX_VERSION) {
-            return true;
-        }
-        return false;
-    }
 };
 
 /** A mutable version of CTransaction. */
@@ -1048,14 +1055,6 @@ struct CMutableTransaction
     bool HasSapling() const
     {
         if (fOverwintered && nVersionGroupId == SAPLING_VERSION_GROUP_ID && nVersion == SAPLING_TX_VERSION) {
-            return true;
-        }
-        return false;
-    }
-
-    bool HasAlpheratz() const
-    {
-        if (fOverwintered && nVersionGroupId == ALPHERATZ_VERSION_GROUP_ID && nVersion == ALPHERATZ_TX_VERSION) {
             return true;
         }
         return false;

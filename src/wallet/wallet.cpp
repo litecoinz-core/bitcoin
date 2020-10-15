@@ -3139,7 +3139,7 @@ bool CWallet::CanGetAddresses(bool internal)
 
 OutputType CWallet::GetDefaultAddressType()
 {
-    if (Params().GetConsensus().NetworkUpgradeActive(::ChainActive().Height(), Consensus::UPGRADE_ALPHERATZ))
+    if (::ChainActive().Height() > Params().GetConsensus().SegwitHeight)
         return m_default_address_type;
     else
         return OutputType::LEGACY;
@@ -3147,7 +3147,7 @@ OutputType CWallet::GetDefaultAddressType()
 
 OutputType CWallet::GetDefaultChangeType()
 {
-    if (Params().GetConsensus().NetworkUpgradeActive(::ChainActive().Height(), Consensus::UPGRADE_ALPHERATZ))
+    if (::ChainActive().Height() > Params().GetConsensus().SegwitHeight)
         return m_default_change_type;
     else
         return OutputType::LEGACY;

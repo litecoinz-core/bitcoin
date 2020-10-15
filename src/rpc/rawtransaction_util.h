@@ -5,6 +5,7 @@
 #ifndef BITCOIN_RPC_RAWTRANSACTION_UTIL_H
 #define BITCOIN_RPC_RAWTRANSACTION_UTIL_H
 
+#include <stdint.h>
 #include <map>
 
 class FillableSigningProvider;

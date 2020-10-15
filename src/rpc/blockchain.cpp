@@ -1629,7 +1629,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     BuriedForkDescPushBack(softforks, "bip65", consensusParams.BIP65Enabled ? 0 : std::numeric_limits<int>::max());
     BuriedForkDescPushBack(softforks, "bip66", consensusParams.BIP66Enabled ? 0 : std::numeric_limits<int>::max());
     BuriedForkDescPushBack(softforks, "csv", consensusParams.CSVHeight);
-    BuriedForkDescPushBack(softforks, "segwit", consensusParams.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nActivationHeight);
+    BuriedForkDescPushBack(softforks, "segwit", consensusParams.SegwitHeight);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);
 

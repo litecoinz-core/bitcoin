@@ -380,7 +380,7 @@ TransactionBuilderResult TransactionBuilder::Build()
     SigVersion sigversion = SigVersion::BASE;
     if (mtx.nVersion == 3)
         sigversion = SigVersion::OVERWINTER;
-    else if (mtx.nVersion == 4 || mtx.nVersion == 5)
+    else if (mtx.nVersion == 4)
         sigversion = SigVersion::SAPLING_V0;
 
     // Empty output script.

@@ -1815,7 +1815,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         }
     }
 
-    if (chainparams.GetConsensus().vUpgrades[Consensus::UPGRADE_ALPHERATZ].nActivationHeight != std::numeric_limits<int>::max()) {
+    if (chainparams.GetConsensus().SegwitHeight != std::numeric_limits<int>::max()) {
         // Advertise witness capabilities.
         // The option to not set NODE_WITNESS is only used in the tests and should be removed.
         nLocalServices = ServiceFlags(nLocalServices | NODE_WITNESS);

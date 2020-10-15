@@ -234,7 +234,7 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     if (!request.params[0].isNull())
         label = LabelFromValue(request.params[0]);
 
-    bool isSegwitEnabled = Params().GetConsensus().NetworkUpgradeActive(::ChainActive().Height(), Consensus::UPGRADE_ALPHERATZ);
+    bool isSegwitEnabled = (::ChainActive().Height() > Params().GetConsensus().SegwitHeight);
 
     OutputType output_type = pwallet->GetDefaultAddressType();
     if (!request.params[1].isNull()) {
@@ -4947,12 +4947,7 @@ UniValue z_sendmany(const JSONRPCRequest& request)
 
     CMutableTransaction mtx;
 
-    if (Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_ALPHERATZ)) {
-        mtx.fOverwintered = true;
-        mtx.nVersionGroupId = ALPHERATZ_VERSION_GROUP_ID;
-        mtx.nVersion = ALPHERATZ_TX_VERSION;
-        max_tx_size = MAX_TX_SIZE_AFTER_SAPLING;
-    } else if (Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_SAPLING)) {
+    if (Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_SAPLING)) {
         mtx.fOverwintered = true;
         mtx.nVersionGroupId = SAPLING_VERSION_GROUP_ID;
         mtx.nVersion = SAPLING_TX_VERSION;
