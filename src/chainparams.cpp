@@ -73,7 +73,7 @@ public:
     CMainParams() {
         strNetworkID = "main";
         bip44CoinType = 221; // As registered in https://github.com/satoshilabs/slips/blob/master/slip-0044.md
-        consensus.nApproxReleaseHeight = 450000;
+        consensus.nApproxReleaseHeight = 800000;
         consensus.fCoinbaseMustBeShielded = true;
         consensus.nSubsidyHalvingInterval = 840000;
         consensus.BIP16Enabled = true;
