@@ -70,7 +70,7 @@ BOOST_AUTO_TEST_CASE(get_next_work_upper_limit_actual)
 
 BOOST_AUTO_TEST_CASE(CheckProofOfWork_test_negative_target)
 {
-    const auto consensus = CreateChainParams(CBaseChainParams::MAIN)->GetConsensus();
+    const Consensus::Params& consensus = CreateChainParams(CBaseChainParams::MAIN)->GetConsensus();
     uint256 hash;
     unsigned int nBits;
     nBits = UintToArith256(consensus.powLimit).GetCompact(true);
@@ -80,7 +80,7 @@ BOOST_AUTO_TEST_CASE(CheckProofOfWork_test_negative_target)
 
 BOOST_AUTO_TEST_CASE(CheckProofOfWork_test_overflow_target)
 {
-    const auto consensus = CreateChainParams(CBaseChainParams::MAIN)->GetConsensus();
+    const Consensus::Params& consensus = CreateChainParams(CBaseChainParams::MAIN)->GetConsensus();
     uint256 hash;
     unsigned int nBits = ~0x00800000;
     hash.SetHex("0x1");
@@ -89,7 +89,7 @@ BOOST_AUTO_TEST_CASE(CheckProofOfWork_test_overflow_target)
 
 BOOST_AUTO_TEST_CASE(CheckProofOfWork_test_too_easy_target)
 {
-    const auto consensus = CreateChainParams(CBaseChainParams::MAIN)->GetConsensus();
+    const Consensus::Params& consensus = CreateChainParams(CBaseChainParams::MAIN)->GetConsensus();
     uint256 hash;
     unsigned int nBits;
     arith_uint256 nBits_arith = UintToArith256(consensus.powLimit);
@@ -101,7 +101,7 @@ BOOST_AUTO_TEST_CASE(CheckProofOfWork_test_too_easy_target)
 
 BOOST_AUTO_TEST_CASE(CheckProofOfWork_test_biger_hash_than_target)
 {
-    const auto consensus = CreateChainParams(CBaseChainParams::MAIN)->GetConsensus();
+    const Consensus::Params& consensus = CreateChainParams(CBaseChainParams::MAIN)->GetConsensus();
     uint256 hash;
     unsigned int nBits;
     arith_uint256 hash_arith = UintToArith256(consensus.powLimit);
@@ -113,7 +113,7 @@ BOOST_AUTO_TEST_CASE(CheckProofOfWork_test_biger_hash_than_target)
 
 BOOST_AUTO_TEST_CASE(CheckProofOfWork_test_zero_target)
 {
-    const auto consensus = CreateChainParams(CBaseChainParams::MAIN)->GetConsensus();
+    const Consensus::Params& consensus = CreateChainParams(CBaseChainParams::MAIN)->GetConsensus();
     uint256 hash;
     unsigned int nBits;
     arith_uint256 hash_arith{0};
