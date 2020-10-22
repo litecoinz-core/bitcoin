@@ -575,11 +575,13 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
         // TODO: Maybe recheck connections/IBD and (if something wrong) send an expires-immediately template to stop miners?
     }
 
-    bool isSegwitEnabled = (::ChainActive().Height() > Params().GetConsensus().SegwitHeight);
+    const Consensus::Params& consensusParams = Params().GetConsensus();
+
+    bool isSegwitEnabled = !(::ChainActive().Tip()->nHeight + 1 < consensusParams.SegwitHeight);
 
     // GBT must be called with 'segwit' set in the rules
     if (setClientRules.count("segwit") != 1 && isSegwitEnabled) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "getblocktemplate must be called with the segwit rule set (call with {\"rules\": [\"segwit\"]})");
+        setClientRules.insert("segwit");
     }
 
     // Update block
@@ -613,7 +615,6 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     }
     assert(pindexPrev);
     CBlock* pblock = &pblocktemplate->block; // pointer for convenience
-    const Consensus::Params& consensusParams = Params().GetConsensus();
 
     // Update nTime
     UpdateTime(pblock, consensusParams, pindexPrev);
