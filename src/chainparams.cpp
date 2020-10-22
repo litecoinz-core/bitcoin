@@ -243,8 +243,8 @@ public:
         consensus.BIP66Enabled = true;
         consensus.ZIP209Enabled = true;
         consensus.CSVHeight = 5500;
-        consensus.SegwitHeight = 6000;
-        consensus.MinBIP9WarningHeight = 8016; // segwit activation height + miner confirmation window
+        consensus.SegwitHeight = 6150;
+        consensus.MinBIP9WarningHeight = 8166; // segwit activation height + miner confirmation window
         consensus.powLimit = uint256S("07ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 
         consensus.nDigishieldTargetSpacing = 2.5 * 60;
