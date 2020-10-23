@@ -74,7 +74,7 @@ public:
         strNetworkID = "main";
         bip44CoinType = 221; // As registered in https://github.com/satoshilabs/slips/blob/master/slip-0044.md
         consensus.nApproxReleaseHeight = 800000;
-        consensus.fCoinbaseMustBeShielded = true;
+        consensus.fCoinbaseMustBeShielded = false;
         consensus.nSubsidyHalvingInterval = 840000;
         consensus.BIP16Enabled = true;
         consensus.BIP34Enabled = true;
@@ -235,7 +235,7 @@ public:
         strNetworkID = "test";
         bip44CoinType = 1;
         consensus.nApproxReleaseHeight = 50000;
-        consensus.fCoinbaseMustBeShielded = true;
+        consensus.fCoinbaseMustBeShielded = false;
         consensus.nSubsidyHalvingInterval = 840000;
         consensus.BIP16Enabled = true;
         consensus.BIP34Enabled = true;
@@ -502,7 +502,7 @@ public:
 
     void ProtectCoinbase()
     {
-        consensus.fCoinbaseMustBeShielded = true;
+        consensus.fCoinbaseMustBeShielded = false;
     }
 
     /**
