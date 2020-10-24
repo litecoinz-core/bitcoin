@@ -84,7 +84,7 @@ bool AsyncRPCOperation_saplingmigration::main_impl() {
     CWallet* const pwallet = wallet.get();
 
     LogPrint(BCLog::ZRPC, "%s: Beginning AsyncRPCOperation_saplingmigration.\n", getId());
-    auto consensusParams = Params().GetConsensus();
+    const Consensus::Params& consensusParams = Params().GetConsensus();
     auto nextActivationHeight = NextActivationHeight(targetHeight_, consensusParams);
     if (nextActivationHeight && targetHeight_ + MIGRATION_EXPIRY_DELTA >= nextActivationHeight.get()) {
         LogPrint(BCLog::ZRPC, "%s: Migration txs would be created before a NU activation but may expire after. Skipping this round.\n", getId());

@@ -1300,7 +1300,7 @@ template <class T>
 SigVersion SignatureHashVersion(const T& txTo)
 {
     if (txTo.fOverwintered) {
-        if (txTo.nVersionGroupId == SAPLING_VERSION_GROUP_ID || txTo.nVersionGroupId == ALPHERATZ_VERSION_GROUP_ID) {
+        if (txTo.nVersionGroupId == SAPLING_VERSION_GROUP_ID) {
             return SigVersion::SAPLING_V0;
         } else {
             return SigVersion::OVERWINTER;

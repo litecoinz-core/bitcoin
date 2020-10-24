@@ -578,11 +578,11 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
 
     const Consensus::Params& consensusParams = Params().GetConsensus();
 
-    bool isSegwitEnabled = consensusParams.NetworkUpgradeActive(::ChainActive().Height(), Consensus::UPGRADE_ALPHERATZ);
+    bool isSegwitEnabled = !(::ChainActive().Tip()->nHeight + 1 < consensusParams.SegwitHeight);
 
     // GBT must be called with 'segwit' set in the rules
     if (setClientRules.count("segwit") != 1 && isSegwitEnabled) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "getblocktemplate must be called with the segwit rule set (call with {\"rules\": [\"segwit\"]})");
+        setClientRules.insert("segwit");
     }
 
     // Update block
@@ -622,7 +622,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     pblock->nNonce = uint256();
 
     // NOTE: If at some point we support pre-segwit miners post-segwit-activation, this needs to take segwit support into consideration
-    const bool fPreSegWit = !(consensusParams.NetworkUpgradeActive(::ChainActive().Height(), Consensus::UPGRADE_ALPHERATZ));
+    const bool fPreSegWit = (pindexPrev->nHeight + 1 < consensusParams.SegwitHeight);
 
     UniValue aCaps(UniValue::VARR); aCaps.push_back("proposal");
 
@@ -677,6 +677,8 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     result.pushKV("capabilities", aCaps);
 
     UniValue aRules(UniValue::VARR);
+    aRules.push_back("csv");
+    if (!fPreSegWit) aRules.push_back("!segwit");
     UniValue vbavailable(UniValue::VOBJ);
     for (int j = 0; j < (int)Consensus::MAX_VERSION_BITS_DEPLOYMENTS; ++j) {
         Consensus::DeploymentPos pos = Consensus::DeploymentPos(j);

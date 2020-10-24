@@ -69,7 +69,7 @@ extern const std::string DEFAULTKEY;
 extern const std::string DESTDATA;
 extern const std::string FLAGS;
 extern const std::string HDCHAIN;
-extern const std::string SAPLING_HDCHAIN;
+extern const std::string ZEC_HDCHAIN;
 extern const std::string KEY;
 extern const std::string SPROUT_KEY;
 extern const std::string SAPLING_KEY;
@@ -174,7 +174,8 @@ class CKeyMetadata
 {
 public:
     static const int VERSION_BASIC=1;
-    static const int VERSION_WITH_HDDATA=10;
+    static const int VERSION_WITH_ZEC_HDDATA=10;
+    static const int VERSION_WITH_HDDATA=11;
     static const int VERSION_WITH_KEY_ORIGIN = 12;
     static const int CURRENT_VERSION=VERSION_WITH_KEY_ORIGIN;
     int nVersion;
@@ -201,11 +202,14 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(this->nVersion);
         READWRITE(nCreateTime);
-        if (this->nVersion >= VERSION_WITH_HDDATA)
+        if (this->nVersion >= VERSION_WITH_ZEC_HDDATA)
         {
             READWRITE(hdKeypath);
-            READWRITE(hd_seed_id);
             READWRITE(seedFp);
+        }
+        if (this->nVersion >= VERSION_WITH_HDDATA)
+        {
+            READWRITE(hd_seed_id);
         }
         if (this->nVersion >= VERSION_WITH_KEY_ORIGIN)
         {

@@ -74,16 +74,17 @@ public:
     CMainParams() {
         strNetworkID = "main";
         bip44CoinType = 221; // As registered in https://github.com/satoshilabs/slips/blob/master/slip-0044.md
-        consensus.nApproxReleaseHeight = 450000;
-        consensus.fCoinbaseMustBeShielded = true;
+        consensus.nApproxReleaseHeight = 850000;
+        consensus.fCoinbaseMustBeShielded = false;
         consensus.nSubsidyHalvingInterval = 840000;
         consensus.BIP16Enabled = true;
         consensus.BIP34Enabled = true;
         consensus.BIP65Enabled = true;
         consensus.BIP66Enabled = true;
         consensus.ZIP209Enabled = true; // Prohibit Negative Shielded Value Pool
-        consensus.CSVHeight = 419328; // 000000000000000004a1b34462cb8aeebd5799177f7a29cf28f2d1961716b5b5
-        consensus.MinBIP9WarningHeight = 483840; // segwit activation height + miner confirmation window
+        consensus.CSVHeight = 585000;
+        consensus.SegwitHeight = 590000;
+        consensus.MinBIP9WarningHeight = 592016; // segwit activation height + miner confirmation window
         consensus.powLimit = uint256S("0007ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 
         consensus.nDigishieldTargetSpacing = 2.5 * 60;
@@ -92,7 +93,7 @@ public:
         consensus.nDigishieldMaxAdjustDown = 32; // 32% adjustment down
         consensus.nDigishieldMaxAdjustUp = 16; // 16% adjustment up
 
-        consensus.nZawyLWMAHeight = std::numeric_limits<int>::max(); // Not activated on mainnet
+        consensus.nZawyLWMAHeight = 600000;
         consensus.nZawyLwmaAveragingWindow = 45;
         consensus.nZawyLwmaAdjustedWeight = 13772;
 
@@ -112,10 +113,6 @@ public:
         consensus.vUpgrades[Consensus::UPGRADE_OVERWINTER].nActivationHeight = 190000;
         consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nProtocolVersion = 170007;
         consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight = 190000;
-        consensus.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nProtocolVersion = 170008;
-        consensus.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
-        consensus.vUpgrades[Consensus::UPGRADE_PEGASI].nProtocolVersion = 170009;
-        consensus.vUpgrades[Consensus::UPGRADE_PEGASI].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
         const size_t N1 = 200, K1 = 9;
         const size_t N2 = 144, K2 = 5;
         BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N1, K1));
@@ -239,7 +236,7 @@ public:
         strNetworkID = "test";
         bip44CoinType = 1;
         consensus.nApproxReleaseHeight = 50000;
-        consensus.fCoinbaseMustBeShielded = true;
+        consensus.fCoinbaseMustBeShielded = false;
         consensus.nSubsidyHalvingInterval = 840000;
         consensus.BIP16Enabled = true;
         consensus.BIP34Enabled = true;
@@ -247,7 +244,8 @@ public:
         consensus.BIP66Enabled = true;
         consensus.ZIP209Enabled = true;
         consensus.CSVHeight = 5500;
-        consensus.MinBIP9WarningHeight = 8016; // segwit activation height + miner confirmation window
+        consensus.SegwitHeight = 6150;
+        consensus.MinBIP9WarningHeight = 8166; // segwit activation height + miner confirmation window
         consensus.powLimit = uint256S("07ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 
         consensus.nDigishieldTargetSpacing = 2.5 * 60;
@@ -276,10 +274,6 @@ public:
         consensus.vUpgrades[Consensus::UPGRADE_OVERWINTER].nActivationHeight = 4000;
         consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nProtocolVersion = 170007;
         consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight = 4000;
-        consensus.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nProtocolVersion = 170008;
-        consensus.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nActivationHeight = 6000;
-        consensus.vUpgrades[Consensus::UPGRADE_PEGASI].nProtocolVersion = 170009;
-        consensus.vUpgrades[Consensus::UPGRADE_PEGASI].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
         const size_t N1 = 200, K1 = 9;
         const size_t N2 = 144, K2 = 5;
         BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N1, K1));
@@ -392,7 +386,8 @@ public:
         consensus.BIP66Enabled = false;
         consensus.ZIP209Enabled = false;
         consensus.CSVHeight = 432; // CSV activated on regtest (Used in rpc activation tests)
-        consensus.MinBIP9WarningHeight = 3440;
+        consensus.SegwitHeight = 0; // SEGWIT is always activated on regtest unless overridden
+        consensus.MinBIP9WarningHeight = 0;
         consensus.powLimit = uint256S("0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f");
 
         consensus.nDigishieldTargetSpacing = 2.5 * 60;
@@ -421,10 +416,6 @@ public:
         consensus.vUpgrades[Consensus::UPGRADE_OVERWINTER].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
         consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nProtocolVersion = 170007;
         consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
-        consensus.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nProtocolVersion = 170008;
-        consensus.vUpgrades[Consensus::UPGRADE_ALPHERATZ].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
-        consensus.vUpgrades[Consensus::UPGRADE_PEGASI].nProtocolVersion = 170009;
-        consensus.vUpgrades[Consensus::UPGRADE_PEGASI].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
         const size_t N1 = 48, K1 = 5;
         const size_t N2 = 96, K2 = 5;
         BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N1, K1));
@@ -512,7 +503,7 @@ public:
 
     void ProtectCoinbase()
     {
-        consensus.fCoinbaseMustBeShielded = true;
+        consensus.fCoinbaseMustBeShielded = false;
     }
 
     /**
@@ -533,6 +524,17 @@ unsigned int CChainParams::EquihashSolutionWidth(int height) const
 
 void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
 {
+    if (gArgs.IsArgSet("-segwitheight")) {
+        int64_t height = gArgs.GetArg("-segwitheight", consensus.SegwitHeight);
+        if (height < -1 || height >= std::numeric_limits<int>::max()) {
+            throw std::runtime_error(strprintf("Activation height %ld for segwit is out of valid range. Use -1 to disable segwit.", height));
+        } else if (height == -1) {
+            LogPrintf("Segwit disabled for testing\n");
+            height = std::numeric_limits<int>::max();
+        }
+        consensus.SegwitHeight = static_cast<int>(height);
+    }
+
     if (gArgs.IsArgSet("-nuparams")) {
         for (const std::string& strDeployment : args.GetArgs("-nuparams")) {
             std::vector<std::string> vDeploymentParams;

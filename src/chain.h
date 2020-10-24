@@ -224,6 +224,9 @@ public:
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     int32_t nSequenceId;
 
+    // The time at which this block was first seen locally.
+    int64_t nArrivalTime;
+
     //! (memory only) Maximum nTime in the chain up to and including this block.
     unsigned int nTimeMax;
 
@@ -256,6 +259,7 @@ public:
         nTime           = 0;
         nBits           = 0;
         nNonce          = uint256();
+        nArrivalTime    = -1;
         nSolution.clear();
     }
 
@@ -335,6 +339,11 @@ public:
     }
 
     static constexpr int nMedianTimeSpan = 11;
+
+    int64_t GetBlockArrivalTime() const
+    {
+        return nArrivalTime;
+    }
 
     int64_t GetMedianTimePast() const
     {
@@ -449,6 +458,7 @@ public:
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
+        READWRITE(nArrivalTime);
         READWRITE(nSolution);
 
         // Only read/write nSproutValue if the client version used to create

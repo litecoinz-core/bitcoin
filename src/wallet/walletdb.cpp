@@ -25,20 +25,20 @@ const std::string ACENTRY{"acentry"};
 const std::string BESTBLOCK_NOMERKLE{"bestblock_nomerkle"};
 const std::string BESTBLOCK{"bestblock"};
 const std::string CRYPTED_KEY{"ckey"};
-const std::string SPROUT_CRYPTED_KEY{"sprout_ckey"};
-const std::string SAPLING_CRYPTED_KEY{"sapling_ckey"};
+const std::string SPROUT_CRYPTED_KEY{"czkey"};
+const std::string SAPLING_CRYPTED_KEY{"csapzkey"};
 const std::string CSCRIPT{"cscript"};
 const std::string DEFAULTKEY{"defaultkey"};
 const std::string DESTDATA{"destdata"};
 const std::string FLAGS{"flags"};
-const std::string HDCHAIN{"hdchain"};
-const std::string SAPLING_HDCHAIN{"sapling_hdchain"};
+const std::string HDCHAIN{"base_hdchain"};
+const std::string ZEC_HDCHAIN{"hdchain"};
 const std::string KEYMETA{"keymeta"};
-const std::string SPROUT_KEYMETA{"sprout_keymeta"};
-const std::string SAPLING_KEYMETA{"sapling_keymeta"};
+const std::string SPROUT_KEYMETA{"zkeymeta"};
+const std::string SAPLING_KEYMETA{"sapzkeymeta"};
 const std::string KEY{"key"};
-const std::string SPROUT_KEY{"sprout_key"};
-const std::string SAPLING_KEY{"sapling_key"};
+const std::string SPROUT_KEY{"zkey"};
+const std::string SAPLING_KEY{"sapzkey"};
 const std::string MASTER_KEY{"mkey"};
 const std::string MINVERSION{"minversion"};
 const std::string NAME{"name"};
@@ -57,11 +57,11 @@ const std::string WATCHMETA{"watchmeta"};
 const std::string SPROUT_WATCHMETA{"sprout_watchmeta"};
 const std::string SAPLING_WATCHMETA{"sapling_watchmeta"};
 const std::string WATCHS{"watchs"};
-const std::string SPROUT_WATCHS{"sprout_watchs"};
+const std::string SPROUT_WATCHS{"vkey"};
 const std::string SAPLING_WATCHS{"sapling_watchs"};
-const std::string SAPLING_ADDRESS{"sapling_address"};
-const std::string ZEC_HDSEED{"zec_hdseed"};
-const std::string ZEC_CRYPTED_HDSEED{"zec_chdseed"};
+const std::string SAPLING_ADDRESS{"sapzaddr"};
+const std::string ZEC_HDSEED{"hdseed"};
+const std::string ZEC_CRYPTED_HDSEED{"chdseed"};
 const std::string WITNESSCACHESIZE{"witnesscachesize"};
 } // namespace DBKeys
 
@@ -528,8 +528,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             wss.nSaplingKeyMeta++;
 
             pwallet->LoadSaplingZKeyMetadata(ivk, keyMeta);
-        } else if (strType == DBKeys::SAPLING_ADDRESS)
-        {
+        } else if (strType == DBKeys::SAPLING_ADDRESS) {
             libzcash::SaplingPaymentAddress addr;
             ssKey >> addr;
             libzcash::SaplingIncomingViewingKey ivk;
@@ -624,7 +623,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             CHDChain chain;
             ssValue >> chain;
             pwallet->SetHDChain(chain, true);
-        } else if (strType == DBKeys::SAPLING_HDCHAIN) {
+        } else if (strType == DBKeys::ZEC_HDCHAIN) {
             CZecHDChain chain;
             ssValue >> chain;
             pwallet->SetZecHDChain(chain, true);
@@ -1043,7 +1042,7 @@ bool WalletBatch::WriteCryptedZecHDSeed(const uint256& seedFp, const std::vector
 
 bool WalletBatch::WriteZecHDChain(const CZecHDChain& chain)
 {
-    return WriteIC(DBKeys::SAPLING_HDCHAIN, chain);
+    return WriteIC(DBKeys::ZEC_HDCHAIN, chain);
 }
 
 bool WalletBatch::WriteZKey(const libzcash::SproutPaymentAddress& addr, const libzcash::SproutSpendingKey& key, const CKeyMetadata &keyMeta)
