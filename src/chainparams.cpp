@@ -73,7 +73,7 @@ public:
     CMainParams() {
         strNetworkID = "main";
         bip44CoinType = 221; // As registered in https://github.com/satoshilabs/slips/blob/master/slip-0044.md
-        consensus.nApproxReleaseHeight = 800000;
+        consensus.nApproxReleaseHeight = 850000;
         consensus.fCoinbaseMustBeShielded = false;
         consensus.nSubsidyHalvingInterval = 840000;
         consensus.BIP16Enabled = true;
@@ -81,9 +81,9 @@ public:
         consensus.BIP65Enabled = true;
         consensus.BIP66Enabled = true;
         consensus.ZIP209Enabled = true; // Prohibit Negative Shielded Value Pool
-        consensus.CSVHeight = 419328; // 000000000000000004a1b34462cb8aeebd5799177f7a29cf28f2d1961716b5b5
-        consensus.SegwitHeight = std::numeric_limits<int>::max(); // Not activated on mainnet
-        consensus.MinBIP9WarningHeight = 483840; // segwit activation height + miner confirmation window
+        consensus.CSVHeight = 585000;
+        consensus.SegwitHeight = 590000;
+        consensus.MinBIP9WarningHeight = 592016; // segwit activation height + miner confirmation window
         consensus.powLimit = uint256S("0007ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 
         consensus.nDigishieldTargetSpacing = 2.5 * 60;
@@ -92,7 +92,7 @@ public:
         consensus.nDigishieldMaxAdjustDown = 32; // 32% adjustment down
         consensus.nDigishieldMaxAdjustUp = 16; // 16% adjustment up
 
-        consensus.nZawyLWMAHeight = std::numeric_limits<int>::max(); // Not activated on mainnet
+        consensus.nZawyLWMAHeight = 600000;
         consensus.nZawyLwmaAveragingWindow = 45;
         consensus.nZawyLwmaAdjustedWeight = 13772;
 
