@@ -198,8 +198,6 @@ struct Params {
     uint256 defaultAssumeValid;
 
     NetworkUpgrade vUpgrades[MAX_NETWORK_UPGRADES];
-
-    int nApproxReleaseHeight;
 };
 } // namespace Consensus
 

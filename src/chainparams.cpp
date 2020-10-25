@@ -74,7 +74,6 @@ public:
     CMainParams() {
         strNetworkID = "main";
         bip44CoinType = 221; // As registered in https://github.com/satoshilabs/slips/blob/master/slip-0044.md
-        consensus.nApproxReleaseHeight = 850000;
         consensus.fCoinbaseMustBeShielded = false;
         consensus.nSubsidyHalvingInterval = 840000;
         consensus.BIP16Enabled = true;
@@ -235,7 +234,6 @@ public:
     CTestNetParams() {
         strNetworkID = "test";
         bip44CoinType = 1;
-        consensus.nApproxReleaseHeight = 50000;
         consensus.fCoinbaseMustBeShielded = false;
         consensus.nSubsidyHalvingInterval = 840000;
         consensus.BIP16Enabled = true;
@@ -377,7 +375,6 @@ public:
     explicit CRegTestParams(const ArgsManager& args) {
         strNetworkID = "regtest";
         bip44CoinType = 1;
-        consensus.nApproxReleaseHeight = 200000;
         consensus.fCoinbaseMustBeShielded = false;
         consensus.nSubsidyHalvingInterval = 1500;
         consensus.BIP16Enabled = true;

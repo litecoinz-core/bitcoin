@@ -17,7 +17,6 @@
 #include <consensus/upgrades.h>
 #include <consensus/validation.h>
 #include <cuckoocache.h>
-#include <deprecation.h>
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
@@ -3013,9 +3012,6 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
 
     connectTrace.BlockConnected(pindexNew, std::move(pthisBlock));
 
-    CDeprecation deprecation = CDeprecation(Params().GetConsensus().nApproxReleaseHeight);
-    deprecation.EnforceNodeDeprecation(pindexNew->nHeight);
-
     return true;
 }
 
@@ -4765,9 +4761,6 @@ bool CChainState::LoadChainTip(const CChainParams& chainparams)
         m_chain.Height(),
         FormatISO8601DateTime(tip->GetBlockTime()),
         GuessVerificationProgress(chainparams.TxData(), tip));
-
-    CDeprecation deprecation = CDeprecation(Params().GetConsensus().nApproxReleaseHeight);
-    deprecation.EnforceNodeDeprecation(m_chain.Height(), true);
 
     return true;
 }
