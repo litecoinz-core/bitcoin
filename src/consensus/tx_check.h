@@ -29,16 +29,4 @@ bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state,
 bool CheckTransaction(const CTransaction& tx, CValidationState& state, libzcash::ProofVerifier& verifier, bool fCheckDuplicateInputs=true);
 bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidationState &state, bool fCheckDuplicateInputs);
 
-/**
- * Check if transaction is expired and can be included in a block with the
- * specified height. Consensus critical.
- */
-bool IsExpiredTx(const CTransaction &tx, int nBlockHeight);
-
-/**
- * Check if transaction is expiring soon.  If yes, not propagating the transaction
- * can help DoS mitigation.  This is not consensus critical.
- */
-bool IsExpiringSoonTx(const CTransaction &tx, int nNextBlockHeight);
-
 #endif // BITCOIN_CONSENSUS_TX_CHECK_H

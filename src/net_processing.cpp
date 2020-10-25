@@ -1549,31 +1549,20 @@ void static ProcessGetData(CNode* pfrom, const CChainParams& chainparams, CConnm
             const CInv &inv = *it;
             it++;
 
-            // Check the mempool to see if a transaction is expiring soon.  If so, do not send to peer.
-            // Note that a transaction enters the mempool first, before the serialized form is cached
-            // in mapRelay after a successful relay.
-            bool isExpiringSoon = false;
-
-            std::shared_ptr<const CTransaction> ptx = mempool.get(inv.hash);
-            if (ptx)
-                isExpiringSoon = IsExpiringSoonTx(*ptx, ::ChainActive().Height() + 1);
-
             // Send stream from relay memory
             bool push = false;
-            if (!isExpiringSoon) {
-                auto mi = mapRelay.find(inv.hash);
-                int nSendFlags = (inv.type == MSG_TX ? SERIALIZE_TRANSACTION_NO_WITNESS : 0);
-                if (mi != mapRelay.end()) {
-                    connman->PushMessage(pfrom, msgMaker.Make(nSendFlags, NetMsgType::TX, *mi->second));
+            auto mi = mapRelay.find(inv.hash);
+            int nSendFlags = (inv.type == MSG_TX ? SERIALIZE_TRANSACTION_NO_WITNESS : 0);
+            if (mi != mapRelay.end()) {
+                connman->PushMessage(pfrom, msgMaker.Make(nSendFlags, NetMsgType::TX, *mi->second));
+                push = true;
+            } else if (pfrom->m_tx_relay->timeLastMempoolReq) {
+                auto txinfo = mempool.info(inv.hash);
+                // To protect privacy, do not answer getdata using the mempool when
+                // that TX couldn't have been INVed in reply to a MEMPOOL request.
+                if (txinfo.tx && txinfo.nTime <= pfrom->m_tx_relay->timeLastMempoolReq) {
+                    connman->PushMessage(pfrom, msgMaker.Make(nSendFlags, NetMsgType::TX, *txinfo.tx));
                     push = true;
-                } else if (pfrom->m_tx_relay->timeLastMempoolReq) {
-                    auto txinfo = mempool.info(inv.hash);
-                    // To protect privacy, do not answer getdata using the mempool when
-                    // that TX couldn't have been INVed in reply to a MEMPOOL request.
-                    if (txinfo.tx && txinfo.nTime <= pfrom->m_tx_relay->timeLastMempoolReq) {
-                        connman->PushMessage(pfrom, msgMaker.Make(nSendFlags, NetMsgType::TX, *txinfo.tx));
-                        push = true;
-                    }
                 }
             }
             if (!push) {
@@ -3865,9 +3854,6 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
                             if (txinfo.feeRate.GetFeePerK() < filterrate)
                                 continue;
                         }
-                        if (IsExpiringSoonTx(*txinfo.tx, ::ChainActive().Height() + 1))
-                            continue;
-
                         if (pto->m_tx_relay->pfilter) {
                             if (!pto->m_tx_relay->pfilter->IsRelevantAndUpdate(*txinfo.tx)) continue;
                         }

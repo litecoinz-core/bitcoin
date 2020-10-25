@@ -323,16 +323,13 @@ CMutableTransaction CreateNewContextualCMutableTransaction(const Consensus::Para
     bool isOverwintered = consensusParams.NetworkUpgradeActive(nHeight, Consensus::UPGRADE_OVERWINTER);
     if (isOverwintered) {
         mtx.fOverwintered = true;
-        int64_t nExpiryDelta = gArgs.GetArg("-txexpirydelta", DEFAULT_TX_EXPIRY_DELTA);
-
+        mtx.nExpiryHeight = 0;
         if (consensusParams.NetworkUpgradeActive(nHeight, Consensus::UPGRADE_SAPLING)) {
             mtx.nVersionGroupId = SAPLING_VERSION_GROUP_ID;
             mtx.nVersion = SAPLING_TX_VERSION;
-            mtx.nExpiryHeight = nHeight + nExpiryDelta;
         } else {
             mtx.nVersionGroupId = OVERWINTER_VERSION_GROUP_ID;
             mtx.nVersion = OVERWINTER_TX_VERSION;
-            mtx.nExpiryHeight = std::min(mtx.nExpiryHeight, (uint32_t)consensusParams.vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight - 1);
         }
     }
     return mtx;

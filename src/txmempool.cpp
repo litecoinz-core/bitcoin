@@ -1391,24 +1391,4 @@ void CTxMemPool::SetIsLoaded(bool loaded)
     m_is_loaded = loaded;
 }
 
-void CTxMemPool::removeExpired(unsigned int nBlockHeight)
-{
-    // Remove expired txs from the mempool
-    AssertLockHeld(cs);
-    setEntries txToRemove;
-
-    for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
-        const CTransaction& tx = it->GetTx();
-        if (IsExpiredTx(tx, nBlockHeight)) {
-            LogPrint(BCLog::MEMPOOL, "Removing expired txid: %s\n", tx.GetHash().ToString());
-            txToRemove.insert(it);
-        }
-    }
-    setEntries setAllRemoves;
-    for (txiter it : txToRemove) {
-        CalculateDescendants(it, setAllRemoves);
-    }
-    RemoveStaged(setAllRemoves, false, MemPoolRemovalReason::REORG);
-}
-
 SaltedTxidHasher::SaltedTxidHasher() : k0(GetRand(std::numeric_limits<uint64_t>::max())), k1(GetRand(std::numeric_limits<uint64_t>::max())) {}

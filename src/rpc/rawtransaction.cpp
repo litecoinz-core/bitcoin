@@ -162,7 +162,6 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
             "  \"vsize\" : n,            (numeric) The virtual transaction size (differs from size for witness transactions)\n"
             "  \"weight\" : n,           (numeric) The transaction's weight (between vsize*4-3 and vsize*4)\n"
             "  \"locktime\" : ttt,       (numeric) The lock time\n"
-            "  \"expiryheight\" : ttt,   (numeric, optional) The block height after which the transaction expires\n"
             "  \"vin\" : [               (array of json objects)\n"
             "     {\n"
             "       \"txid\": \"id\",    (string) The transaction id\n"
@@ -469,7 +468,6 @@ static UniValue createrawtransaction(const JSONRPCRequest& request)
                         },
                         },
                     {"locktime", RPCArg::Type::NUM, /* default */ "0", "Raw locktime. Non-0 value also locktime-activates inputs"},
-                    {"expiryheight", RPCArg::Type::NUM, /* default */ strprintf("nextblockheight+%d", DEFAULT_TX_EXPIRY_DELTA), "Expiry height of transaction (if Overwinter is active)"},
                     {"replaceable", RPCArg::Type::BOOL, /* default */ "false", "Marks this transaction as BIP125-replaceable.\n"
             "                             Allows this transaction to be replaced by a transaction with higher fees. If provided, it is an error if explicit sequence numbers are incompatible."},
                 },
@@ -488,16 +486,15 @@ static UniValue createrawtransaction(const JSONRPCRequest& request)
         UniValue::VARR,
         UniValueType(), // ARR or OBJ, checked later
         UniValue::VNUM,
-        UniValue::VNUM,
         UniValue::VBOOL
         }, true
     );
 
     bool rbf = false;
-    if (!request.params[4].isNull()) {
-        rbf = request.params[4].isTrue();
+    if (!request.params[3].isNull()) {
+        rbf = request.params[3].isTrue();
     }
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, request.params[3]);
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf);
 
     return EncodeHexTx(CTransaction(rawTx));
 }
@@ -527,7 +524,6 @@ static UniValue decoderawtransaction(const JSONRPCRequest& request)
             "  \"vsize\" : n,            (numeric) The virtual transaction size (differs from size for witness transactions)\n"
             "  \"weight\" : n,           (numeric) The transaction's weight (between vsize*4 - 3 and vsize*4)\n"
             "  \"locktime\" : ttt,       (numeric) The lock time\n"
-            "  \"expiryheight\" : n,     (numeric, optional) Last valid block height for mining transaction (Overwintered txs)\n"
             "  \"vin\" : [               (array of json objects)\n"
             "     {\n"
             "       \"txid\": \"id\",    (string) The transaction id\n"
@@ -938,19 +934,6 @@ static UniValue sendrawtransaction(const JSONRPCRequest& request)
     if (!DecodeHexTx(mtx, request.params[0].get_str()))
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
     CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
-
-    // DoS mitigation: reject transactions expiring soon
-    if (tx->nExpiryHeight > 0) {
-        int nextBlockHeight = ::ChainActive().Height() + 1;
-        if (Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_OVERWINTER)) {
-            if (nextBlockHeight + TX_EXPIRING_SOON_THRESHOLD > tx->nExpiryHeight) {
-                throw JSONRPCError(RPC_TRANSACTION_REJECTED,
-                    strprintf("tx-expiring-soon: expiryheight is %d but should be at least %d to avoid transaction expiring soon",
-                    tx->nExpiryHeight,
-                    nextBlockHeight + TX_EXPIRING_SOON_THRESHOLD));
-            }
-        }
-    }
 
     CFeeRate max_raw_tx_fee_rate = DEFAULT_MAX_RAW_TX_FEE_RATE;
     // TODO: temporary migration code for old clients. Remove in v0.20
@@ -1512,7 +1495,6 @@ UniValue createpsbt(const JSONRPCRequest& request)
                         },
                         },
                     {"locktime", RPCArg::Type::NUM, /* default */ "0", "Raw locktime. Non-0 value also locktime-activates inputs"},
-                    {"expiryheight", RPCArg::Type::NUM, /* default */ strprintf("nextblockheight+%d", DEFAULT_TX_EXPIRY_DELTA), "Expiry height of transaction (if Overwinter is active)"},
                     {"replaceable", RPCArg::Type::BOOL, /* default */ "false", "Marks this transaction as BIP125 replaceable.\n"
                             "                             Allows this transaction to be replaced by a transaction with higher fees. If provided, it is an error if explicit sequence numbers are incompatible."},
                 },
@@ -1529,16 +1511,15 @@ UniValue createpsbt(const JSONRPCRequest& request)
         UniValue::VARR,
         UniValueType(), // ARR or OBJ, checked later
         UniValue::VNUM,
-        UniValue::VNUM,
         UniValue::VBOOL,
         }, true
     );
 
     bool rbf = false;
-    if (!request.params[4].isNull()) {
-        rbf = request.params[4].isTrue();
+    if (!request.params[3].isNull()) {
+        rbf = request.params[3].isTrue();
     }
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, request.params[3]);
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf);
 
     // Make a blank psbt
     PartiallySignedTransaction psbtx;
@@ -1912,7 +1893,7 @@ static const CRPCCommand commands[] =
 { //  category              name                            actor (function)            argNames
   //  --------------------- ------------------------        -----------------------     ----------
     { "rawtransactions",    "getrawtransaction",            &getrawtransaction,         {"txid","verbose","blockhash"} },
-    { "rawtransactions",    "createrawtransaction",         &createrawtransaction,      {"inputs","outputs","locktime","expiryheight","replaceable"} },
+    { "rawtransactions",    "createrawtransaction",         &createrawtransaction,      {"inputs","outputs","locktime","replaceable"} },
     { "rawtransactions",    "decoderawtransaction",         &decoderawtransaction,      {"hexstring","iswitness"} },
     { "rawtransactions",    "decodescript",                 &decodescript,              {"hexstring"} },
     { "rawtransactions",    "sendrawtransaction",           &sendrawtransaction,        {"hexstring","allowhighfees|maxfeerate"} },
@@ -1922,7 +1903,7 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    "decodepsbt",                   &decodepsbt,                {"psbt"} },
     { "rawtransactions",    "combinepsbt",                  &combinepsbt,               {"txs"} },
     { "rawtransactions",    "finalizepsbt",                 &finalizepsbt,              {"psbt", "extract"} },
-    { "rawtransactions",    "createpsbt",                   &createpsbt,                {"inputs","outputs","locktime","expiryheight","replaceable"} },
+    { "rawtransactions",    "createpsbt",                   &createpsbt,                {"inputs","outputs","locktime","replaceable"} },
     { "rawtransactions",    "converttopsbt",                &converttopsbt,             {"hexstring","permitsigdata","iswitness"} },
     { "rawtransactions",    "utxoupdatepsbt",               &utxoupdatepsbt,            {"psbt", "descriptors"} },
     { "rawtransactions",    "joinpsbts",                    &joinpsbts,                 {"txs"} },

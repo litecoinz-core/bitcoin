@@ -102,8 +102,6 @@ public:
         CCoinsViewCache* coinsView = nullptr,
         CCriticalSection* cs_coinsView = nullptr);
 
-    void SetExpiryHeight(uint32_t nExpiryHeight);
-
     void SetFee(CAmount fee);
 
     // Throws if the anchor does not match the anchor used by

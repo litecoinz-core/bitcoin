@@ -4873,14 +4873,6 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
     int nextBlockHeight = ::ChainActive().Tip()->nHeight + 1;
     CMutableTransaction txNew = CreateNewContextualCMutableTransaction(Params().GetConsensus(), nextBlockHeight);
 
-    // Activates after Overwinter network upgrade
-    if (Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_OVERWINTER)) {
-        if (txNew.nExpiryHeight >= TX_EXPIRY_HEIGHT_THRESHOLD){
-            strFailReason = _("nExpiryHeight must be less than TX_EXPIRY_HEIGHT_THRESHOLD.").translated;
-            return false;
-        }
-    }
-
     txNew.nLockTime = GetLocktimeForNewTransaction(chain(), locked_chain);
 
     FeeCalculation feeCalc;
@@ -6568,15 +6560,6 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain& chain,
         libzcash::PaymentAddress address = DecodePaymentAddress(migrationDestAddress);
         if (boost::get<libzcash::SaplingPaymentAddress>(&address) == nullptr) {
             error = strprintf(_("-migrationdestaddress must be a valid Sapling address.").translated);
-            return nullptr;
-        }
-    }
-
-    if (gArgs.IsArgSet("-txexpirydelta")) {
-        int64_t expiryDelta = gArgs.GetArg("-txexpirydelta", DEFAULT_TX_EXPIRY_DELTA);
-        int64_t minExpiryDelta = TX_EXPIRING_SOON_THRESHOLD + 1;
-        if (expiryDelta < minExpiryDelta) {
-            error = strprintf(_("Invalid value for -txexpirydelta='%u' (must be least %u).").translated, expiryDelta, minExpiryDelta);
             return nullptr;
         }
     }

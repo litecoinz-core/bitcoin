@@ -581,12 +581,6 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
     if (!ContextualCheckTransaction(tx, state, nextBlockHeight))
         return false;
 
-    // DoS mitigation: reject transactions expiring soon
-    // Note that if a valid transaction belonging to the wallet is in the mempool and the node is shutdown,
-    // upon restart, CWalletTx::AcceptToMemoryPool() will be invoked which might result in rejection.
-    if (IsExpiringSoonTx(tx, nextBlockHeight))
-        return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_EXPIRINGSOON, "tx-expiring-soon");
-
     // Coinbase is only valid in a block, not as a loose transaction
     if (tx.IsCoinBase())
         return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "coinbase");
@@ -3009,10 +3003,6 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     // Remove conflicting transactions from the mempool.;
     mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight);
     disconnectpool.removeForBlock(blockConnecting.vtx);
-
-    // Remove transactions that expire at new block height from mempool
-    mempool.removeExpired(pindexNew->nHeight);
-
     // Update m_chain & related variables.
     m_chain.SetTip(pindexNew);
     UpdateTip(pindexNew, chainparams);

@@ -79,14 +79,6 @@ private:
 };
 
 
-void TransactionBuilder::SetExpiryHeight(uint32_t nExpiryHeight)
-{
-    if (nExpiryHeight < (uint32_t)nHeight || nExpiryHeight <= 0 || nExpiryHeight >= TX_EXPIRY_HEIGHT_THRESHOLD) {
-        throw new std::runtime_error("TransactionBuilder::SetExpiryHeight: invalid expiry height");
-    }
-    mtx.nExpiryHeight = nExpiryHeight;
-}
-
 void TransactionBuilder::AddSaplingSpend(
     libzcash::SaplingExpandedSpendingKey expsk,
     libzcash::SaplingNote note,

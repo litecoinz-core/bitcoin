@@ -126,7 +126,6 @@ bool AsyncRPCOperation_saplingmigration::main_impl() {
     do {
         CAmount amountToSend = chooseAmount(availableFunds);
         auto builder = TransactionBuilder(consensusParams, targetHeight_, pwallet, pzcashParams, &coinsView, &cs_main);
-        builder.SetExpiryHeight(targetHeight_ + MIGRATION_EXPIRY_DELTA);
         LogPrint(BCLog::ZRPC, "%s: Beginning creating transaction with Sapling output amount=%s\n", getId(), FormatMoney(amountToSend - FEE));
         std::vector<SproutNoteEntry> fromNotes;
         CAmount fromNoteAmount = 0;

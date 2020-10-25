@@ -14,19 +14,6 @@
 
 #include <zcashparams.h>
 
-bool IsExpiredTx(const CTransaction &tx, int nBlockHeight)
-{
-    if (tx.nExpiryHeight == 0 || tx.IsCoinBase()) {
-        return false;
-    }
-    return (uint32_t)nBlockHeight > tx.nExpiryHeight;
-}
-
-bool IsExpiringSoonTx(const CTransaction &tx, int nNextBlockHeight)
-{
-    return IsExpiredTx(tx, nNextBlockHeight + TX_EXPIRING_SOON_THRESHOLD);
-}
-
 /**
  * Check a transaction contextually against a set of consensus rules valid at a given block height.
  *
@@ -83,10 +70,6 @@ bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state,
         // Reject transactions intended for Sprout
         if (!tx.fOverwintered)
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "tx-overwinter-active");
-
-        // Check that all transactions are unexpired
-        if (IsExpiredTx(tx, nHeight))
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "tx-overwinter-expired");
     }
 
     // Rules that apply before Sapling:
@@ -248,8 +231,6 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-tx-overwinter-version-too-low");
         if (tx.nVersionGroupId != OVERWINTER_VERSION_GROUP_ID && tx.nVersionGroupId != SAPLING_VERSION_GROUP_ID)
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-tx-version-group-id");
-        if (tx.nExpiryHeight >= TX_EXPIRY_HEIGHT_THRESHOLD)
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-tx-expiry-height-too-high");
     }
 
     // Transactions containing empty `vin` must have either non-empty

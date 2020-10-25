@@ -140,8 +140,6 @@ void EnsureWalletIsUnlocked(const CWallet* pwallet)
 static void WalletTxToJSON(interfaces::Chain& chain, interfaces::Chain::Lock& locked_chain, const CWalletTx& wtx, UniValue& entry)
 {
     int confirms = wtx.GetDepthInMainChain(locked_chain);
-    std::string status = "waiting";
-
     entry.pushKV("confirmations", confirms);
     if (wtx.IsCoinBase())
         entry.pushKV("generated", true);
@@ -153,17 +151,9 @@ static void WalletTxToJSON(interfaces::Chain& chain, interfaces::Chain::Lock& lo
         bool found_block = chain.findBlock(wtx.m_confirm.hashBlock, nullptr /* block */, &block_time);
         assert(found_block);
         entry.pushKV("blocktime", block_time);
-        entry.pushKV("expiryheight", (int64_t)wtx.tx->nExpiryHeight);
-        status = "mined";
     } else {
-        const int height = ::ChainActive().Height();
-        if (!IsExpiredTx(*wtx.tx, height) && IsExpiringSoonTx(*wtx.tx, height + 1))
-            status = "expiringsoon";
-        else if (IsExpiredTx(*wtx.tx, height))
-            status = "expired";
         entry.pushKV("trusted", wtx.IsTrusted(locked_chain));
     }
-    entry.pushKV("status", status);
     uint256 hash = wtx.GetHash();
     entry.pushKV("txid", hash.GetHex());
     UniValue conflicts(UniValue::VARR);
@@ -1490,9 +1480,6 @@ static const std::string TransactionDescriptionString()
            "    \"blockhash\": \"hashvalue\",                  (string) The block hash containing the transaction.\n"
            "    \"blockindex\": n,                           (numeric) The index of the transaction in the block that includes it.\n"
            "    \"blocktime\": xxx,                          (numeric) The block time in seconds since epoch (1 Jan 1970 GMT).\n"
-           "    \"expiryheight\" : ttt,                      (numeric) The block height after which the transaction expires\n"
-           "    \"status\" : \"mined|waiting|expiringsoon|expired\",    (string) The transaction status, can be 'mined', 'waiting', 'expiringsoon' \n"
-           "                                                                    or 'expired'. Available for 'send' and 'receive' category of transactions.\n"
            "    \"txid\": \"transactionid\",                   (string) The transaction id.\n"
            "    \"walletconflicts\": [                       (array) Conflicting transaction ids.\n"
            "      \"txid\",                                  (string) The transaction id.\n"
@@ -4428,7 +4415,6 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
                         },
                     },
                     {"locktime", RPCArg::Type::NUM, /* default */ "0", "Raw locktime. Non-0 value also locktime-activates inputs"},
-                    {"expiryheight", RPCArg::Type::NUM, /* default */ strprintf("nextblockheight+%d", DEFAULT_TX_EXPIRY_DELTA), "Expiry height of transaction (if Overwinter is active)"},
                     {"options", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED_NAMED_ARG, "",
                         {
                             {"changeAddress", RPCArg::Type::STR_HEX, /* default */ "pool address", "The litecoinz address to receive the change"},
@@ -4473,7 +4459,6 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
         UniValue::VARR,
         UniValueType(), // ARR or OBJ, checked later
         UniValue::VNUM,
-        UniValue::VNUM,
         UniValue::VOBJ,
         UniValue::VBOOL
         }, true
@@ -4482,13 +4467,13 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
     CAmount fee;
     int change_position;
     bool rbf = pwallet->m_signal_rbf;
-    const UniValue &replaceable_arg = request.params[4]["replaceable"];
+    const UniValue &replaceable_arg = request.params[3]["replaceable"];
     if (!replaceable_arg.isNull()) {
         RPCTypeCheckArgument(replaceable_arg, UniValue::VBOOL);
         rbf = replaceable_arg.isTrue();
     }
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, request.params[3]);
-    FundTransaction(pwallet, rawTx, fee, change_position, request.params[4]);
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf);
+    FundTransaction(pwallet, rawTx, fee, change_position, request.params[3]);
 
     // Make a blank psbt
     PartiallySignedTransaction psbtx(rawTx);
@@ -6376,7 +6361,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "signmessage",                      &signmessage,                   {"address","message"} },
     { "wallet",             "signrawtransactionwithwallet",     &signrawtransactionwithwallet,  {"hexstring","prevtxs","sighashtype","branchid"} },
     { "wallet",             "unloadwallet",                     &unloadwallet,                  {"wallet_name"} },
-    { "wallet",             "walletcreatefundedpsbt",           &walletcreatefundedpsbt,        {"inputs","outputs","locktime","expiryheight","options","bip32derivs"} },
+    { "wallet",             "walletcreatefundedpsbt",           &walletcreatefundedpsbt,        {"inputs","outputs","locktime","options","bip32derivs"} },
     { "wallet",             "walletlock",                       &walletlock,                    {} },
     { "wallet",             "walletpassphrase",                 &walletpassphrase,              {"passphrase","timeout"} },
     { "wallet",             "walletpassphrasechange",           &walletpassphrasechange,        {"oldpassphrase","newpassphrase"} },

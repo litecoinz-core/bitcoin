@@ -51,7 +51,6 @@ static void SetupBitcoinTxArgs()
     gArgs.AddArg("delout=N", "Delete output N from TX", ArgsManager::ALLOW_ANY, OptionsCategory::COMMANDS);
     gArgs.AddArg("in=TXID:VOUT(:SEQUENCE_NUMBER)", "Add input to TX", ArgsManager::ALLOW_ANY, OptionsCategory::COMMANDS);
     gArgs.AddArg("locktime=N", "Set TX lock time to N", ArgsManager::ALLOW_ANY, OptionsCategory::COMMANDS);
-    gArgs.AddArg("expiry=N", "Set TX expiry height to N", ArgsManager::ALLOW_ANY, OptionsCategory::COMMANDS);
     gArgs.AddArg("nversion=N", "Set TX version to N", ArgsManager::ALLOW_ANY, OptionsCategory::COMMANDS);
     gArgs.AddArg("outaddr=VALUE:ADDRESS", "Add address-based output to TX", ArgsManager::ALLOW_ANY, OptionsCategory::COMMANDS);
     gArgs.AddArg("outdata=[VALUE:]DATA", "Add data-based output to TX", ArgsManager::ALLOW_ANY, OptionsCategory::COMMANDS);
@@ -202,15 +201,6 @@ static void MutateTxVersion(CMutableTransaction& tx, const std::string& cmdVal)
         throw std::runtime_error("Invalid TX version requested: '" + cmdVal + "'");
 
     tx.nVersion = (int) newVersion;
-}
-
-static void MutateTxExpiry(CMutableTransaction& tx, const std::string& cmdVal)
-{
-    int64_t newExpiry;
-    if (!ParseInt64(cmdVal, &newExpiry) || newExpiry <= 0 || newExpiry >= TX_EXPIRY_HEIGHT_THRESHOLD)
-        throw std::runtime_error("Invalid TX expiry requested: '" + cmdVal + "'");
-
-    tx.nExpiryHeight = (unsigned int) newExpiry;
 }
 
 static void MutateTxLocktime(CMutableTransaction& tx, const std::string& cmdVal)
@@ -709,8 +699,6 @@ static void MutateTx(CMutableTransaction& tx, const std::string& command,
         MutateTxVersion(tx, commandVal);
     else if (command == "locktime")
         MutateTxLocktime(tx, commandVal);
-    else if (command == "expiry")
-        MutateTxExpiry(tx, commandVal);
     else if (command == "replaceable") {
         MutateTxRBFOptIn(tx, commandVal);
     }

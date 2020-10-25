@@ -601,7 +601,6 @@ public:
     void removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight) EXCLUSIVE_LOCKS_REQUIRED(cs);
     void removeWithAnchor(const uint256 &invalidRoot, ShieldedType type) EXCLUSIVE_LOCKS_REQUIRED(cs);
     void removeWithoutBranchId(uint32_t nMemPoolBranchId) EXCLUSIVE_LOCKS_REQUIRED(cs);
-    void removeExpired(unsigned int nBlockHeight) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     void addAddressIndex(const CTxMemPoolEntry &entry, const CCoinsViewCache &view);
     bool getAddressIndex(std::vector<std::pair<uint160, int> > &addresses,

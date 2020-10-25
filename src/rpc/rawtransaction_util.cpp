@@ -24,7 +24,7 @@
 #include <util/strencodings.h>
 #include <validation.h>
 
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, const UniValue& expiryheight)
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf)
 {
     if (inputs_in.isNull() || outputs_in.isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, arguments 1 and 2 must be non-null");
@@ -41,24 +41,6 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         if (nLockTime < 0 || nLockTime > LOCKTIME_MAX)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, locktime out of range");
         rawTx.nLockTime = nLockTime;
-    }
-
-    if (!expiryheight.isNull()) {
-        if (Params().GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_OVERWINTER)) {
-            int64_t nExpiryHeight = expiryheight.get_int64();
-            if (nExpiryHeight < 0 || nExpiryHeight >= TX_EXPIRY_HEIGHT_THRESHOLD) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expiryheight out of range");
-            }
-            // DoS mitigation: reject transactions expiring soon
-            if (nExpiryHeight != 0 && nextBlockHeight + TX_EXPIRING_SOON_THRESHOLD > nExpiryHeight) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER,
-                    strprintf("Invalid parameter, expiryheight should be at least %d to avoid transaction expiring soon",
-                    nextBlockHeight + TX_EXPIRING_SOON_THRESHOLD));
-            }
-            rawTx.nExpiryHeight = nExpiryHeight;
-        } else {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expiryheight can only be used if Overwinter is active when the transaction is mined");
-        }
     }
 
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
