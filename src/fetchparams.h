@@ -12,7 +12,7 @@
 
 #include <string>
 
-bool VerifyParams(std::string file, std::string sha256expected);
-bool FetchParams(std::string url, std::string file);
+bool VerifyParams(const fs::path& path, std::string sha256expected);
+bool FetchParams(std::string url, const fs::path& path);
 
 #endif // LITECOINZ_FETCHPARAMS_H

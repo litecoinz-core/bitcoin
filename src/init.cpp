@@ -774,45 +774,45 @@ static bool LoadParams()
     struct timeval tv_start, tv_end;
     float elapsed;
 
-    boost::filesystem::path sapling_spend = GetParamsDir() / "sapling-spend.params";
-    boost::filesystem::path sapling_output = GetParamsDir() / "sapling-output.params";
-    boost::filesystem::path sprout_groth16 = GetParamsDir() / "sprout-groth16.params";
+    fs::path sapling_spend = GetParamsDir() / "sapling-spend.params";
+    fs::path sapling_output = GetParamsDir() / "sapling-output.params";
+    fs::path sprout_groth16 = GetParamsDir() / "sprout-groth16.params";
 
-    if(!(boost::filesystem::exists(sapling_spend))) {
+    if(!(fs::exists(sapling_spend))) {
         // Download the 'sapling-spend.params' file
-        if (!FetchParams("https://z.cash/downloads/sapling-spend.params", sapling_spend.string()))
+        if (!FetchParams("https://z.cash/downloads/sapling-spend.params", sapling_spend))
             return false;
     }
 
     // Verify the 'sapling-spend.params' file
-    if (!(VerifyParams(sapling_spend.string(), "8e48ffd23abb3a5fd9c5589204f32d9c31285a04b78096ba40a79b75677efc13"))) {
+    if (!(VerifyParams(sapling_spend, "8e48ffd23abb3a5fd9c5589204f32d9c31285a04b78096ba40a79b75677efc13"))) {
         return false;
     }
 
-    if(!(boost::filesystem::exists(sapling_output))) {
+    if(!(fs::exists(sapling_output))) {
         // Download the 'sapling-output.params' file
-        if (!FetchParams("https://z.cash/downloads/sapling-output.params", sapling_output.string()))
+        if (!FetchParams("https://z.cash/downloads/sapling-output.params", sapling_output))
             return false;
     }
 
     // Verify the 'sapling-output.params' file
-    if (!(VerifyParams(sapling_output.string(), "2f0ebbcbb9bb0bcffe95a397e7eba89c29eb4dde6191c339db88570e3f3fb0e4"))) {
+    if (!(VerifyParams(sapling_output, "2f0ebbcbb9bb0bcffe95a397e7eba89c29eb4dde6191c339db88570e3f3fb0e4"))) {
         return false;
     }
 
-    if(!(boost::filesystem::exists(sprout_groth16))) {
+    if(!(fs::exists(sprout_groth16))) {
         // Download the 'sprout-groth16.params' file
-        if (!FetchParams("https://z.cash/downloads/sprout-groth16.params", sprout_groth16.string()))
+        if (!FetchParams("https://z.cash/downloads/sprout-groth16.params", sprout_groth16))
             return false;
     }
 
     // Verify the 'sprout-groth16.params' file
-    if (!(VerifyParams(sprout_groth16.string(), "b685d700c60328498fbde589c8c7c484c722b788b265b72af448a5bf0ee55b50"))) {
+    if (!(VerifyParams(sprout_groth16, "b685d700c60328498fbde589c8c7c484c722b788b265b72af448a5bf0ee55b50"))) {
         return false;
     }
 
     pzcashParams = ZCJoinSplit::Prepared();
-    static_assert(sizeof(boost::filesystem::path::value_type) == sizeof(codeunit), "librustzcash not configured correctly");
+    static_assert(sizeof(fs::path::value_type) == sizeof(codeunit), "librustzcash not configured correctly");
 
     auto sapling_spend_str = sapling_spend.native();
     auto sapling_output_str = sapling_output.native();
