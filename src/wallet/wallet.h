@@ -908,9 +908,6 @@ private:
     TxNullifiers mapTxSproutNullifiers GUARDED_BY(cs_wallet);
     TxNullifiers mapTxSaplingNullifiers GUARDED_BY(cs_wallet);
 
-    std::vector<CTransactionRef> pendingSaplingMigrationTxs GUARDED_BY(cs_wallet);
-    AsyncRPCOperationId saplingMigrationOperationId;
-
     void AddToTransparentSpends(const COutPoint& outpoint, const uint256& wtxid) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     void AddToSproutSpends(const uint256& nullifier, const uint256& wtxid) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     void AddToSaplingSpends(const uint256& nullifier, const uint256& wtxid) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
@@ -923,8 +920,6 @@ public:
      * incremental witness cache in any transaction in mapWallet.
      */
     int64_t nWitnessCacheSize = 0;
-
-    bool fSaplingMigrationEnabled = false;
 
     void ClearNoteWitnessCache();
 
@@ -1615,9 +1610,6 @@ public:
     std::set<std::pair<libzcash::PaymentAddress, uint256>> GetNullifiersForAddresses(const std::set<libzcash::PaymentAddress>& addresses);
     bool IsNoteSproutChange(const std::set<std::pair<libzcash::PaymentAddress, uint256>>& nullifierSet, const libzcash::PaymentAddress& address, const SproutOutPoint& entry);
     bool IsNoteSaplingChange(const std::set<std::pair<libzcash::PaymentAddress, uint256>>& nullifierSet, const libzcash::PaymentAddress& address, const SaplingOutPoint& entry);
-    /** Sapling migration */
-    void RunSaplingMigration(int blockHeight);
-    void AddPendingSaplingMigrationTx(const CTransactionRef& tx);
 
     DBErrors LoadWallet(bool& fFirstRunRet);
     DBErrors ZapWalletTx(std::vector<CWalletTx>& vWtx);

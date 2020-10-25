@@ -188,10 +188,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "z_sendmany", 3, "fee" },
     { "z_shieldcoinbase", 2, "fee" },
     { "z_shieldcoinbase", 3, "limit" },
-    { "z_mergetoaddress", 0, "fromaddresses" },
-    { "z_mergetoaddress", 2, "fee" },
-    { "z_mergetoaddress", 3, "transparent_limit" },
-    { "z_mergetoaddress", 4, "shielded_limit" },
     { "z_getbalance", 1, "minconf" },
     { "z_gettotalbalance", 0, "minconf" },
     { "z_gettotalbalance", 1, "includeWatchonly" },
@@ -203,7 +199,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "z_listunspent", 2, "includeWatchonly" },
     { "z_listunspent", 3, "addresses" },
     { "z_listreceivedbyaddress", 1, "minconf" },
-    { "z_setmigration", 0, "enabled" },
     { "z_getpaymentdisclosure", 1, "js_index" },
     { "z_getpaymentdisclosure", 2, "output_index" },
 };

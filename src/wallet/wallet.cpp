@@ -34,7 +34,6 @@
 #include <util/translation.h>
 #include <util/validation.h>
 #include <validation.h>
-#include <wallet/asyncrpcoperation_saplingmigration.h>
 #include <wallet/coincontrol.h>
 #include <wallet/fees.h>
 #include <zcashparams.h>
@@ -981,10 +980,8 @@ void CWallet::ChainTip(const CBlock& block, const CBlockIndex *pindex, bool adde
     LOCK(cs_wallet);
 
     if (added) {
-        if (!::ChainstateActive().IsInitialBlockDownload() && (block.GetBlockTime() > GetAdjustedTime() - 3 * 60 * 60))
-        {
+        if (!::ChainstateActive().IsInitialBlockDownload() && (block.GetBlockTime() > GetAdjustedTime() - 3 * 60 * 60)) {
             BuildWitnessCache(pindex, false);
-            RunSaplingMigration(pindex->nHeight);
         } else {
             // Build intial witnesses on every block
             BuildWitnessCache(pindex, true);
@@ -993,52 +990,6 @@ void CWallet::ChainTip(const CBlock& block, const CBlockIndex *pindex, bool adde
         DecrementNoteWitnesses(pindex);
         UpdateNullifierNoteMapForBlock(&block);
     }
-}
-
-void CWallet::RunSaplingMigration(int blockHeight) {
-    if (!Params().GetConsensus().NetworkUpgradeActive(blockHeight, Consensus::UPGRADE_SAPLING)) {
-        return;
-    }
-    // need cs_wallet to call CommitTransaction()
-    LOCK2(cs_main, cs_wallet);
-    if (!fSaplingMigrationEnabled) {
-        return;
-    }
-    // The migration transactions to be sent in a particular batch can take
-    // significant time to generate, and this time depends on the speed of the user's
-    // computer. If they were generated only after a block is seen at the target
-    // height minus 1, then this could leak information. Therefore, for target
-    // height N, implementations SHOULD start generating the transactions at around
-    // height N-5
-    if (blockHeight % 500 == 495) {
-        std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
-        std::shared_ptr<AsyncRPCOperation> lastOperation = q->getOperationForId(saplingMigrationOperationId);
-        if (lastOperation != nullptr) {
-            lastOperation->cancel();
-        }
-        pendingSaplingMigrationTxs.clear();
-        JSONRPCRequest request;
-        std::shared_ptr<AsyncRPCOperation> operation(new AsyncRPCOperation_saplingmigration(blockHeight + 5, request));
-        saplingMigrationOperationId = operation->getId();
-        q->addOperation(operation);
-    } else if (blockHeight % 500 == 499) {
-        mapValue_t mapValue;
-        std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
-        std::shared_ptr<AsyncRPCOperation> lastOperation = q->getOperationForId(saplingMigrationOperationId);
-        if (lastOperation != nullptr) {
-            lastOperation->cancel();
-        }
-        for (const CTransactionRef& transaction : pendingSaplingMigrationTxs) {
-            // Send the transaction
-            CommitTransaction(transaction, std::move(mapValue), {} /* orderForm */);
-        }
-        pendingSaplingMigrationTxs.clear();
-    }
-}
-
-void CWallet::AddPendingSaplingMigrationTx(const CTransactionRef& tx) {
-    LOCK(cs_wallet);
-    pendingSaplingMigrationTxs.push_back(tx);
 }
 
 void CWallet::ChainStateFlushed(const CBlockLocator& loc)
@@ -1139,8 +1090,7 @@ bool CWallet::IsNoteSproutChange(
     // - Change created by spending fractions of Notes (because
     //   z_sendmany sends change to the originating z-address).
     // - "Chaining Notes" used to connect JoinSplits together.
-    // - Notes created by consolidation transactions (e.g. using
-    //   z_mergetoaddress).
+    // - Notes created by consolidation transactions.
     // - Notes sent from one address to itself.
     for (const JSDescription & jsd : mapWallet.at(jsop.hash).tx->vJoinSplit) {
         for (const uint256 & nullifier : jsd.nullifiers) {
@@ -1161,8 +1111,7 @@ bool CWallet::IsNoteSaplingChange(const std::set<std::pair<libzcash::PaymentAddr
     // for instance:
     // - Change created by spending fractions of Notes (because
     //   z_sendmany sends change to the originating z-address).
-    // - Notes created by consolidation transactions (e.g. using
-    //   z_mergetoaddress).
+    // - Notes created by consolidation transactions.
     // - Notes sent from one address to itself.
     for (const SpendDescription &spend : mapWallet.at(op.hash).tx->vShieldedSpend) {
         if (nullifierSet.count(std::make_pair(address, spend.nullifier))) {
@@ -6427,9 +6376,6 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain& chain,
         }
     }
 
-    // Set sapling migration status
-    walletInstance->fSaplingMigrationEnabled = gArgs.GetBoolArg("-migration", false);
-
     if (fFirstRun)
     {
         // ensure this wallet.dat can only be opened by clients supporting HD with chain split and expects no default key
@@ -6553,16 +6499,6 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain& chain,
     walletInstance->m_confirm_target = gArgs.GetArg("-txconfirmtarget", DEFAULT_TX_CONFIRM_TARGET);
     walletInstance->m_spend_zero_conf_change = gArgs.GetBoolArg("-spendzeroconfchange", DEFAULT_SPEND_ZEROCONF_CHANGE);
     walletInstance->m_signal_rbf = gArgs.GetBoolArg("-walletrbf", DEFAULT_WALLET_RBF);
-
-    // Check Sapling migration address if set and is a valid Sapling address
-    if (gArgs.IsArgSet("-migrationdestaddress")) {
-        std::string migrationDestAddress = gArgs.GetArg("-migrationdestaddress", "");
-        libzcash::PaymentAddress address = DecodePaymentAddress(migrationDestAddress);
-        if (boost::get<libzcash::SaplingPaymentAddress>(&address) == nullptr) {
-            error = strprintf(_("-migrationdestaddress must be a valid Sapling address.").translated);
-            return nullptr;
-        }
-    }
 
     walletInstance->WalletLogPrintf("Wallet completed loading in %15dms\n", GetTimeMillis() - nStart);
 
