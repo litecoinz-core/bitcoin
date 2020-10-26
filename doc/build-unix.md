@@ -75,7 +75,37 @@ Finally, clang (often less resource hungry) can be used instead of gcc, which is
 
 ## Linux Distribution Specific Instructions
 
-### Ubuntu & Debian
+### Ubuntu 16/17 & Debian 7
+
+Build requirements:
+
+    sudo apt-get install curl g++-multilib gcc-multilib binutils-gold git pkg-config autoconf libtool automake ca-certificates python3
+
+To Build:
+
+```bash
+    ./autogen.sh
+    make -j$(nproc) -C depends
+    CONFIG_SITE=${PWD}/depends/x86_64-pc-linux-gnu/share/config.site ./configure --prefix=/
+    make -j$(nproc)
+```
+
+### Ubuntu 18/19 LTS & Debian 8
+
+Build requirements:
+
+    sudo apt-get install curl g++-8-multilib gcc-8-multilib binutils-gold git pkg-config autoconf libtool automake ca-certificates python3
+
+To Build:
+
+```bash
+    ./autogen.sh
+    make -j$(nproc) -C depends
+    CONFIG_SITE=${PWD}/depends/x86_64-pc-linux-gnu/share/config.site ./configure --prefix=/
+    make -j$(nproc)
+```
+
+### Ubuntu 20 & Debian 10
 
 #### Dependency Build Instructions
 
