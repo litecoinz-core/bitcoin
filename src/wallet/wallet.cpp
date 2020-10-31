@@ -6443,6 +6443,9 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain& chain,
         }
         walletInstance->m_fallback_fee = CFeeRate(nFeePerK);
         walletInstance->m_allow_fallback_fee = nFeePerK != 0; //disable fallback fee in case value was set to 0, enable if non-null value
+    } else {
+        walletInstance->m_fallback_fee = CFeeRate(DEFAULT_FALLBACK_FEE);
+        walletInstance->m_allow_fallback_fee = true; //enable fallback fee using default amount
     }
     if (gArgs.IsArgSet("-discardfee")) {
         CAmount nFeePerK = 0;
