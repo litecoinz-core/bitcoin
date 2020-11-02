@@ -1688,7 +1688,7 @@ void CWallet::BuildWitnessCache(const CBlockIndex* pindex, bool witnessOnly)
 
     while (pblockindex) {
         if (pblockindex->nHeight % 100 == 0 && pblockindex->nHeight < height - 5) {
-            LogPrintf("Building Witnesses for block %i %.4f complete\n", pblockindex->nHeight, pblockindex->nHeight / double(height));
+            LogPrintf("Building Witnesses for block %i %.4f%% complete\n", pblockindex->nHeight, pblockindex->nHeight / double(height) * 100);
         }
 
         SproutMerkleTree sproutTree;
