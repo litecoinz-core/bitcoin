@@ -148,11 +148,12 @@ struct Params {
     uint32_t nMinerConfirmationWindow;
     BIP9Deployment vDeployments[MAX_VERSION_BITS_DEPLOYMENTS];
 
-    /** Block height at which Zawy's LWMA difficulty algorithm becomes active */
-    int nZawyLWMAHeight;
-
     /** Block height where Equihash<144,5> becomes active */
     int nEquihashForkHeight;
+
+    /** Block height at which Zawy's LWMA difficulty algorithm becomes active */
+    int nLwmaForkHeight;
+
     /** Proof of work parameters */
     unsigned int nEquihashN1 = 0;
     unsigned int nEquihashK1 = 0;
@@ -187,11 +188,8 @@ struct Params {
     int64_t DigishieldMinActualTimespan() const { return (DigishieldAveragingWindowTimespan() * (100 - nDigishieldMaxAdjustUp  )) / 100; }
     int64_t DigishieldMaxActualTimespan() const { return (DigishieldAveragingWindowTimespan() * (100 + nDigishieldMaxAdjustDown)) / 100; }
 
-    // Params for Zawy's LWMA difficulty adjustment algorithm.
-    int64_t nZawyLwmaAveragingWindow;
-    int64_t nZawyLwmaAdjustedWeight;  // k = (N+1)/2 * 0.998 * T
-    int64_t nZawyLwmaMinDenominator;
-    bool bZawyLwmaSolvetimeLimitation;
+    // Params for Lwma difficulty adjustment algorithm.
+    int64_t nLwmaAveragingWindow;
 
     int64_t nPowTargetSpacing;
     uint256 nMinimumChainWork;
