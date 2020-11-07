@@ -374,14 +374,14 @@ void InputControlDialog::updateView()
     int nDisplayUnit = model->getOptionsModel()->getDisplayUnit();
 
     for (const auto& coins : model->wallet().listCoins(fOnlyCoinbase, fIncludeCoinbase)) {
-        CInputControlWidgetItem *itemWalletAddress = new CInputControlWidgetItem();
+        CInputControlWidgetItem* itemWalletAddress{nullptr};
         QString sWalletAddress = QString::fromStdString(EncodeDestination(coins.first));
         QString sWalletLabel = model->getAddressTableModel()->labelForAddress(sWalletAddress);
         if (sWalletLabel.isEmpty())
             sWalletLabel = tr("(no label)");
 
         // wallet address
-        ui->treeWidget->addTopLevelItem(itemWalletAddress);
+        itemWalletAddress = new CInputControlWidgetItem(ui->treeWidget);
 
         itemWalletAddress->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
 
@@ -449,14 +449,14 @@ void InputControlDialog::updateView()
     if (fIncludeShielded)
     {
         for (const auto& notes : model->wallet().listSproutNotes()) {
-            CInputControlWidgetItem *itemWalletAddress = new CInputControlWidgetItem();
+            CInputControlWidgetItem* itemWalletAddress{nullptr};
             QString sWalletAddress = QString::fromStdString(EncodePaymentAddress(notes.first));
             QString sWalletLabel = model->getAddressTableModel()->labelForAddress(sWalletAddress);
             if (sWalletLabel.isEmpty())
                 sWalletLabel = tr("(no label)");
 
             // wallet address
-            ui->treeWidget->addTopLevelItem(itemWalletAddress);
+            itemWalletAddress = new CInputControlWidgetItem(ui->treeWidget);
 
             itemWalletAddress->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
 
@@ -519,14 +519,14 @@ void InputControlDialog::updateView()
         }
 
         for (const auto& notes : model->wallet().listSaplingNotes()) {
-            CInputControlWidgetItem *itemWalletAddress = new CInputControlWidgetItem();
+            CInputControlWidgetItem* itemWalletAddress{nullptr};
             QString sWalletAddress = QString::fromStdString(EncodePaymentAddress(notes.first));
             QString sWalletLabel = model->getAddressTableModel()->labelForAddress(sWalletAddress);
             if (sWalletLabel.isEmpty())
                 sWalletLabel = tr("(no label)");
 
             // wallet address
-            ui->treeWidget->addTopLevelItem(itemWalletAddress);
+            itemWalletAddress = new CInputControlWidgetItem(ui->treeWidget);
 
             itemWalletAddress->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
 

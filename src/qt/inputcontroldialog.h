@@ -30,7 +30,6 @@ class CInputControlWidgetItem : public QTreeWidgetItem
 {
 public:
     explicit CInputControlWidgetItem(QTreeWidget *parent, int type = Type) : QTreeWidgetItem(parent, type) {}
-    explicit CInputControlWidgetItem(int type = Type) : QTreeWidgetItem(type) {}
     explicit CInputControlWidgetItem(QTreeWidgetItem *parent, int type = Type) : QTreeWidgetItem(parent, type) {}
 
     bool operator<(const QTreeWidgetItem &other) const;
