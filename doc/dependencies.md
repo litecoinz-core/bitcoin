@@ -13,7 +13,7 @@ These are the dependencies currently used by LitecoinZ Core. You can find instru
 | FreeType | [2.7.1](https://download.savannah.gnu.org/releases/freetype) |  | No |  |  |
 | GCC |  | [4.8+](https://gcc.gnu.org/) (C++11 support) |  |  |  |
 | HarfBuzz-NG |  |  |  |  |  |
-| libevent | [2.1.8-stable](https://github.com/libevent/libevent/releases) | 2.0.22 | No |  |  |
+| libevent | [2.1.8-stable](https://github.com/libevent/libevent/releases) | [2.0.21](https://github.com/bitcoin/bitcoin/pull/18676) | No |  |  |
 | libpng |  |  |  |  | [Yes](https://github.com/bitcoin/bitcoin/blob/master/depends/packages/qt.mk) |
 | librsvg | |  |  |  |  |
 | libsodium | [1.0.17](https://download.libsodium.org/libsodium/releases/) |  |  |  |  |
