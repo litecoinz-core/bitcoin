@@ -6,6 +6,7 @@
 #ifndef ZCASH_PAYMENTDISCLOSUREDB_H
 #define ZCASH_PAYMENTDISCLOSUREDB_H
 
+#include <fs.h>
 #include <wallet/paymentdisclosure.h>
 
 #include <cstdint>
@@ -32,7 +33,7 @@ public:
     static std::shared_ptr<PaymentDisclosureDB> sharedInstance();
 
     PaymentDisclosureDB();
-    PaymentDisclosureDB(const boost::filesystem::path& dbPath);
+    PaymentDisclosureDB(const fs::path& dbPath);
     ~PaymentDisclosureDB();
 
     bool Put(const PaymentDisclosureKey& key, const PaymentDisclosureInfo& info);

@@ -3,14 +3,13 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
+#include <fs.h>
 #include <wallet/paymentdisclosuredb.h>
 
 #include <util/system.h>
 #include <dbwrapper.h>
 
-#include <boost/filesystem.hpp>
-
-static boost::filesystem::path emptyPath;
+static fs::path emptyPath;
 
 /**
  * Static method to return the shared/default payment disclosure database.
@@ -25,8 +24,8 @@ std::shared_ptr<PaymentDisclosureDB> PaymentDisclosureDB::sharedInstance() {
 PaymentDisclosureDB::PaymentDisclosureDB() : PaymentDisclosureDB(emptyPath) {
 }
 
-PaymentDisclosureDB::PaymentDisclosureDB(const boost::filesystem::path& dbPath) {
-    boost::filesystem::path path(dbPath);
+PaymentDisclosureDB::PaymentDisclosureDB(const fs::path& dbPath) {
+    fs::path path(dbPath);
     if (path.empty()) {
         path = GetDataDir() / "paymentdisclosure";
         LogPrintf("%s: using default path for database: %s\n", __func__, path.string());
