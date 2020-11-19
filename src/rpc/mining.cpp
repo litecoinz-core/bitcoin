@@ -52,10 +52,10 @@ static UniValue GetNetworkHashPS(int lookup, int height) {
 
     // If lookup is -1, then use difficulty averaging window.
     if (lookup <= 0) {
-        if (::ChainActive().Height() < Params().GetConsensus().nZawyLWMAHeight)
+        if (::ChainActive().Height() < Params().GetConsensus().nLwmaForkHeight)
             lookup = Params().GetConsensus().nDigishieldAveragingWindow;
         else
-            lookup = Params().GetConsensus().nZawyLwmaAveragingWindow;
+            lookup = Params().GetConsensus().nLwmaAveragingWindow;
     }
 
     // If lookup is larger than chain, then set it to chain length.

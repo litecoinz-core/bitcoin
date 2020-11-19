@@ -92,9 +92,9 @@ public:
         consensus.nDigishieldMaxAdjustDown = 32; // 32% adjustment down
         consensus.nDigishieldMaxAdjustUp = 16; // 16% adjustment up
 
-        consensus.nZawyLWMAHeight = 600000;
-        consensus.nZawyLwmaAveragingWindow = 45;
-        consensus.nZawyLwmaAdjustedWeight = 13772;
+        // POW DDA LWMA Parameters
+        consensus.nLwmaForkHeight = 600000;
+        consensus.nLwmaAveragingWindow = 45;
 
         consensus.nPowTargetSpacing = 10 * 60;
         consensus.fPowAllowMinDifficultyBlocks = false;
@@ -252,9 +252,9 @@ public:
         consensus.nDigishieldMaxAdjustDown = 32; // 32% adjustment down
         consensus.nDigishieldMaxAdjustUp = 16; // 16% adjustment up
 
-        consensus.nZawyLWMAHeight = 6500;
-        consensus.nZawyLwmaAveragingWindow = 45;
-        consensus.nZawyLwmaAdjustedWeight = 13772;
+        // POW DDA LWMA Parameters
+        consensus.nLwmaForkHeight = 6500;
+        consensus.nLwmaAveragingWindow = 45;
 
         consensus.nPowTargetSpacing = 10 * 60;
         consensus.fPowAllowMinDifficultyBlocks = false;
@@ -393,9 +393,9 @@ public:
         consensus.nDigishieldMaxAdjustDown = 0; // Turn off adjustment down
         consensus.nDigishieldMaxAdjustUp = 0; // Turn off adjustment up
 
-        consensus.nZawyLWMAHeight = -1; // Activated on regtest
-        consensus.nZawyLwmaAveragingWindow = 45;
-        consensus.nZawyLwmaAdjustedWeight = 13772;
+        // POW DDA LWMA Parameters
+        consensus.nLwmaForkHeight = -1; // Activated on regtest
+        consensus.nLwmaAveragingWindow = 45;
 
         consensus.nPowTargetSpacing = 10 * 60;
         consensus.fPowAllowMinDifficultyBlocks = true;
