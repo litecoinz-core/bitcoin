@@ -21,10 +21,10 @@
  * current network-adjusted time before the block will be accepted.
  *
  * Based on: https://github.com/zawy12/difficulty-algorithms/issues/3
- * FTL = N*T/20 = 45 * 600 / 20
+ * FTL = N*T/20 = 60 * 600 / 20
  * Bitcoin original value: 2 * 60 * 60
  */
-static constexpr int64_t MAX_FUTURE_BLOCK_TIME = 45 * 600 / 20;
+static constexpr int64_t MAX_FUTURE_BLOCK_TIME = 60 * 600 / 20;
 static constexpr int64_t BITCOIN_MAX_FUTURE_BLOCK_TIME = 2 * 60 * 60;
 
 /**
