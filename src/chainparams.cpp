@@ -410,9 +410,9 @@ public:
         consensus.vUpgrades[Consensus::UPGRADE_TESTDUMMY].nProtocolVersion = 170004;
         consensus.vUpgrades[Consensus::UPGRADE_TESTDUMMY].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
         consensus.vUpgrades[Consensus::UPGRADE_OVERWINTER].nProtocolVersion = 170005;
-        consensus.vUpgrades[Consensus::UPGRADE_OVERWINTER].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
+        consensus.vUpgrades[Consensus::UPGRADE_OVERWINTER].nActivationHeight = 160;
         consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nProtocolVersion = 170007;
-        consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
+        consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight = 160;
         const size_t N1 = 48, K1 = 5;
         const size_t N2 = 96, K2 = 5;
         BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N1, K1));
