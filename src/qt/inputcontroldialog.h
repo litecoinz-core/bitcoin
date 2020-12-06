@@ -41,7 +41,7 @@ class InputControlDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit InputControlDialog(const PlatformStyle *platformStyle, bool _fOnlyCoinbase, bool _fIncludeCoinbase, bool _fIncludeShielded, QWidget *parent = nullptr);
+    explicit InputControlDialog(const PlatformStyle *platformStyle, QWidget *parent = nullptr);
     ~InputControlDialog();
 
     void setModel(WalletModel *model);
@@ -65,9 +65,6 @@ private:
     QAction *copyTransactionHashAction;
 
     const PlatformStyle *platformStyle;
-    bool fOnlyCoinbase;
-    bool fIncludeCoinbase;
-    bool fIncludeShielded;
 
     void sortView(int, Qt::SortOrder);
     void updateView();

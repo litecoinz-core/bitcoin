@@ -181,24 +181,21 @@ void OverviewPage::setBalance(const interfaces::WalletBalances& balances)
     m_balances = balances;
     if (walletModel->privateKeysDisabled()) {
         ui->labelBalance->setText(BitcoinUnits::formatWithPrivacy(unit, balances.watch_only_balance, BitcoinUnits::separatorAlways, m_privacy));
-        ui->labelToShieldBalance->setText(BitcoinUnits::formatWithPrivacy(unit, balances.watch_only_coinbase_balance, BitcoinUnits::separatorAlways, m_privacy));
         ui->labelShieldedBalance->setText(BitcoinUnits::formatWithPrivacy(unit, balances.watch_only_shielded_balance, BitcoinUnits::separatorAlways, m_privacy));
         ui->labelUnconfirmed->setText(BitcoinUnits::formatWithPrivacy(unit, balances.unconfirmed_watch_only_balance + balances.unconfirmed_watch_only_shielded_balance, BitcoinUnits::separatorAlways, m_privacy));
         ui->labelImmature->setText(BitcoinUnits::formatWithPrivacy(unit, balances.immature_watch_only_balance, BitcoinUnits::separatorAlways, m_privacy));
-        ui->labelTotal->setText(BitcoinUnits::formatWithPrivacy(unit, balances.watch_only_balance + balances.unconfirmed_watch_only_balance + balances.immature_watch_only_balance + balances.watch_only_coinbase_balance + balances.watch_only_shielded_balance + balances.unconfirmed_watch_only_shielded_balance, BitcoinUnits::separatorAlways, m_privacy));
+        ui->labelTotal->setText(BitcoinUnits::formatWithPrivacy(unit, balances.watch_only_balance + balances.unconfirmed_watch_only_balance + balances.immature_watch_only_balance + balances.watch_only_shielded_balance + balances.unconfirmed_watch_only_shielded_balance, BitcoinUnits::separatorAlways, m_privacy));
     } else {
         ui->labelBalance->setText(BitcoinUnits::formatWithPrivacy(unit, balances.balance, BitcoinUnits::separatorAlways, m_privacy));
-        ui->labelToShieldBalance->setText(BitcoinUnits::formatWithPrivacy(unit, balances.coinbase_balance, BitcoinUnits::separatorAlways, m_privacy));
         ui->labelShieldedBalance->setText(BitcoinUnits::formatWithPrivacy(unit, balances.shielded_balance, BitcoinUnits::separatorAlways, m_privacy));
         ui->labelUnconfirmed->setText(BitcoinUnits::formatWithPrivacy(unit, balances.unconfirmed_balance + balances.unconfirmed_shielded_balance, BitcoinUnits::separatorAlways, m_privacy));
         ui->labelImmature->setText(BitcoinUnits::formatWithPrivacy(unit, balances.immature_balance, BitcoinUnits::separatorAlways, m_privacy));
-        ui->labelTotal->setText(BitcoinUnits::formatWithPrivacy(unit, balances.balance + balances.unconfirmed_balance + balances.immature_balance + balances.coinbase_balance + balances.shielded_balance + balances.unconfirmed_shielded_balance, BitcoinUnits::separatorAlways, m_privacy));
+        ui->labelTotal->setText(BitcoinUnits::formatWithPrivacy(unit, balances.balance + balances.unconfirmed_balance + balances.immature_balance + balances.shielded_balance + balances.unconfirmed_shielded_balance, BitcoinUnits::separatorAlways, m_privacy));
         ui->labelWatchAvailable->setText(BitcoinUnits::formatWithPrivacy(unit, balances.watch_only_balance, BitcoinUnits::separatorAlways, m_privacy));
-        ui->labelToShieldWatchAvailable->setText(BitcoinUnits::formatWithPrivacy(unit, balances.watch_only_coinbase_balance, BitcoinUnits::separatorAlways, m_privacy));
         ui->labelShieldedWatchAvailable->setText(BitcoinUnits::formatWithPrivacy(unit, balances.watch_only_shielded_balance, BitcoinUnits::separatorAlways, m_privacy));
         ui->labelWatchPending->setText(BitcoinUnits::formatWithPrivacy(unit, balances.unconfirmed_watch_only_balance, BitcoinUnits::separatorAlways, m_privacy));
         ui->labelWatchImmature->setText(BitcoinUnits::formatWithPrivacy(unit, balances.immature_watch_only_balance, BitcoinUnits::separatorAlways, m_privacy));
-        ui->labelWatchTotal->setText(BitcoinUnits::formatWithPrivacy(unit, balances.watch_only_balance + balances.unconfirmed_watch_only_balance + balances.immature_watch_only_balance + balances.watch_only_coinbase_balance + balances.watch_only_shielded_balance + balances.unconfirmed_watch_only_shielded_balance, BitcoinUnits::separatorAlways, m_privacy));
+        ui->labelWatchTotal->setText(BitcoinUnits::formatWithPrivacy(unit, balances.watch_only_balance + balances.unconfirmed_watch_only_balance + balances.immature_watch_only_balance + balances.watch_only_shielded_balance + balances.unconfirmed_watch_only_shielded_balance, BitcoinUnits::separatorAlways, m_privacy));
     }
     // only show immature (newly mined) balance if it's non-zero, so as not to complicate things
     // for the non-mining users
@@ -218,7 +215,6 @@ void OverviewPage::updateWatchOnlyLabels(bool showWatchOnly)
     ui->labelWatchonly->setVisible(showWatchOnly);      // show watch-only label
     ui->lineWatchBalance->setVisible(showWatchOnly);    // show watch-only balance separator line
     ui->labelWatchAvailable->setVisible(showWatchOnly); // show watch-only available balance
-    ui->labelToShieldWatchAvailable->setVisible(showWatchOnly); // show watch-only available balance to shield
     ui->labelShieldedWatchAvailable->setVisible(showWatchOnly); // show watch-only available shielded balance
     ui->labelWatchPending->setVisible(showWatchOnly);   // show watch-only pending balance
     ui->labelWatchTotal->setVisible(showWatchOnly);     // show watch-only total balance

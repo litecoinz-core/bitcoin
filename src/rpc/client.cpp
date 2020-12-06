@@ -186,8 +186,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "z_sendmany", 1, "amounts" },
     { "z_sendmany", 2, "minconf" },
     { "z_sendmany", 3, "fee" },
-    { "z_shieldcoinbase", 2, "fee" },
-    { "z_shieldcoinbase", 3, "limit" },
     { "z_getbalance", 1, "minconf" },
     { "z_gettotalbalance", 0, "minconf" },
     { "z_gettotalbalance", 1, "includeWatchonly" },

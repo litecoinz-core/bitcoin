@@ -274,7 +274,6 @@ BITCOIN_CORE_H = \
   walletinitinterface.h \
   wallet/asyncrpcoperation_common.h \
   wallet/asyncrpcoperation_sendmany.h \
-  wallet/asyncrpcoperation_shieldcoinbase.h \
   wallet/coincontrol.h \
   wallet/inputcontrol.h \
   wallet/crypter.h \
@@ -391,7 +390,6 @@ libbitcoin_wallet_a_SOURCES = \
   interfaces/wallet.cpp \
   wallet/asyncrpcoperation_common.cpp \
   wallet/asyncrpcoperation_sendmany.cpp \
-  wallet/asyncrpcoperation_shieldcoinbase.cpp \
   wallet/coincontrol.cpp \
   wallet/inputcontrol.cpp \
   wallet/crypter.cpp \

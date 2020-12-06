@@ -3915,7 +3915,6 @@ void MaybeResendWalletTxs()
 CWallet::Balance CWallet::GetBalance(const int min_depth, bool avoid_reuse) const
 {
     Balance ret;
-    bool fIncludeCoinbase = !Params().GetConsensus().fCoinbaseMustBeShielded;
     isminefilter reuse_filter = avoid_reuse ? ISMINE_NO : ISMINE_USED;
     {
         auto locked_chain = chain().lock();
@@ -3924,18 +3923,12 @@ CWallet::Balance CWallet::GetBalance(const int min_depth, bool avoid_reuse) cons
         {
             const CWalletTx& wtx = entry.second;
             const bool is_trusted{wtx.IsTrusted(*locked_chain)};
-            const bool is_coinbase{wtx.IsCoinBase()};
             const int tx_depth{wtx.GetDepthInMainChain(*locked_chain)};
             const CAmount tx_credit_mine{wtx.GetAvailableCredit(*locked_chain, /* fUseCache */ true, ISMINE_SPENDABLE | reuse_filter)};
             const CAmount tx_credit_watchonly{wtx.GetAvailableCredit(*locked_chain, /* fUseCache */ true, ISMINE_WATCH_ONLY | reuse_filter)};
             if (is_trusted && tx_depth >= min_depth) {
-                if (fIncludeCoinbase || !is_coinbase) {
-                    ret.m_mine_trusted += tx_credit_mine;
-                    ret.m_watchonly_trusted += tx_credit_watchonly;
-                } else {
-                    ret.m_mine_coinbase += tx_credit_mine;
-                    ret.m_watchonly_coinbase += tx_credit_watchonly;
-                }
+                ret.m_mine_trusted += tx_credit_mine;
+                ret.m_watchonly_trusted += tx_credit_watchonly;
             }
             if (!is_trusted && tx_depth == 0 && wtx.InMempool()) {
                 ret.m_mine_untrusted_pending += tx_credit_mine;
@@ -3997,8 +3990,7 @@ CAmount CWallet::GetBalanceTaddr(std::string address, int min_depth, bool avoid_
     auto locked_chain = chain().lock();
     LOCK(cs_wallet);
 
-    bool fIncludeCoinbase = !Params().GetConsensus().fCoinbaseMustBeShielded;
-    AvailableCoins(*locked_chain, false, fIncludeCoinbase, vecOutputs);
+    AvailableCoins(*locked_chain, vecOutputs);
 
     for (const COutput& out : vecOutputs) {
         if (out.nDepth < min_depth) {
@@ -4061,8 +4053,7 @@ CAmount CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
 
     CAmount balance = 0;
     std::vector<COutput> vCoins;
-    bool fIncludeCoinbase = !Params().GetConsensus().fCoinbaseMustBeShielded;
-    AvailableCoins(*locked_chain, false, fIncludeCoinbase, vCoins, true, coinControl);
+    AvailableCoins(*locked_chain, vCoins, true, coinControl);
     for (const COutput& out : vCoins) {
         if (out.fSpendable) {
             balance += out.tx->tx->vout[out.i].nValue;
@@ -4071,7 +4062,7 @@ CAmount CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
     return balance;
 }
 
-void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, bool fOnlyCoinbase, bool fIncludeCoinbase, std::vector<COutput>& vCoins, bool fOnlySafe, const CCoinControl* coinControl, const CAmount& nMinimumAmount, const CAmount& nMaximumAmount, const CAmount& nMinimumSumAmount, const uint64_t nMaximumCount) const
+void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<COutput>& vCoins, bool fOnlySafe, const CCoinControl* coinControl, const CAmount& nMinimumAmount, const CAmount& nMaximumAmount, const CAmount& nMinimumSumAmount, const uint64_t nMaximumCount) const
 {
     AssertLockHeld(cs_wallet);
 
@@ -4093,12 +4084,6 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, bool fOnlyCo
         }
 
         if (wtx.IsImmatureCoinBase(locked_chain))
-            continue;
-
-        if (wtx.IsCoinBase() && !fIncludeCoinbase)
-            continue;
-
-        if (!wtx.IsCoinBase() && fOnlyCoinbase)
             continue;
 
         int nDepth = wtx.GetDepthInMainChain(locked_chain);
@@ -4383,14 +4368,14 @@ void CWallet::AvailableSaplingNotes(interfaces::Chain::Lock& locked_chain, std::
     }
 }
 
-std::map<CTxDestination, std::vector<COutput>> CWallet::ListCoins(interfaces::Chain::Lock& locked_chain, bool fOnlyCoinbase, bool fIncludeCoinbase) const
+std::map<CTxDestination, std::vector<COutput>> CWallet::ListCoins(interfaces::Chain::Lock& locked_chain) const
 {
     AssertLockHeld(cs_wallet);
 
     std::map<CTxDestination, std::vector<COutput>> result;
     std::vector<COutput> availableCoins;
 
-    AvailableCoins(locked_chain, fOnlyCoinbase, fIncludeCoinbase, availableCoins);
+    AvailableCoins(locked_chain, availableCoins);
 
     for (const COutput& coin : availableCoins) {
         CTxDestination address;
@@ -4535,35 +4520,9 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
     }
 }
 
-bool CWallet::SelectCoins(const std::vector<COutput>& vCoinsNoCoinbase, const std::vector<COutput>& vCoinsWithCoinbase, const CAmount& nTargetValue, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, bool& bnb_used) const
+bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmount& nTargetValue, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, bool& bnb_used) const
 {
-    // Output parameter fOnlyCoinbaseCoinsRet is set to true when the only available coins are coinbase utxos.
-    fOnlyCoinbaseCoinsRet = vCoinsNoCoinbase.size() == 0 && vCoinsWithCoinbase.size() > 0;
-
-    // If coinbase utxos can only be sent to zaddrs, exclude any coinbase utxos from coin selection.
-    bool fShieldCoinbase = Params().GetConsensus().fCoinbaseMustBeShielded;
-    std::vector<COutput> vCoins = (fShieldCoinbase) ? vCoinsNoCoinbase : vCoinsWithCoinbase;
-
-    // Output parameter fNeedCoinbaseCoinsRet is set to true if coinbase utxos need to be spent to meet target amount
-    if (fShieldCoinbase && vCoinsWithCoinbase.size() > vCoinsNoCoinbase.size()) {
-        CAmount value = 0;
-        for (const COutput& out : vCoinsNoCoinbase) {
-            if (!out.fSpendable) {
-                continue;
-            }
-            value += out.tx->tx->vout[out.i].nValue;
-        }
-        if (value <= nTargetValue) {
-            CAmount valueWithCoinbase = 0;
-            for (const COutput& out : vCoinsWithCoinbase) {
-                if (!out.fSpendable) {
-                    continue;
-                }
-                valueWithCoinbase += out.tx->tx->vout[out.i].nValue;
-            }
-            fNeedCoinbaseCoinsRet = (valueWithCoinbase >= nTargetValue);
-        }
-    }
+    std::vector<COutput> vCoins(vAvailableCoins);
 
     // coin control -> return all selected outputs (we want all selected to go into the transaction for sure)
     if (coin_control.HasSelected() && !coin_control.fAllowOtherInputs)
@@ -4855,9 +4814,8 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
         auto locked_chain = chain().lock();
         LOCK(cs_wallet);
         {
-            std::vector<COutput> vCoinsNoCoinbase, vCoinsWithCoinbase;
-            AvailableCoins(*locked_chain, false, false, vCoinsNoCoinbase, true, &coin_control, 1, MAX_MONEY, MAX_MONEY, 0);
-            AvailableCoins(*locked_chain, false, true, vCoinsWithCoinbase, true, &coin_control, 1, MAX_MONEY, MAX_MONEY, 0);
+            std::vector<COutput> vAvailableCoins;
+            AvailableCoins(*locked_chain, vAvailableCoins, true, &coin_control, 1, MAX_MONEY, MAX_MONEY, 0);
 
             CoinSelectionParams coin_selection_params; // Parameters for coin selection, init with dummy
 
@@ -4970,9 +4928,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                         coin_selection_params.change_spend_size = (size_t)change_spend_size;
                     }
                     coin_selection_params.effective_fee = nFeeRateNeeded;
-                    bool fOnlyCoinbaseCoins = false;
-                    bool fNeedCoinbaseCoins = false;
-                    if (!SelectCoins(vCoinsNoCoinbase, vCoinsWithCoinbase, nValueToSelect, setCoins, nValueIn, fOnlyCoinbaseCoins, fNeedCoinbaseCoins, coin_control, coin_selection_params, bnb_used))
+                    if (!SelectCoins(vAvailableCoins, nValueToSelect, setCoins, nValueIn, coin_control, coin_selection_params, bnb_used))
                     {
                         // If BnB was used, it was the first pass. No longer the first pass and continue loop with knapsack.
                         if (bnb_used) {
@@ -4980,14 +4936,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                             continue;
                         }
                         else {
-                            bool fProtectCoinbase = Params().GetConsensus().fCoinbaseMustBeShielded;
-                            if (fOnlyCoinbaseCoins && fProtectCoinbase) {
-                                strFailReason = _("Coinbase funds can only be sent to a zaddr").translated;
-                            } else if (fNeedCoinbaseCoins && fProtectCoinbase) {
-                                strFailReason = _("Insufficient funds, coinbase funds can only be spent after they have been sent to a zaddr").translated;
-                            } else {
-                                strFailReason = _("Insufficient funds").translated;
-                            }
+                            strFailReason = _("Insufficient funds").translated;
                             return false;
                         }
                     }

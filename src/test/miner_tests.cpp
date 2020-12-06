@@ -306,7 +306,6 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     entry.nHeight = 11;
 
     fCheckpointsEnabled = false;
-    fCoinbaseEnforcedShieldingEnabled = false;
 
     // Simple block creation, nothing special yet:
     BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
@@ -609,7 +608,6 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     TestPackageSelection(chainparams, scriptPubKey, txFirst);
 
     fCheckpointsEnabled = true;
-    fCoinbaseEnforcedShieldingEnabled = true;
 }
 
 BOOST_AUTO_TEST_SUITE_END()

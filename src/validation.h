@@ -160,7 +160,6 @@ extern int nScriptCheckThreads;
 extern bool fRequireStandard;
 extern bool fCheckBlockIndex;
 extern bool fCheckpointsEnabled;
-extern bool fCoinbaseEnforcedShieldingEnabled;
 extern size_t nCoinCacheUsage;
 // Maintain a full address index, used to query for the balance, txids and unspent outputs for addresses
 extern bool fAddressIndex;

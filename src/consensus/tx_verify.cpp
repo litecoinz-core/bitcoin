@@ -184,12 +184,6 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
                 strprintf("tried to spend coinbase at depth %d", nSpendHeight - coin.nHeight));
         }
 
-        // Ensure that coinbases cannot be spent to transparent outputs
-        // Disabled on regtest
-        if (coin.IsCoinBase() && fCoinbaseEnforcedShieldingEnabled && consensusParams.fCoinbaseMustBeShielded && !tx.vout.empty()) {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
-        }
-
         // Check for negative or overflow input values
         nValueIn += coin.out.nValue;
         if (!MoneyRange(coin.out.nValue) || !MoneyRange(nValueIn)) {

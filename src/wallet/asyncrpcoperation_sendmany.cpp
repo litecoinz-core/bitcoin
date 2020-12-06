@@ -203,29 +203,21 @@ bool AsyncRPCOperation_sendmany::main_impl() {
     bool isPureTaddrOnlyTx = (isfromtaddr_ && z_outputs_.size() == 0);
     CAmount minersFee = fee_;
 
-    bool fCoinbaseMustBeShielded = Params().GetConsensus().fCoinbaseMustBeShielded;
-
     // When spending coinbase utxos, you can only specify a single zaddr as the change must go somewhere
     // and if there are multiple zaddrs, we don't know where to send it.
     if (isfromtaddr_) {
         if (isSingleZaddrOutput) {
-            bool b = find_utxos(true);
+            bool b = find_utxos();
             if (!b) {
                 throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds, no UTXOs found for taddr from address.");
             }
         } else {
-            bool b = find_utxos(!fCoinbaseMustBeShielded);
+            bool b = find_utxos();
             if (!b) {
                 if (isMultipleZaddrOutput) {
-                    if (fCoinbaseMustBeShielded)
-                        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Could not find any non-coinbase UTXOs to spend. Coinbase UTXOs can only be sent to a single zaddr recipient.");
-                    else
-                        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Could not find any UTXOs to spend.");
+                    throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Could not find any UTXOs to spend.");
                 } else {
-                    if (fCoinbaseMustBeShielded)
-                        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Could not find any non-coinbase UTXOs to spend.");
-                    else
-                        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Could not find any UTXOs to spend.");
+                    throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Could not find any UTXOs to spend.");
                 }
             }
         }
@@ -281,7 +273,6 @@ bool AsyncRPCOperation_sendmany::main_impl() {
 
     // If from address is a taddr, select UTXOs to spend
     CAmount selectedUTXOAmount = 0;
-    bool selectedUTXOCoinbase = false;
     if (isfromtaddr_) {
         // Get dust threshold
         CKey secret;
@@ -294,10 +285,6 @@ bool AsyncRPCOperation_sendmany::main_impl() {
 
         std::vector<SendManyInputUTXO> selectedTInputs;
         for (SendManyInputUTXO & t : t_inputs_) {
-            bool b = t.coinbase;
-            if (b) {
-                selectedUTXOCoinbase = true;
-            }
             selectedUTXOAmount += t.amount;
             selectedTInputs.push_back(t);
             if (selectedUTXOAmount >= targetAmount) {
@@ -562,19 +549,11 @@ bool AsyncRPCOperation_sendmany::main_impl() {
 
         ReserveDestination reservedest(pwallet);
         if (change > 0) {
-            if (fCoinbaseMustBeShielded && selectedUTXOCoinbase) {
-                assert(isSingleZaddrOutput);
-                throw JSONRPCError(RPC_WALLET_ERROR, strprintf(
-                    "Change %s not allowed. When shielding coinbase funds, the wallet does not "
-                    "allow any change as there is currently no way to specify a change address "
-                    "in z_sendmany.", FormatMoney(change)));
-            } else {
-                add_taddr_change_output_to_tx(reservedest, change);
-                LogPrint(BCLog::ZRPC, "%s: transparent change in transaction output (amount=%s)\n",
-                        getId(),
-                        FormatMoney(change)
-                        );
-            }
+            add_taddr_change_output_to_tx(reservedest, change);
+            LogPrint(BCLog::ZRPC, "%s: transparent change in transaction output (amount=%s)\n",
+                    getId(),
+                    FormatMoney(change)
+                    );
         }
 
         // Create joinsplits, where each output represents a zaddr recipient.
@@ -891,7 +870,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
 }
 
 
-bool AsyncRPCOperation_sendmany::find_utxos(bool fAcceptCoinbase=false) {
+bool AsyncRPCOperation_sendmany::find_utxos() {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
 
@@ -902,7 +881,7 @@ bool AsyncRPCOperation_sendmany::find_utxos(bool fAcceptCoinbase=false) {
     {
         auto locked_chain = pwallet->chain().lock();
         LOCK(pwallet->cs_wallet);
-        pwallet->AvailableCoins(*locked_chain, false, fAcceptCoinbase, vecOutputs);
+        pwallet->AvailableCoins(*locked_chain, vecOutputs);
     }
 
     for (const COutput& out : vecOutputs) {
@@ -927,9 +906,6 @@ bool AsyncRPCOperation_sendmany::find_utxos(bool fAcceptCoinbase=false) {
 
         // By default we ignore coinbase outputs
         bool isCoinbase = out.tx->IsCoinBase();
-        if (isCoinbase && fAcceptCoinbase==false) {
-            continue;
-        }
 
         CAmount nValue = out.tx->tx->vout[out.i].nValue;
         SendManyInputUTXO utxo(out.tx->GetHash(), out.i, nValue, isCoinbase);

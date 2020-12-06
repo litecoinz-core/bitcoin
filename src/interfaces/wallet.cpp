@@ -483,7 +483,6 @@ public:
         const auto bal = m_wallet->GetBalance();
         WalletBalances result;
         result.balance = bal.m_mine_trusted;
-        result.coinbase_balance = bal.m_mine_coinbase;
         result.unconfirmed_balance = bal.m_mine_untrusted_pending;
         result.immature_balance = bal.m_mine_immature;
         result.have_watch_only = m_wallet->HaveWatchOnly();
@@ -548,12 +547,12 @@ public:
         LOCK(m_wallet->cs_wallet);
         return m_wallet->GetCredit(txout, filter);
     }
-    CoinsList listCoins(bool fOnlyCoinbase, bool fIncludeCoinbase) override
+    CoinsList listCoins() override
     {
         auto locked_chain = m_wallet->chain().lock();
         LOCK(m_wallet->cs_wallet);
         CoinsList result;
-        for (const auto& entry : m_wallet->ListCoins(*locked_chain, fOnlyCoinbase, fIncludeCoinbase)) {
+        for (const auto& entry : m_wallet->ListCoins(*locked_chain)) {
             auto& group = result[entry.first];
             for (const auto& coin : entry.second) {
                 group.emplace_back(COutPoint(coin.tx->GetHash(), coin.i),

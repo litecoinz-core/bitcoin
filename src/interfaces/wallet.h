@@ -264,7 +264,7 @@ public:
     //! Return AvailableCoins + LockedCoins grouped by wallet address.
     //! (put change in one group with wallet address)
     using CoinsList = std::map<CTxDestination, std::vector<std::tuple<COutPoint, WalletTxOut>>>;
-    virtual CoinsList listCoins(bool fOnlyCoinbase, bool fIncludeCoinbase) = 0;
+    virtual CoinsList listCoins() = 0;
 
     //! Return Sprout GetFilteredNotes grouped by wallet address.
     //! (put change in one group with wallet address)
@@ -396,19 +396,15 @@ struct WalletShieldedAddress
 struct WalletBalances
 {
     CAmount balance = 0;
-    CAmount coinbase_balance = 0;
     CAmount shielded_balance = 0;
     CAmount unconfirmed_balance = 0;
-    CAmount unconfirmed_coinbase_balance = 0;
     CAmount unconfirmed_shielded_balance = 0;
     CAmount immature_balance = 0;
     CAmount immature_shielded_balance = 0;
     bool have_watch_only = false;
     CAmount watch_only_balance = 0;
-    CAmount watch_only_coinbase_balance = 0;
     CAmount watch_only_shielded_balance = 0;
     CAmount unconfirmed_watch_only_balance = 0;
-    CAmount unconfirmed_watch_only_coinbase_balance = 0;
     CAmount unconfirmed_watch_only_shielded_balance = 0;
     CAmount immature_watch_only_balance = 0;
     CAmount immature_watch_only_shielded_balance = 0;
@@ -416,18 +412,14 @@ struct WalletBalances
     bool balanceChanged(const WalletBalances& prev) const
     {
         return balance != prev.balance ||
-               coinbase_balance != prev.coinbase_balance ||
                shielded_balance != prev.shielded_balance ||
                unconfirmed_balance != prev.unconfirmed_balance ||
-               unconfirmed_coinbase_balance != prev.unconfirmed_coinbase_balance ||
                unconfirmed_shielded_balance != prev.unconfirmed_shielded_balance ||
                immature_balance != prev.immature_balance ||
                immature_shielded_balance != prev.immature_shielded_balance ||
                watch_only_balance != prev.watch_only_balance ||
-               watch_only_coinbase_balance != prev.watch_only_coinbase_balance ||
                watch_only_shielded_balance != prev.watch_only_shielded_balance ||
                unconfirmed_watch_only_balance != prev.unconfirmed_watch_only_balance ||
-               unconfirmed_watch_only_coinbase_balance != prev.unconfirmed_watch_only_coinbase_balance ||
                unconfirmed_watch_only_shielded_balance != prev.unconfirmed_watch_only_shielded_balance ||
                immature_watch_only_balance != prev.immature_watch_only_balance ||
                immature_watch_only_shielded_balance != prev.immature_watch_only_shielded_balance;

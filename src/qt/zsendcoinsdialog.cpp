@@ -644,8 +644,7 @@ void ZSendCoinsDialog::inputControlClipboardAfterFee()
 // Input Control: button inputs -> show actual coin control dialog
 void ZSendCoinsDialog::inputControlButtonClicked()
 {
-    bool fIncludeCoinbase = !Params().GetConsensus().fCoinbaseMustBeShielded;
-    InputControlDialog dlg(platformStyle, false, fIncludeCoinbase, true);
+    InputControlDialog dlg(platformStyle);
     dlg.setModel(model);
     dlg.exec();
     inputControlUpdateLabels();

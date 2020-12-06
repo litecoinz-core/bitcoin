@@ -1067,10 +1067,8 @@ public:
      * all coins from coinControl are selected; Never select unconfirmed coins
      * if they are not ours
      */
-    bool SelectCoins(const std::vector<COutput>& vCoinsNoCoinbase, const std::vector<COutput>& vCoinsWithCoinbase,
-                     const CAmount& nTargetValue, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet,
-                     bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet,
-                     const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, bool& bnb_used) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    bool SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmount& nTargetValue, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet,
+                    const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, bool& bnb_used) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     const WalletLocation& GetLocation() const { return m_location; }
 
@@ -1201,7 +1199,7 @@ public:
     /**
      * populate vCoins with vector of available COutputs.
      */
-    void AvailableCoins(interfaces::Chain::Lock& locked_chain, bool fOnlyCoinbase, bool fIncludeCoinbase, std::vector<COutput>& vCoins, bool fOnlySafe = true, const CCoinControl* coinControl = nullptr, const CAmount& nMinimumAmount = 1, const CAmount& nMaximumAmount = MAX_MONEY, const CAmount& nMinimumSumAmount = MAX_MONEY, const uint64_t nMaximumCount = 0) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    void AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<COutput>& vCoins, bool fOnlySafe = true, const CCoinControl* coinControl = nullptr, const CAmount& nMinimumAmount = 1, const CAmount& nMaximumAmount = MAX_MONEY, const CAmount& nMinimumSumAmount = MAX_MONEY, const uint64_t nMaximumCount = 0) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /**
      * populate vNotes with vector of available SproutOutput.
@@ -1216,7 +1214,7 @@ public:
     /**
      * Return list of available coins and locked coins grouped by non-change output address.
      */
-    std::map<CTxDestination, std::vector<COutput>> ListCoins(interfaces::Chain::Lock& locked_chain, bool fOnlyCoinbase, bool fIncludeCoinbase) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    std::map<CTxDestination, std::vector<COutput>> ListCoins(interfaces::Chain::Lock& locked_chain) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /**
      * Return list of available sprout notes grouped by non-change output address.
@@ -1452,14 +1450,12 @@ public:
     void ResendWalletTransactions();
     struct Balance {
         CAmount m_mine_trusted{0};           //!< Trusted, at depth=GetBalance.min_depth or more
-        CAmount m_mine_coinbase{0};          //!< Coinbase, at depth=GetBalance.min_depth or more
         CAmount m_mine_shielded{0};          //!< Shielded, at depth=GetBalance.min_depth or more
         CAmount m_mine_untrusted_pending{0}; //!< Untrusted, but in mempool (pending)
         CAmount m_mine_shielded_pending{0};  //!< Shielded, but in mempool (pending)
         CAmount m_mine_immature{0};          //!< Immature coinbases in the main chain
         CAmount m_mine_shielded_immature{0}; //!< Immature shielded coinbases in the main chain (TO-DO in Future Releases)
         CAmount m_watchonly_trusted{0};
-        CAmount m_watchonly_coinbase{0};
         CAmount m_watchonly_shielded{0};
         CAmount m_watchonly_untrusted_pending{0};
         CAmount m_watchonly_shielded_pending{0};

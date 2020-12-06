@@ -117,8 +117,6 @@ struct Params {
 
     uint256 hashGenesisBlock;
 
-    bool fCoinbaseMustBeShielded;
-
     int nSubsidyHalvingInterval;
     /* BIP16 rule */
     bool BIP16Enabled;

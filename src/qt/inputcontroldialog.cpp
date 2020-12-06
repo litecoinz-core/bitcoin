@@ -51,14 +51,11 @@ bool CInputControlWidgetItem::operator<(const QTreeWidgetItem &other) const {
     return QTreeWidgetItem::operator<(other);
 }
 
-InputControlDialog::InputControlDialog(const PlatformStyle *_platformStyle, bool _fOnlyCoinbase, bool _fIncludeCoinbase, bool _fIncludeShielded, QWidget *parent) :
+InputControlDialog::InputControlDialog(const PlatformStyle *_platformStyle, QWidget *parent) :
     QDialog(parent),
     ui(new Ui::InputControlDialog),
     model(nullptr),
-    platformStyle(_platformStyle),
-    fOnlyCoinbase(_fOnlyCoinbase),
-    fIncludeCoinbase(_fIncludeCoinbase),
-    fIncludeShielded(_fIncludeShielded)
+    platformStyle(_platformStyle)
 {
     ui->setupUi(this);
 
@@ -373,7 +370,7 @@ void InputControlDialog::updateView()
 
     int nDisplayUnit = model->getOptionsModel()->getDisplayUnit();
 
-    for (const auto& coins : model->wallet().listCoins(fOnlyCoinbase, fIncludeCoinbase)) {
+    for (const auto& coins : model->wallet().listCoins()) {
         CInputControlWidgetItem* itemWalletAddress{nullptr};
         QString sWalletAddress = QString::fromStdString(EncodeDestination(coins.first));
         QString sWalletLabel = model->getAddressTableModel()->labelForAddress(sWalletAddress);
@@ -446,147 +443,144 @@ void InputControlDialog::updateView()
         itemWalletAddress->setData(COLUMN_AMOUNT, Qt::UserRole, QVariant((qlonglong)nSum));
     }
 
-    if (fIncludeShielded)
-    {
-        for (const auto& notes : model->wallet().listSproutNotes()) {
-            CInputControlWidgetItem* itemWalletAddress{nullptr};
-            QString sWalletAddress = QString::fromStdString(EncodePaymentAddress(notes.first));
-            QString sWalletLabel = model->getAddressTableModel()->labelForAddress(sWalletAddress);
-            if (sWalletLabel.isEmpty())
-                sWalletLabel = tr("(no label)");
+    for (const auto& notes : model->wallet().listSproutNotes()) {
+        CInputControlWidgetItem* itemWalletAddress{nullptr};
+        QString sWalletAddress = QString::fromStdString(EncodePaymentAddress(notes.first));
+        QString sWalletLabel = model->getAddressTableModel()->labelForAddress(sWalletAddress);
+        if (sWalletLabel.isEmpty())
+            sWalletLabel = tr("(no label)");
 
-            // wallet address
-            itemWalletAddress = new CInputControlWidgetItem(ui->treeWidget);
+        // wallet address
+        itemWalletAddress = new CInputControlWidgetItem(ui->treeWidget);
 
-            itemWalletAddress->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+        itemWalletAddress->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
 
-            // label
-            itemWalletAddress->setText(COLUMN_LABEL, sWalletLabel);
+        // label
+        itemWalletAddress->setText(COLUMN_LABEL, sWalletLabel);
 
-            // address
-            itemWalletAddress->setText(COLUMN_ADDRESS, sWalletAddress);
+        // address
+        itemWalletAddress->setText(COLUMN_ADDRESS, sWalletAddress);
 
-            CAmount nSum = 0;
-            int nChildren = 0;
-            for (const auto& outpair : notes.second) {
-                const SproutOutPoint& output = std::get<0>(outpair);
-                const interfaces::WalletSproutNote& out = std::get<1>(outpair);
-                nSum += out.note.value();
-                nChildren++;
+        CAmount nSum = 0;
+        int nChildren = 0;
+        for (const auto& outpair : notes.second) {
+            const SproutOutPoint& output = std::get<0>(outpair);
+            const interfaces::WalletSproutNote& out = std::get<1>(outpair);
+            nSum += out.note.value();
+            nChildren++;
 
-                CInputControlWidgetItem *itemOutput;
-                itemOutput = new CInputControlWidgetItem(itemWalletAddress);
-                itemOutput->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-
-                // address
-                libzcash::SproutPaymentAddress outputAddress = out.address;
-                QString sAddress = QString::fromStdString(EncodePaymentAddress(outputAddress));
-                if (!(sAddress == sWalletAddress))
-                    itemOutput->setText(COLUMN_ADDRESS, sAddress);
-
-                // label
-                if (!(sAddress == sWalletAddress)) // change
-                {
-                    // tooltip from where the change comes from
-                    itemOutput->setToolTip(COLUMN_LABEL, tr("change from %1 (%2)").arg(sWalletLabel).arg(sWalletAddress));
-                    itemOutput->setText(COLUMN_LABEL, tr("(change)"));
-                }
-
-                // amount
-                itemOutput->setText(COLUMN_AMOUNT, BitcoinUnits::format(nDisplayUnit, out.note.value()));
-                itemOutput->setData(COLUMN_AMOUNT, Qt::UserRole, QVariant((qlonglong)out.note.value())); // padding so that sorting works correctly
-
-                // date
-                itemOutput->setText(COLUMN_DATE, GUIUtil::dateTimeStr(out.time));
-                itemOutput->setData(COLUMN_DATE, Qt::UserRole, QVariant((qlonglong)out.time));
-
-                // confirmations
-                itemOutput->setText(COLUMN_CONFIRMATIONS, QString::number(out.depth_in_main_chain));
-                itemOutput->setData(COLUMN_CONFIRMATIONS, Qt::UserRole, QVariant((qlonglong)out.depth_in_main_chain));
-
-                // transaction hash
-                itemOutput->setData(COLUMN_ADDRESS, TxHashRole, QString::fromStdString(output.hash.GetHex()));
-
-                // vout index
-                itemOutput->setData(COLUMN_ADDRESS, VOutRole, output.n);
-            }
-
-            // quantity
-            itemWalletAddress->setText(COLUMN_QUANTITY, "(" + QString::number(nChildren) + ")");
-            // amount
-            itemWalletAddress->setText(COLUMN_AMOUNT, BitcoinUnits::format(nDisplayUnit, nSum));
-            itemWalletAddress->setData(COLUMN_AMOUNT, Qt::UserRole, QVariant((qlonglong)nSum));
-        }
-
-        for (const auto& notes : model->wallet().listSaplingNotes()) {
-            CInputControlWidgetItem* itemWalletAddress{nullptr};
-            QString sWalletAddress = QString::fromStdString(EncodePaymentAddress(notes.first));
-            QString sWalletLabel = model->getAddressTableModel()->labelForAddress(sWalletAddress);
-            if (sWalletLabel.isEmpty())
-                sWalletLabel = tr("(no label)");
-
-            // wallet address
-            itemWalletAddress = new CInputControlWidgetItem(ui->treeWidget);
-
-            itemWalletAddress->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-
-            // label
-            itemWalletAddress->setText(COLUMN_LABEL, sWalletLabel);
+            CInputControlWidgetItem *itemOutput;
+            itemOutput = new CInputControlWidgetItem(itemWalletAddress);
+            itemOutput->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
 
             // address
-            itemWalletAddress->setText(COLUMN_ADDRESS, sWalletAddress);
+            libzcash::SproutPaymentAddress outputAddress = out.address;
+            QString sAddress = QString::fromStdString(EncodePaymentAddress(outputAddress));
+            if (!(sAddress == sWalletAddress))
+                itemOutput->setText(COLUMN_ADDRESS, sAddress);
 
-            CAmount nSum = 0;
-            int nChildren = 0;
-            for (const auto& outpair : notes.second) {
-                const SaplingOutPoint& output = std::get<0>(outpair);
-                const interfaces::WalletSaplingNote& out = std::get<1>(outpair);
-                nSum += out.note.value();
-                nChildren++;
-
-                CInputControlWidgetItem *itemOutput;
-                itemOutput = new CInputControlWidgetItem(itemWalletAddress);
-                itemOutput->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-
-                // address
-                libzcash::SaplingPaymentAddress outputAddress = out.address;
-                QString sAddress = QString::fromStdString(EncodePaymentAddress(outputAddress));
-                if (!(sAddress == sWalletAddress))
-                    itemOutput->setText(COLUMN_ADDRESS, sAddress);
-
-                // label
-                if (!(sAddress == sWalletAddress)) // change
-                {
-                    // tooltip from where the change comes from
-                    itemOutput->setToolTip(COLUMN_LABEL, tr("change from %1 (%2)").arg(sWalletLabel).arg(sWalletAddress));
-                    itemOutput->setText(COLUMN_LABEL, tr("(change)"));
-                }
-
-                // amount
-                itemOutput->setText(COLUMN_AMOUNT, BitcoinUnits::format(nDisplayUnit, out.note.value()));
-                itemOutput->setData(COLUMN_AMOUNT, Qt::UserRole, QVariant((qlonglong)out.note.value())); // padding so that sorting works correctly
-
-                // date
-                itemOutput->setText(COLUMN_DATE, GUIUtil::dateTimeStr(out.time));
-                itemOutput->setData(COLUMN_DATE, Qt::UserRole, QVariant((qlonglong)out.time));
-
-                // confirmations
-                itemOutput->setText(COLUMN_CONFIRMATIONS, QString::number(out.depth_in_main_chain));
-                itemOutput->setData(COLUMN_CONFIRMATIONS, Qt::UserRole, QVariant((qlonglong)out.depth_in_main_chain));
-
-                // transaction hash
-                itemOutput->setData(COLUMN_ADDRESS, TxHashRole, QString::fromStdString(output.hash.GetHex()));
-
-                // vout index
-                itemOutput->setData(COLUMN_ADDRESS, VOutRole, output.n);
+            // label
+            if (!(sAddress == sWalletAddress)) // change
+            {
+                // tooltip from where the change comes from
+                itemOutput->setToolTip(COLUMN_LABEL, tr("change from %1 (%2)").arg(sWalletLabel).arg(sWalletAddress));
+                itemOutput->setText(COLUMN_LABEL, tr("(change)"));
             }
 
-            // quantity
-            itemWalletAddress->setText(COLUMN_QUANTITY, "(" + QString::number(nChildren) + ")");
             // amount
-            itemWalletAddress->setText(COLUMN_AMOUNT, BitcoinUnits::format(nDisplayUnit, nSum));
-            itemWalletAddress->setData(COLUMN_AMOUNT, Qt::UserRole, QVariant((qlonglong)nSum));
+            itemOutput->setText(COLUMN_AMOUNT, BitcoinUnits::format(nDisplayUnit, out.note.value()));
+            itemOutput->setData(COLUMN_AMOUNT, Qt::UserRole, QVariant((qlonglong)out.note.value())); // padding so that sorting works correctly
+
+            // date
+            itemOutput->setText(COLUMN_DATE, GUIUtil::dateTimeStr(out.time));
+            itemOutput->setData(COLUMN_DATE, Qt::UserRole, QVariant((qlonglong)out.time));
+
+            // confirmations
+            itemOutput->setText(COLUMN_CONFIRMATIONS, QString::number(out.depth_in_main_chain));
+            itemOutput->setData(COLUMN_CONFIRMATIONS, Qt::UserRole, QVariant((qlonglong)out.depth_in_main_chain));
+
+            // transaction hash
+            itemOutput->setData(COLUMN_ADDRESS, TxHashRole, QString::fromStdString(output.hash.GetHex()));
+
+            // vout index
+            itemOutput->setData(COLUMN_ADDRESS, VOutRole, output.n);
         }
+
+        // quantity
+        itemWalletAddress->setText(COLUMN_QUANTITY, "(" + QString::number(nChildren) + ")");
+        // amount
+        itemWalletAddress->setText(COLUMN_AMOUNT, BitcoinUnits::format(nDisplayUnit, nSum));
+        itemWalletAddress->setData(COLUMN_AMOUNT, Qt::UserRole, QVariant((qlonglong)nSum));
+    }
+
+    for (const auto& notes : model->wallet().listSaplingNotes()) {
+        CInputControlWidgetItem* itemWalletAddress{nullptr};
+        QString sWalletAddress = QString::fromStdString(EncodePaymentAddress(notes.first));
+        QString sWalletLabel = model->getAddressTableModel()->labelForAddress(sWalletAddress);
+        if (sWalletLabel.isEmpty())
+            sWalletLabel = tr("(no label)");
+
+        // wallet address
+        itemWalletAddress = new CInputControlWidgetItem(ui->treeWidget);
+
+        itemWalletAddress->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+
+        // label
+        itemWalletAddress->setText(COLUMN_LABEL, sWalletLabel);
+
+        // address
+        itemWalletAddress->setText(COLUMN_ADDRESS, sWalletAddress);
+
+        CAmount nSum = 0;
+        int nChildren = 0;
+        for (const auto& outpair : notes.second) {
+            const SaplingOutPoint& output = std::get<0>(outpair);
+            const interfaces::WalletSaplingNote& out = std::get<1>(outpair);
+            nSum += out.note.value();
+            nChildren++;
+
+            CInputControlWidgetItem *itemOutput;
+            itemOutput = new CInputControlWidgetItem(itemWalletAddress);
+            itemOutput->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+
+            // address
+            libzcash::SaplingPaymentAddress outputAddress = out.address;
+            QString sAddress = QString::fromStdString(EncodePaymentAddress(outputAddress));
+            if (!(sAddress == sWalletAddress))
+                itemOutput->setText(COLUMN_ADDRESS, sAddress);
+
+            // label
+            if (!(sAddress == sWalletAddress)) // change
+            {
+                // tooltip from where the change comes from
+                itemOutput->setToolTip(COLUMN_LABEL, tr("change from %1 (%2)").arg(sWalletLabel).arg(sWalletAddress));
+                itemOutput->setText(COLUMN_LABEL, tr("(change)"));
+            }
+
+            // amount
+            itemOutput->setText(COLUMN_AMOUNT, BitcoinUnits::format(nDisplayUnit, out.note.value()));
+            itemOutput->setData(COLUMN_AMOUNT, Qt::UserRole, QVariant((qlonglong)out.note.value())); // padding so that sorting works correctly
+
+            // date
+            itemOutput->setText(COLUMN_DATE, GUIUtil::dateTimeStr(out.time));
+            itemOutput->setData(COLUMN_DATE, Qt::UserRole, QVariant((qlonglong)out.time));
+
+            // confirmations
+            itemOutput->setText(COLUMN_CONFIRMATIONS, QString::number(out.depth_in_main_chain));
+            itemOutput->setData(COLUMN_CONFIRMATIONS, Qt::UserRole, QVariant((qlonglong)out.depth_in_main_chain));
+
+            // transaction hash
+            itemOutput->setData(COLUMN_ADDRESS, TxHashRole, QString::fromStdString(output.hash.GetHex()));
+
+            // vout index
+            itemOutput->setData(COLUMN_ADDRESS, VOutRole, output.n);
+        }
+
+        // quantity
+        itemWalletAddress->setText(COLUMN_QUANTITY, "(" + QString::number(nChildren) + ")");
+        // amount
+        itemWalletAddress->setText(COLUMN_AMOUNT, BitcoinUnits::format(nDisplayUnit, nSum));
+        itemWalletAddress->setData(COLUMN_AMOUNT, Qt::UserRole, QVariant((qlonglong)nSum));
     }
 
     // sort view

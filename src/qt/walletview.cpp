@@ -14,7 +14,6 @@
 #include <qt/platformstyle.h>
 #include <qt/receivecoinsdialog.h>
 #include <qt/sendcoinsdialog.h>
-#include <qt/shieldcoinbasedialog.h>
 #include <qt/signverifymessagedialog.h>
 #include <qt/transactiontablemodel.h>
 #include <qt/transactionview.h>
@@ -40,9 +39,6 @@ WalletView::WalletView(const PlatformStyle *_platformStyle, QWidget *parent):
 {
     // Create tabs
     overviewPage = new OverviewPage(platformStyle);
-
-    shieldCoinbasePage = new ShieldCoinbaseDialog(platformStyle);
-
     transactionsPage = new QWidget(this);
     QVBoxLayout *vbox = new QVBoxLayout();
     QHBoxLayout *hbox_buttons = new QHBoxLayout();
@@ -66,7 +62,6 @@ WalletView::WalletView(const PlatformStyle *_platformStyle, QWidget *parent):
     usedReceivingAddressesPage = new AddressBookPage(platformStyle, AddressBookPage::ForEditing, AddressBookPage::ReceivingTab, AddressBookPage::All, this);
 
     addWidget(overviewPage);
-    addWidget(shieldCoinbasePage);
     addWidget(transactionsPage);
     addWidget(receiveCoinsPage);
     addWidget(sendCoinsPage);
@@ -104,7 +99,6 @@ void WalletView::setClientModel(ClientModel *_clientModel)
     this->clientModel = _clientModel;
 
     overviewPage->setClientModel(_clientModel);
-    shieldCoinbasePage->setClientModel(_clientModel);
     sendCoinsPage->setClientModel(_clientModel);
     zsendCoinsPage->setClientModel(_clientModel);
 }
@@ -116,7 +110,6 @@ void WalletView::setWalletModel(WalletModel *_walletModel)
     // Put transaction list in tabs
     transactionView->setModel(_walletModel);
     overviewPage->setWalletModel(_walletModel);
-    shieldCoinbasePage->setModel(_walletModel);
     receiveCoinsPage->setModel(_walletModel);
     sendCoinsPage->setModel(_walletModel);
     zsendCoinsPage->setModel(_walletModel);
@@ -169,11 +162,6 @@ void WalletView::processNewTransaction(const QModelIndex& parent, int start, int
 void WalletView::gotoOverviewPage()
 {
     setCurrentWidget(overviewPage);
-}
-
-void WalletView::gotoShieldCoinbasePage()
-{
-    setCurrentWidget(shieldCoinbasePage);
 }
 
 void WalletView::gotoHistoryPage()

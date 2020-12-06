@@ -245,13 +245,6 @@ void BitcoinGUI::createActions()
     overviewAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_1));
     tabGroup->addAction(overviewAction);
 
-    shieldCoinbaseAction = new QAction(platformStyle->SingleColorIcon(":/icons/shield"), tr("&Shield Coinbase"), this);
-    shieldCoinbaseAction->setStatusTip(tr("Shield coinbase to a LitecoinZ z-address"));
-    shieldCoinbaseAction->setToolTip(shieldCoinbaseAction->statusTip());
-    shieldCoinbaseAction->setCheckable(true);
-    shieldCoinbaseAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_2));
-    tabGroup->addAction(shieldCoinbaseAction);
-
     sendCoinsAction = new QAction(platformStyle->SingleColorIcon(":/icons/send"), tr("&Send"), this);
     sendCoinsAction->setStatusTip(tr("Send coins to a LitecoinZ address"));
     sendCoinsAction->setToolTip(sendCoinsAction->statusTip());
@@ -297,8 +290,6 @@ void BitcoinGUI::createActions()
     // can be triggered from the tray menu, and need to show the GUI to be useful.
     connect(overviewAction, &QAction::triggered, [this]{ showNormalIfMinimized(); });
     connect(overviewAction, &QAction::triggered, this, &BitcoinGUI::gotoOverviewPage);
-    connect(shieldCoinbaseAction, &QAction::triggered, [this]{ showNormalIfMinimized(); });
-    connect(shieldCoinbaseAction, &QAction::triggered, this, &BitcoinGUI::gotoShieldCoinbasePage);
     connect(sendCoinsAction, &QAction::triggered, [this]{ showNormalIfMinimized(); });
     connect(sendCoinsAction, &QAction::triggered, [this]{ gotoSendCoinsPage(); });
     connect(sendCoinsMenuAction, &QAction::triggered, [this]{ showNormalIfMinimized(); });
@@ -572,7 +563,6 @@ void BitcoinGUI::createToolBars()
         toolbar->setMovable(false);
         toolbar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
         toolbar->addAction(overviewAction);
-        toolbar->addAction(shieldCoinbaseAction);
         toolbar->addAction(sendCoinsAction);
         toolbar->addAction(zsendCoinsAction);
         toolbar->addAction(receiveCoinsAction);
@@ -755,7 +745,6 @@ void BitcoinGUI::removeAllWallets()
 void BitcoinGUI::setWalletActionsEnabled(bool enabled)
 {
     overviewAction->setEnabled(enabled);
-    shieldCoinbaseAction->setEnabled(enabled);
     sendCoinsAction->setEnabled(enabled);
     sendCoinsMenuAction->setEnabled(enabled);
     zsendCoinsAction->setEnabled(enabled);
@@ -889,12 +878,6 @@ void BitcoinGUI::gotoOverviewPage()
 {
     overviewAction->setChecked(true);
     if (walletFrame) walletFrame->gotoOverviewPage();
-}
-
-void BitcoinGUI::gotoShieldCoinbasePage()
-{
-    shieldCoinbaseAction->setChecked(true);
-    if (walletFrame) walletFrame->gotoShieldCoinbasePage();
 }
 
 void BitcoinGUI::gotoHistoryPage()
