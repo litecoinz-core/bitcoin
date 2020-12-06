@@ -9,14 +9,14 @@
 
 #include <climits>
 
-#include <boost/optional.hpp>
+#include <optional.h>
 
 /** Coin Control Features. */
 class CInputControl
 {
 public:
     //! Override the wallet's m_pay_tx_fee if set
-    boost::optional<CAmount> m_fee;
+    Optional<CAmount> m_fee;
     //! Minimum chain depth value for coin availability
     int m_min_depth = 0;
     //! Maximum chain depth value for coin availability

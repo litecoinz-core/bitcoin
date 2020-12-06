@@ -8,8 +8,7 @@
 
 #include <array>
 #include <deque>
-#include <boost/optional.hpp>
-
+#include <optional.h>
 #include <uint256.h>
 #include <serialize.h>
 
@@ -130,11 +129,11 @@ public:
 
 private:
     static EmptyMerkleRoots<Depth, Hash> emptyroots;
-    boost::optional<Hash> left;
-    boost::optional<Hash> right;
+    Optional<Hash> left;
+    Optional<Hash> right;
 
     // Collapsed "left" subtrees ordered toward the root of the tree.
-    std::vector<boost::optional<Hash>> parents;
+    std::vector<Optional<Hash>> parents;
     MerklePath path(std::deque<Hash> filler_hashes = std::deque<Hash>()) const;
     Hash root(size_t depth, std::deque<Hash> filler_hashes = std::deque<Hash>()) const;
     bool is_complete(size_t depth = Depth) const;
@@ -197,7 +196,7 @@ public:
 private:
     IncrementalMerkleTree<Depth, Hash> tree;
     std::vector<Hash> filled;
-    boost::optional<IncrementalMerkleTree<Depth, Hash>> cursor;
+    Optional<IncrementalMerkleTree<Depth, Hash>> cursor;
     size_t cursor_depth = 0;
     std::deque<Hash> partial_path() const;
     IncrementalWitness(IncrementalMerkleTree<Depth, Hash> tree) : tree(tree) {}

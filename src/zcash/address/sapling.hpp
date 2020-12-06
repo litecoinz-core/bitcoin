@@ -53,7 +53,7 @@ public:
     SaplingIncomingViewingKey(uint256 ivk) : uint256(ivk) { }
 
     // Can pass in diversifier for Sapling addr
-    boost::optional<SaplingPaymentAddress> address(diversifier_t d) const;
+    Optional<SaplingPaymentAddress> address(diversifier_t d) const;
 };
 
 class SaplingFullViewingKey {

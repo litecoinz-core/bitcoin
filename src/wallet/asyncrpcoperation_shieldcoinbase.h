@@ -53,7 +53,7 @@ class AsyncRPCOperation_shieldcoinbase : public AsyncRPCOperation {
 public:
     AsyncRPCOperation_shieldcoinbase(
         const JSONRPCRequest& request,
-        boost::optional<TransactionBuilder> builder,
+        Optional<TransactionBuilder> builder,
         CMutableTransaction contextualTx,
         std::vector<ShieldCoinbaseUTXO> tInputs,
         std::string zOutput,
@@ -102,7 +102,7 @@ private:
     // JoinSplit where you have the witnesses and anchor
     UniValue perform_joinsplit(
         ShieldCoinbaseJSInfo & info,
-        std::vector<boost::optional < SproutWitness>> witnesses,
+        std::vector<Optional < SproutWitness>> witnesses,
         uint256 anchor);
 
     // payment disclosure!

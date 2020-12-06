@@ -41,7 +41,7 @@
 
 AsyncRPCOperation_shieldcoinbase::AsyncRPCOperation_shieldcoinbase(
         const JSONRPCRequest& request,
-        boost::optional<TransactionBuilder> builder,
+        Optional<TransactionBuilder> builder,
         CMutableTransaction contextualTx,
         std::vector<ShieldCoinbaseUTXO> tInputs,
         std::string zOutput,
@@ -251,7 +251,7 @@ UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(ShieldCoinbaseJSInf
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
 
-    std::vector<boost::optional<SproutWitness>> witnesses;
+    std::vector<Optional<SproutWitness>> witnesses;
     uint256 anchor;
     {
         auto locked_chain = pwallet->chain().lock();
@@ -266,7 +266,7 @@ UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(ShieldCoinbaseJSInf
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
 
-    std::vector<boost::optional<SproutWitness>> witnesses;
+    std::vector<Optional<SproutWitness>> witnesses;
     uint256 anchor;
     {
         auto locked_chain = pwallet->chain().lock();
@@ -278,7 +278,7 @@ UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(ShieldCoinbaseJSInf
 
 UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(
     ShieldCoinbaseJSInfo & info,
-    std::vector<boost::optional<SproutWitness>> witnesses,
+    std::vector<Optional<SproutWitness>> witnesses,
     uint256 anchor)
 {
     if (anchor.IsNull()) {

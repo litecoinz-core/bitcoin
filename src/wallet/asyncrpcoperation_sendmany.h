@@ -68,7 +68,7 @@ struct AsyncJoinSplitInfo
 
 // A struct to help us track the witness and anchor for a given SproutOutPoint
 struct WitnessAnchorData {
-	boost::optional<SproutWitness> witness;
+	Optional<SproutWitness> witness;
 	uint256 anchor;
 };
 
@@ -76,7 +76,7 @@ class AsyncRPCOperation_sendmany : public AsyncRPCOperation {
 public:
     AsyncRPCOperation_sendmany(
         const JSONRPCRequest& request,
-        boost::optional<TransactionBuilder> builder,
+        Optional<TransactionBuilder> builder,
         CMutableTransaction contextualTx,
         std::string fromAddress,
         std::vector<SendManyRecipient> tOutputs,
@@ -146,7 +146,7 @@ private:
     // JoinSplit where you have the witnesses and anchor
     UniValue perform_joinsplit(
         AsyncJoinSplitInfo & info,
-        std::vector<boost::optional < SproutWitness>> witnesses,
+        std::vector<Optional < SproutWitness>> witnesses,
         uint256 anchor);
 
     // payment disclosure!

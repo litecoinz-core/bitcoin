@@ -20,7 +20,7 @@
 #include <zcash/Note.hpp>
 #include <zcash/NoteEncryption.hpp>
 
-#include <boost/optional.hpp>
+#include <optional.h>
 
 struct SpendDescriptionInfo {
     libzcash::SaplingExpandedSpendingKey expsk;
@@ -58,8 +58,8 @@ struct TransparentInputInfo {
 
 class TransactionBuilderResult {
 private:
-    boost::optional<CTransactionRef> maybeTx;
-    boost::optional<std::string> maybeError;
+    Optional<CTransactionRef> maybeTx;
+    Optional<std::string> maybeError;
 public:
     TransactionBuilderResult() = delete;
     TransactionBuilderResult(const CTransactionRef& tx);
@@ -88,9 +88,9 @@ private:
     std::vector<libzcash::JSOutput> jsOutputs;
     std::vector<TransparentInputInfo> tIns;
 
-    boost::optional<std::pair<uint256, libzcash::SaplingPaymentAddress>> saplingChangeAddr;
-    boost::optional<libzcash::SproutPaymentAddress> sproutChangeAddr;
-    boost::optional<CTxDestination> tChangeAddr;
+    Optional<std::pair<uint256, libzcash::SaplingPaymentAddress>> saplingChangeAddr;
+    Optional<libzcash::SproutPaymentAddress> sproutChangeAddr;
+    Optional<CTxDestination> tChangeAddr;
 
 public:
     TransactionBuilder() {}

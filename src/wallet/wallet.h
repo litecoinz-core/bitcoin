@@ -644,8 +644,8 @@ public:
     void SetSaplingNoteData(mapSaplingNoteData_t &noteData);
 
     std::pair<libzcash::SproutNotePlaintext, libzcash::SproutPaymentAddress> DecryptSproutNote(SproutOutPoint jsop) const;
-    boost::optional<std::pair<libzcash::SaplingNotePlaintext, libzcash::SaplingPaymentAddress>> DecryptSaplingNote(SaplingOutPoint op) const;
-    boost::optional<std::pair<libzcash::SaplingNotePlaintext, libzcash::SaplingPaymentAddress>> RecoverSaplingNote(SaplingOutPoint op, std::set<uint256>& ovks) const;
+    Optional<std::pair<libzcash::SaplingNotePlaintext, libzcash::SaplingPaymentAddress>> DecryptSaplingNote(SaplingOutPoint op) const;
+    Optional<std::pair<libzcash::SaplingNotePlaintext, libzcash::SaplingPaymentAddress>> RecoverSaplingNote(SaplingOutPoint op, std::set<uint256>& ovks) const;
 
     //! filter decides which addresses will count towards the debit
     CAmount GetDebit(const isminefilter& filter) const;
@@ -1443,7 +1443,7 @@ public:
     };
 
     void WitnessNoteCommitment(std::vector<uint256> commitments,
-                               std::vector<boost::optional<SproutWitness>>& witnesses,
+                               std::vector<Optional<SproutWitness>>& witnesses,
                                uint256 &final_anchor);
 
     ScanResult ScanForWalletTransactions(const uint256& first_block, const uint256& last_block, const WalletRescanReserver& reserver, bool fUpdate);
@@ -1575,7 +1575,7 @@ public:
     bool GetNewSaplingDestination(const std::string label, libzcash::PaymentAddress& dest, std::string& error);
     bool GetNewChangeDestination(const OutputType type, CTxDestination& dest, std::string& error);
 
-    boost::optional<uint256> GetSproutNoteNullifier(
+    Optional<uint256> GetSproutNoteNullifier(
         const JSDescription& jsdesc,
         const libzcash::SproutPaymentAddress& address,
         const ZCNoteDecryption& dec,
@@ -1585,8 +1585,8 @@ public:
     std::pair<mapSaplingNoteData_t, SaplingIncomingViewingKeyMap> FindMySaplingNotes(const CTransaction& tx) const;
     bool IsSproutNullifierFromMe(const uint256& nullifier) const;
     bool IsSaplingNullifierFromMe(const uint256& nullifier) const;
-    void GetSproutNoteWitnesses(std::vector<SproutOutPoint> notes, std::vector<boost::optional<SproutWitness>>& witnesses, uint256 &final_anchor);
-    void GetSaplingNoteWitnesses(std::vector<SaplingOutPoint> notes, std::vector<boost::optional<SaplingWitness>>& witnesses, uint256 &final_anchor);
+    void GetSproutNoteWitnesses(std::vector<SproutOutPoint> notes, std::vector<Optional<SproutWitness>>& witnesses, uint256 &final_anchor);
+    void GetSaplingNoteWitnesses(std::vector<SaplingOutPoint> notes, std::vector<Optional<SaplingWitness>>& witnesses, uint256 &final_anchor);
 
     isminetype IsMine(const CTxIn& txin) const;
     /**
@@ -1947,16 +1947,16 @@ public:
     bool operator()(const libzcash::InvalidEncoding& no) const;
 };
 
-class GetViewingKeyForPaymentAddress : public boost::static_visitor<boost::optional<libzcash::ViewingKey>>
+class GetViewingKeyForPaymentAddress : public boost::static_visitor<Optional<libzcash::ViewingKey>>
 {
 private:
     CWallet *m_wallet;
 public:
     GetViewingKeyForPaymentAddress(CWallet *wallet) : m_wallet(wallet) {}
 
-    boost::optional<libzcash::ViewingKey> operator()(const libzcash::SproutPaymentAddress &zaddr) const;
-    boost::optional<libzcash::ViewingKey> operator()(const libzcash::SaplingPaymentAddress &zaddr) const;
-    boost::optional<libzcash::ViewingKey> operator()(const libzcash::InvalidEncoding& no) const;
+    Optional<libzcash::ViewingKey> operator()(const libzcash::SproutPaymentAddress &zaddr) const;
+    Optional<libzcash::ViewingKey> operator()(const libzcash::SaplingPaymentAddress &zaddr) const;
+    Optional<libzcash::ViewingKey> operator()(const libzcash::InvalidEncoding& no) const;
 };
 
 class HaveSpendingKeyForPaymentAddress : public boost::static_visitor<bool>
@@ -1971,16 +1971,16 @@ public:
     bool operator()(const libzcash::InvalidEncoding& no) const;
 };
 
-class GetSpendingKeyForPaymentAddress : public boost::static_visitor<boost::optional<libzcash::SpendingKey>>
+class GetSpendingKeyForPaymentAddress : public boost::static_visitor<Optional<libzcash::SpendingKey>>
 {
 private:
     CWallet *m_wallet;
 public:
     GetSpendingKeyForPaymentAddress(CWallet *wallet) : m_wallet(wallet) {}
 
-    boost::optional<libzcash::SpendingKey> operator()(const libzcash::SproutPaymentAddress &address) const;
-    boost::optional<libzcash::SpendingKey> operator()(const libzcash::SaplingPaymentAddress &address) const;
-    boost::optional<libzcash::SpendingKey> operator()(const libzcash::InvalidEncoding& no) const;
+    Optional<libzcash::SpendingKey> operator()(const libzcash::SproutPaymentAddress &address) const;
+    Optional<libzcash::SpendingKey> operator()(const libzcash::SaplingPaymentAddress &address) const;
+    Optional<libzcash::SpendingKey> operator()(const libzcash::InvalidEncoding& no) const;
 };
 
 enum KeyAddResult {
@@ -2008,18 +2008,18 @@ private:
     CWallet *m_wallet;
     const Consensus::Params &params;
     int64_t nTime;
-    boost::optional<std::string> hdKeypath; // currently sapling only
-    boost::optional<std::string> seedFpStr; // currently sapling only
+    Optional<std::string> hdKeypath; // currently sapling only
+    Optional<std::string> seedFpStr; // currently sapling only
     bool log;
 public:
     AddSpendingKeyToWallet(CWallet *wallet, const Consensus::Params &params) :
-        m_wallet(wallet), params(params), nTime(1), hdKeypath(boost::none), seedFpStr(boost::none), log(false) {}
+        m_wallet(wallet), params(params), nTime(1), hdKeypath(nullopt), seedFpStr(nullopt), log(false) {}
     AddSpendingKeyToWallet(
         CWallet *wallet,
         const Consensus::Params &params,
         int64_t _nTime,
-        boost::optional<std::string> _hdKeypath,
-        boost::optional<std::string> _seedFp,
+        Optional<std::string> _hdKeypath,
+        Optional<std::string> _seedFp,
         bool _log
     ) : m_wallet(wallet), params(params), nTime(_nTime), hdKeypath(_hdKeypath), seedFpStr(_seedFp), log(_log) {}
 

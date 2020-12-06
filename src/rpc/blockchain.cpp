@@ -111,7 +111,7 @@ double GetNetworkDifficulty(const CBlockIndex* blockindex)
     return GetDifficultyINTERNAL(blockindex, true);
 }
 
-static UniValue ValuePoolDesc(const std::string &name, const boost::optional<CAmount> chainValue, const boost::optional<CAmount> valueDelta)
+static UniValue ValuePoolDesc(const std::string &name, const Optional<CAmount> chainValue, const Optional<CAmount> valueDelta)
 {
     UniValue rv(UniValue::VOBJ);
     rv.pushKV("id", name);
@@ -1602,8 +1602,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     obj.pushKV("commitments",           static_cast<uint64_t>(tree.size()));
 
     UniValue valuePools(UniValue::VARR);
-    valuePools.push_back(ValuePoolDesc("sprout", tip->nChainSproutValue, boost::none));
-    valuePools.push_back(ValuePoolDesc("sapling", tip->nChainSaplingValue, boost::none));
+    valuePools.push_back(ValuePoolDesc("sprout", tip->nChainSproutValue, nullopt));
+    valuePools.push_back(ValuePoolDesc("sapling", tip->nChainSaplingValue, nullopt));
     obj.pushKV("valuePools",            valuePools);
 
     obj.pushKV("pruned",                fPruneMode);

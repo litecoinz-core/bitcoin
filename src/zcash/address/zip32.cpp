@@ -59,7 +59,7 @@ uint256 ovkForShieldingFromTaddr(HDSeed& seed) {
 
 namespace libzcash {
 
-boost::optional<SaplingExtendedFullViewingKey> SaplingExtendedFullViewingKey::Derive(uint32_t i) const
+Optional<SaplingExtendedFullViewingKey> SaplingExtendedFullViewingKey::Derive(uint32_t i) const
 {
     CDataStream ss_p(SER_NETWORK, PROTOCOL_VERSION);
     ss_p << *this;
@@ -76,11 +76,11 @@ boost::optional<SaplingExtendedFullViewingKey> SaplingExtendedFullViewingKey::De
         ss_i >> xfvk_i;
         return xfvk_i;
     } else {
-        return boost::none;
+        return nullopt;
     }
 }
 
-boost::optional<std::pair<diversifier_index_t, libzcash::SaplingPaymentAddress>>
+Optional<std::pair<diversifier_index_t, libzcash::SaplingPaymentAddress>>
     SaplingExtendedFullViewingKey::Address(diversifier_index_t j) const
 {
     CDataStream ss_xfvk(SER_NETWORK, PROTOCOL_VERSION);
@@ -98,7 +98,7 @@ boost::optional<std::pair<diversifier_index_t, libzcash::SaplingPaymentAddress>>
         ss_addr >> addr;
         return std::make_pair(j_ret, addr);
     } else {
-        return boost::none;
+        return nullopt;
     }
 }
 

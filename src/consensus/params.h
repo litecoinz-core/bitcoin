@@ -12,7 +12,7 @@
 #include <map>
 #include <string>
 
-#include <boost/optional.hpp>
+#include <optional.h>
 
 namespace Consensus {
 
@@ -73,7 +73,7 @@ struct NetworkUpgrade {
      * scrutiny than regular releases. nMinimumChainWork MUST be set to at least the chain
      * work of this block, otherwise this detection will have false positives.
      */
-    boost::optional<uint256> hashActivationBlock;
+    Optional<uint256> hashActivationBlock;
 };
 
 enum DeploymentPos

@@ -548,7 +548,7 @@ public:
      * transactions they are spent in. This is the same security semantics as
      * for transparent addresses.
      */
-    boost::optional<uint256> nullifier;
+    Optional<uint256> nullifier;
 
     /**
      * Cached incremental witnesses for spendable Notes.
@@ -613,7 +613,7 @@ public:
 
     libzcash::SaplingIncomingViewingKey ivk;
     int witnessHeight;
-    boost::optional<uint256> nullifier;
+    Optional<uint256> nullifier;
 
     std::list<SaplingWitness> witnesses;
 

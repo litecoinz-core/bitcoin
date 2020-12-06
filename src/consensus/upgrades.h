@@ -8,7 +8,7 @@
 
 #include <consensus/params.h>
 
-#include <boost/optional.hpp>
+#include <optional.h>
 
 enum UpgradeState {
     UPGRADE_DISABLED,
@@ -84,15 +84,15 @@ bool IsActivationHeightForAnyUpgrade(
 
 /**
  * Returns the index of the next upgrade after the given block height, or
- * boost::none if there are no more known upgrades.
+ * nullopt if there are no more known upgrades.
  */
-boost::optional<uint32_t> NextEpoch(int nHeight, const Consensus::Params& params);
+Optional<uint32_t> NextEpoch(int nHeight, const Consensus::Params& params);
 
 /**
  * Returns the activation height for the next upgrade after the given block height,
- * or boost::none if there are no more known upgrades.
+ * or nullopt if there are no more known upgrades.
  */
-boost::optional<uint32_t> NextActivationHeight(
+Optional<uint32_t> NextActivationHeight(
     int nHeight,
     const Consensus::Params& params);
 

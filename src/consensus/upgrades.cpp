@@ -126,9 +126,9 @@ bool IsActivationHeightForAnyUpgrade(
     return false;
 }
 
-boost::optional<uint32_t> NextEpoch(int nHeight, const Consensus::Params& params) {
+Optional<uint32_t> NextEpoch(int nHeight, const Consensus::Params& params) {
     if (nHeight < 0) {
-        return boost::none;
+        return nullopt;
     }
 
     // Sprout is never pending
@@ -138,10 +138,10 @@ boost::optional<uint32_t> NextEpoch(int nHeight, const Consensus::Params& params
         }
     }
 
-    return boost::none;
+    return nullopt;
 }
 
-boost::optional<uint32_t> NextActivationHeight(
+Optional<uint32_t> NextActivationHeight(
     int nHeight,
     const Consensus::Params& params)
 {
@@ -149,5 +149,5 @@ boost::optional<uint32_t> NextActivationHeight(
     if (idx) {
         return params.vUpgrades[idx.get()].nActivationHeight;
     }
-    return boost::none;
+    return nullopt;
 }

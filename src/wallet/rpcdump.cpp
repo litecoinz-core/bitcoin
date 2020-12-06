@@ -583,8 +583,8 @@ UniValue importwallet_impl(const JSONRPCRequest& request, bool fImportZKeys)
                 auto spendingkey = DecodeSpendingKey(vstr[0]);
                 int64_t nTime = DecodeDumpTime(vstr[1]);
                 // Only include hdKeypath and seedFpStr if we have both
-                boost::optional<std::string> hdKeypath = (vstr.size() > 3) ? boost::optional<std::string>(vstr[2]) : boost::none;
-                boost::optional<std::string> seedFpStr = (vstr.size() > 3) ? boost::optional<std::string>(vstr[3]) : boost::none;
+                Optional<std::string> hdKeypath = (vstr.size() > 3) ? Optional<std::string>(vstr[2]) : nullopt;
+                Optional<std::string> seedFpStr = (vstr.size() > 3) ? Optional<std::string>(vstr[3]) : nullopt;
                 if (IsValidSpendingKey(spendingkey)) {
                     auto addResult = boost::apply_visitor(
                         AddSpendingKeyToWallet(pwallet, Params().GetConsensus(), nTime, hdKeypath, seedFpStr, true), spendingkey);

@@ -59,7 +59,7 @@ int find_output(UniValue obj, int n) {
 
 AsyncRPCOperation_sendmany::AsyncRPCOperation_sendmany(
         const JSONRPCRequest& request,
-        boost::optional<TransactionBuilder> builder,
+        Optional<TransactionBuilder> builder,
         CMutableTransaction contextualTx,
         std::string fromAddress,
         std::vector<SendManyRecipient> tOutputs,
@@ -409,7 +409,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
 
         // Fetch Sapling anchor and witnesses
         uint256 anchor;
-        std::vector<boost::optional<SaplingWitness>> witnesses;
+        std::vector<Optional<SaplingWitness>> witnesses;
         {
             auto locked_chain = pwallet->chain().lock();
             LOCK(pwallet->cs_wallet);
@@ -535,7 +535,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
             SproutOutPoint jso = t.outpoint;
             std::vector<SproutOutPoint> vOutPoints = { jso };
             uint256 inputAnchor;
-            std::vector<boost::optional<SproutWitness>> vInputWitnesses;
+            std::vector<Optional<SproutWitness>> vInputWitnesses;
             pwallet->GetSproutNoteWitnesses(vOutPoints, vInputWitnesses, inputAnchor);
             jsopWitnessAnchorMap[ jso.ToString() ] = WitnessAnchorData{ vInputWitnesses[0], inputAnchor };
         }
@@ -646,7 +646,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
 
         CAmount jsInputValue = 0;
         uint256 jsAnchor;
-        std::vector<boost::optional<SproutWitness>> witnesses;
+        std::vector<Optional<SproutWitness>> witnesses;
 
         JSDescription prevJoinSplit;
 
@@ -678,7 +678,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
             }
 
             assert(changeOutputIndex != -1);
-            boost::optional<SproutWitness> changeWitness;
+            Optional<SproutWitness> changeWitness;
             int n = 0;
             for (const uint256& commitment : prevJoinSplit.commitments) {
                 tree.append(commitment);
@@ -727,7 +727,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         //
         std::vector<libzcash::SproutNote> vInputNotes;
         std::vector<SproutOutPoint> vOutPoints;
-        std::vector<boost::optional<SproutWitness>> vInputWitnesses;
+        std::vector<Optional<SproutWitness>> vInputWitnesses;
         uint256 inputAnchor;
         int numInputsNeeded = (jsChange>0) ? 1 : 0;
         while (numInputsNeeded++ < ZC_NUM_JS_INPUTS && zInputsDeque.size() > 0) {
@@ -1012,7 +1012,7 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(AsyncJoinSplitInfo& info)
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
 
-    std::vector<boost::optional<SproutWitness>> witnesses;
+    std::vector<Optional<SproutWitness>> witnesses;
     uint256 anchor;
     {
         auto locked_chain = pwallet->chain().lock();
@@ -1027,7 +1027,7 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(AsyncJoinSplitInfo& info,
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request_);
     CWallet* const pwallet = wallet.get();
 
-    std::vector<boost::optional<SproutWitness>> witnesses;
+    std::vector<Optional<SproutWitness>> witnesses;
     uint256 anchor;
     {
         auto locked_chain = pwallet->chain().lock();
@@ -1039,7 +1039,7 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(AsyncJoinSplitInfo& info,
 
 UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
     AsyncJoinSplitInfo & info,
-    std::vector<boost::optional<SproutWitness>> witnesses,
+    std::vector<Optional<SproutWitness>> witnesses,
     uint256 anchor)
 {
     if (anchor.IsNull()) {
