@@ -1353,7 +1353,7 @@ public:
     //! Adds spending key to the store, and saves it to disk
     bool AddSproutZKey(const libzcash::SproutSpendingKey &key);
     //! Adds spending key to the store, without saving it to disk (used by LoadWallet)
-    bool LoadZKey(const libzcash::SproutSpendingKey &key);
+    bool LoadSproutKey(const libzcash::SproutSpendingKey &key);
     //! Load spending key metadata (used by LoadWallet)
     void LoadSproutKeyMetadata(const libzcash::SproutPaymentAddress &addr, const CKeyMetadata &meta);
     //! Adds an encrypted spending key to the store, without saving it to disk (used by LoadWallet)

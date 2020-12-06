@@ -543,7 +543,7 @@ bool CWallet::AddSaplingFullViewingKey(const libzcash::SaplingExtendedFullViewin
     return WalletBatch(*database).WriteSaplingExtendedFullViewingKey(extfvk);
 }
 
-bool CWallet::LoadZKey(const libzcash::SproutSpendingKey &key)
+bool CWallet::LoadSproutKey(const libzcash::SproutSpendingKey &key)
 {
     return AddSproutSpendingKey(key);
 }

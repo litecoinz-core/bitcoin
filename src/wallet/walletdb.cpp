@@ -422,9 +422,9 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             libzcash::SproutSpendingKey key;
             ssValue >> key;
 
-            if (!pwallet->LoadZKey(key))
+            if (!pwallet->LoadSproutKey(key))
             {
-                strErr = "Error reading wallet database: LoadZKey failed";
+                strErr = "Error reading wallet database: LoadSproutKey failed";
                 return false;
             }
 
