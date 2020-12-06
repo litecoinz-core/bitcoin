@@ -423,7 +423,7 @@ void CWallet::DeriveNewChildKey(WalletBatch &batch, CKeyMetadata& metadata, CKey
 }
 
 // Generate a new spending key and return its public payment address
-libzcash::SproutPaymentAddress CWallet::GenerateNewSproutZKey()
+libzcash::SproutPaymentAddress CWallet::GenerateNewSproutKey()
 {
     assert(!IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS));
     assert(!IsWalletFlagSet(WALLET_FLAG_BLANK_WALLET));
@@ -5709,7 +5709,7 @@ bool CWallet::GetNewSproutDestination(const std::string label, libzcash::Payment
     if (IsLocked()) return false;
 
     // Generate a new sprout key that is added to wallet
-    dest = GenerateNewSproutZKey();
+    dest = GenerateNewSproutKey();
 
     SetSproutAddressBook(dest, label, "receive");
     return true;

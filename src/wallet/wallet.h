@@ -1349,7 +1349,7 @@ public:
       * Sprout ZKeys
       */
     //! Generates a new Sprout zaddr
-    libzcash::SproutPaymentAddress GenerateNewSproutZKey() EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    libzcash::SproutPaymentAddress GenerateNewSproutKey() EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds spending key to the store, and saves it to disk
     bool AddSproutKey(const libzcash::SproutSpendingKey &key);
     //! Adds spending key to the store, without saving it to disk (used by LoadWallet)
