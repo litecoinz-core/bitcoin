@@ -577,7 +577,7 @@ bool CWallet::LoadCryptedSproutKey(const libzcash::SproutPaymentAddress &addr,
     return AddCryptedSproutSpendingKeyInner(addr, rk, vchCryptedSecret);
 }
 
-bool CWallet::LoadCryptedSaplingZKey(const libzcash::SaplingExtendedFullViewingKey &extfvk, const std::vector<unsigned char> &vchCryptedSecret)
+bool CWallet::LoadCryptedSaplingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk, const std::vector<unsigned char> &vchCryptedSecret)
 {
      return AddCryptedSaplingSpendingKeyInner(extfvk, vchCryptedSecret);
 }

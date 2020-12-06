@@ -498,9 +498,9 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             ssValue >> vchCryptedSecret;
             wss.nSaplingCKeys++;
 
-            if (!pwallet->LoadCryptedSaplingZKey(extfvk, vchCryptedSecret))
+            if (!pwallet->LoadCryptedSaplingKey(extfvk, vchCryptedSecret))
             {
-                strErr = "Error reading wallet database: LoadCryptedSaplingZKey failed";
+                strErr = "Error reading wallet database: LoadCryptedSaplingKey failed";
                 return false;
             }
             wss.fIsEncrypted = true;
