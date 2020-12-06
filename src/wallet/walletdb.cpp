@@ -517,16 +517,13 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             CKeyMetadata keyMeta;
             ssValue >> keyMeta;
             wss.nSproutKeyMeta++;
-
-            pwallet->LoadZKeyMetadata(addr, keyMeta);
+            pwallet->LoadSproutKeyMetadata(addr, keyMeta);
         } else if (strType == DBKeys::SAPLING_KEYMETA) {
             libzcash::SaplingIncomingViewingKey ivk;
             ssKey >> ivk;
             CKeyMetadata keyMeta;
             ssValue >> keyMeta;
-
             wss.nSaplingKeyMeta++;
-
             pwallet->LoadSaplingZKeyMetadata(ivk, keyMeta);
         } else if (strType == DBKeys::SAPLING_ADDRESS) {
             libzcash::SaplingPaymentAddress addr;

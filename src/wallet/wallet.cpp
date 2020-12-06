@@ -558,7 +558,7 @@ bool CWallet::LoadSaplingFullViewingKey(const libzcash::SaplingExtendedFullViewi
     return AddSaplingFullViewingKey(extfvk);
 }
 
-void CWallet::LoadZKeyMetadata(const libzcash::SproutPaymentAddress &addr, const CKeyMetadata &meta)
+void CWallet::LoadSproutKeyMetadata(const libzcash::SproutPaymentAddress &addr, const CKeyMetadata &meta)
 {
     AssertLockHeld(cs_wallet); // mapSproutKeyMetadata
     mapSproutKeyMetadata[addr] = meta;
