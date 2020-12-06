@@ -489,8 +489,8 @@ libzcash::SaplingPaymentAddress CWallet::GenerateNewSaplingZKey()
     auto ivk = xsk.expsk.full_viewing_key().in_viewing_key();
     mapSaplingKeyMetadata[ivk] = metadata;
 
-    if (!AddSaplingZKey(xsk)) {
-        throw std::runtime_error(std::string(__func__) + ": AddSaplingZKey failed");
+    if (!AddSaplingKey(xsk)) {
+        throw std::runtime_error(std::string(__func__) + ": AddSaplingKey failed");
     }
     // return default sapling payment address.
     return xsk.DefaultAddress();
@@ -516,7 +516,7 @@ bool CWallet::AddSproutKey(const libzcash::SproutSpendingKey &key)
 }
 
 // Add spending key to keystore
-bool CWallet::AddSaplingZKey(const libzcash::SaplingExtendedSpendingKey &sk)
+bool CWallet::AddSaplingKey(const libzcash::SaplingExtendedSpendingKey &sk)
 {
     AssertLockHeld(cs_wallet); // mapSaplingKeyMetadata
 
@@ -7927,7 +7927,7 @@ KeyAddResult AddSpendingKeyToWallet::operator()(const libzcash::SaplingExtendedS
         if (m_wallet->HaveSaplingSpendingKey(extfvk)) {
             return KeyAlreadyExists;
         } else {
-            if (!m_wallet-> AddSaplingZKey(sk)) {
+            if (!m_wallet-> AddSaplingKey(sk)) {
                 return KeyNotAdded;
             }
 
