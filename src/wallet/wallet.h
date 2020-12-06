@@ -1086,7 +1086,7 @@ public:
     // Map from Sprout Payment Addres to key metadata.
     std::map<libzcash::SproutPaymentAddress, CKeyMetadata> mapSproutKeyMetadata;
     // Map from Sapling Payment Addres to key metadata.
-    std::map<libzcash::SaplingIncomingViewingKey, CKeyMetadata> mapSaplingZKeyMetadata;
+    std::map<libzcash::SaplingIncomingViewingKey, CKeyMetadata> mapSaplingKeyMetadata;
 
     // Map from Script ID to key metadata (for watch-only keys).
     std::map<CScriptID, CKeyMetadata> m_script_metadata GUARDED_BY(cs_wallet);

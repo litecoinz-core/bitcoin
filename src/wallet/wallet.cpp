@@ -451,7 +451,7 @@ libzcash::SaplingPaymentAddress CWallet::GenerateNewSaplingZKey()
 {
     assert(!IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS));
     assert(!IsWalletFlagSet(WALLET_FLAG_BLANK_WALLET));
-    AssertLockHeld(cs_wallet); // mapSaplingZKeyMetadata
+    AssertLockHeld(cs_wallet); // mapSaplingKeyMetadata
 
     // Create new metadata
     int64_t nCreationTime = GetTime();
@@ -487,7 +487,7 @@ libzcash::SaplingPaymentAddress CWallet::GenerateNewSaplingZKey()
         throw std::runtime_error(std::string(__func__) + ": Writing Zec HD chain model failed");
 
     auto ivk = xsk.expsk.full_viewing_key().in_viewing_key();
-    mapSaplingZKeyMetadata[ivk] = metadata;
+    mapSaplingKeyMetadata[ivk] = metadata;
 
     if (!AddSaplingZKey(xsk)) {
         throw std::runtime_error(std::string(__func__) + ": AddSaplingZKey failed");
@@ -518,7 +518,7 @@ bool CWallet::AddSproutZKey(const libzcash::SproutSpendingKey &key)
 // Add spending key to keystore
 bool CWallet::AddSaplingZKey(const libzcash::SaplingExtendedSpendingKey &sk)
 {
-    AssertLockHeld(cs_wallet); // mapSaplingZKeyMetadata
+    AssertLockHeld(cs_wallet); // mapSaplingKeyMetadata
 
     if (!AddSaplingSpendingKey(sk)) {
         return false;
@@ -526,7 +526,7 @@ bool CWallet::AddSaplingZKey(const libzcash::SaplingExtendedSpendingKey &sk)
 
     if (!IsCrypted()) {
         auto ivk = sk.expsk.full_viewing_key().in_viewing_key();
-        return WalletBatch(*database).WriteSaplingZKey(ivk, sk, mapSaplingZKeyMetadata[ivk]);
+        return WalletBatch(*database).WriteSaplingZKey(ivk, sk, mapSaplingKeyMetadata[ivk]);
     }
 
     return true;
@@ -566,8 +566,8 @@ void CWallet::LoadZKeyMetadata(const libzcash::SproutPaymentAddress &addr, const
 
 void CWallet::LoadSaplingZKeyMetadata(const libzcash::SaplingIncomingViewingKey &ivk, const CKeyMetadata &meta)
 {
-    AssertLockHeld(cs_wallet); // mapSaplingZKeyMetadata
-    mapSaplingZKeyMetadata[ivk] = meta;
+    AssertLockHeld(cs_wallet); // mapSaplingKeyMetadata
+    mapSaplingKeyMetadata[ivk] = meta;
 }
 
 bool CWallet::LoadCryptedSproutKey(const libzcash::SproutPaymentAddress &addr,
@@ -614,11 +614,11 @@ bool CWallet::AddCryptedSaplingSpendingKey(const libzcash::SaplingExtendedFullVi
         if (encrypted_batch)
             return encrypted_batch->WriteCryptedSaplingKey(extfvk,
                                                            vchCryptedSecret,
-                                                           mapSaplingZKeyMetadata[extfvk.fvk.in_viewing_key()]);
+                                                           mapSaplingKeyMetadata[extfvk.fvk.in_viewing_key()]);
         else
             return WalletBatch(*database).WriteCryptedSaplingKey(extfvk,
                                                                  vchCryptedSecret,
-                                                                 mapSaplingZKeyMetadata[extfvk.fvk.in_viewing_key()]);
+                                                                 mapSaplingKeyMetadata[extfvk.fvk.in_viewing_key()]);
     }
     return false;
 }
@@ -635,7 +635,7 @@ bool CWallet::AddSproutViewingKey(const libzcash::SproutViewingKey &vk)
 // Add payment address -> incoming viewing key map entry
 bool CWallet::AddSaplingIncomingViewingKey(const libzcash::SaplingIncomingViewingKey &ivk, const libzcash::SaplingPaymentAddress &addr)
 {
-    AssertLockHeld(cs_wallet); // mapSaplingZKeyMetadata
+    AssertLockHeld(cs_wallet); // mapSaplingKeyMetadata
 
     if (!FillableSigningProvider::AddSaplingIncomingViewingKey(ivk, addr)) {
         return false;
@@ -7933,18 +7933,18 @@ KeyAddResult AddSpendingKeyToWallet::operator()(const libzcash::SaplingExtendedS
 
             // Sapling addresses can't have been used in transactions prior to activation.
             if (params.vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight == Consensus::NetworkUpgrade::ALWAYS_ACTIVE) {
-                m_wallet->mapSaplingZKeyMetadata[ivk].nCreateTime = nTime;
+                m_wallet->mapSaplingKeyMetadata[ivk].nCreateTime = nTime;
             } else {
                 // 154051200 seconds from epoch is Friday, 26 October 2018 00:00:00 GMT - definitely before Sapling activates
-                m_wallet->mapSaplingZKeyMetadata[ivk].nCreateTime = std::max((int64_t) 154051200, nTime);
+                m_wallet->mapSaplingKeyMetadata[ivk].nCreateTime = std::max((int64_t) 154051200, nTime);
             }
             if (hdKeypath) {
-                m_wallet->mapSaplingZKeyMetadata[ivk].hdKeypath = hdKeypath.get();
+                m_wallet->mapSaplingKeyMetadata[ivk].hdKeypath = hdKeypath.get();
             }
             if (seedFpStr) {
                 uint256 seedFp;
                 seedFp.SetHex(seedFpStr.get());
-                m_wallet->mapSaplingZKeyMetadata[ivk].seedFp = seedFp;
+                m_wallet->mapSaplingKeyMetadata[ivk].seedFp = seedFp;
             }
             return KeyAdded;
         }

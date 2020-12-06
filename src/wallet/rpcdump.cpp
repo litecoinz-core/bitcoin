@@ -903,7 +903,7 @@ UniValue dumpwallet_impl(const JSONRPCRequest& request, bool fDumpZKeys)
             libzcash::SaplingExtendedSpendingKey extsk;
             if (pwallet->GetSaplingExtendedSpendingKey(addr, extsk)) {
                 auto ivk = extsk.expsk.full_viewing_key().in_viewing_key();
-                CKeyMetadata keyMeta = pwallet->mapSaplingZKeyMetadata[ivk];
+                CKeyMetadata keyMeta = pwallet->mapSaplingKeyMetadata[ivk];
                 std::string strTime = FormatISO8601DateTime(keyMeta.nCreateTime);
                 // Keys imported with z_importkey do not have zip32 metadata
                 if (keyMeta.hdKeypath.empty() || keyMeta.seedFp.IsNull()) {
