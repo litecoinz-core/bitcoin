@@ -1357,7 +1357,9 @@ public:
     //! Load spending key metadata (used by LoadWallet)
     void LoadZKeyMetadata(const libzcash::SproutPaymentAddress &addr, const CKeyMetadata &meta);
     //! Adds an encrypted spending key to the store, without saving it to disk (used by LoadWallet)
-    bool LoadCryptedZKey(const libzcash::SproutPaymentAddress &addr, const libzcash::ReceivingKey &rk, const std::vector<unsigned char> &vchCryptedSecret);
+    bool LoadCryptedSproutKey(const libzcash::SproutPaymentAddress &addr,
+                              const libzcash::ReceivingKey &rk,
+                              const std::vector<unsigned char> &vchCryptedSecret);
     //! Adds an encrypted spending key to the store, and saves it to disk (virtual method, declared in crypter.h)
     bool AddCryptedSproutSpendingKey(const libzcash::SproutPaymentAddress &address,
                                      const libzcash::ReceivingKey &rk,

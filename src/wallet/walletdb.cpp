@@ -483,9 +483,9 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             ssValue >> vchCryptedSecret;
             wss.nSproutCKeys++;
 
-            if (!pwallet->LoadCryptedZKey(addr, rk, vchCryptedSecret))
+            if (!pwallet->LoadCryptedSproutKey(addr, rk, vchCryptedSecret))
             {
-                strErr = "Error reading wallet database: LoadCryptedZKey failed";
+                strErr = "Error reading wallet database: LoadCryptedSproutKey failed";
                 return false;
             }
             wss.fIsEncrypted = true;

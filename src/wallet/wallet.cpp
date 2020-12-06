@@ -570,7 +570,9 @@ void CWallet::LoadSaplingZKeyMetadata(const libzcash::SaplingIncomingViewingKey 
     mapSaplingZKeyMetadata[ivk] = meta;
 }
 
-bool CWallet::LoadCryptedZKey(const libzcash::SproutPaymentAddress &addr, const libzcash::ReceivingKey &rk, const std::vector<unsigned char> &vchCryptedSecret)
+bool CWallet::LoadCryptedSproutKey(const libzcash::SproutPaymentAddress &addr,
+                                   const libzcash::ReceivingKey &rk,
+                                   const std::vector<unsigned char> &vchCryptedSecret)
 {
     return AddCryptedSproutSpendingKeyInner(addr, rk, vchCryptedSecret);
 }
