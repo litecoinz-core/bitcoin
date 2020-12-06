@@ -114,8 +114,8 @@ public:
         consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight = 190000;
         const size_t N1 = 200, K1 = 9;
         const size_t N2 = 144, K2 = 5;
-        BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N1, K1));
-        BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N2, K2));
+        static_assert(equihash_parameters_acceptable(N1, K1));
+        static_assert(equihash_parameters_acceptable(N2, K2));
         consensus.nEquihashN1 = N1;
         consensus.nEquihashK1 = K1;
         consensus.nEquihashN2 = N2;
@@ -274,8 +274,8 @@ public:
         consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight = 4000;
         const size_t N1 = 200, K1 = 9;
         const size_t N2 = 144, K2 = 5;
-        BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N1, K1));
-        BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N2, K2));
+        static_assert(equihash_parameters_acceptable(N1, K1));
+        static_assert(equihash_parameters_acceptable(N2, K2));
         consensus.nEquihashN1 = N1;
         consensus.nEquihashK1 = K1;
         consensus.nEquihashN2 = N2;
@@ -415,8 +415,8 @@ public:
         consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight = 160;
         const size_t N1 = 48, K1 = 5;
         const size_t N2 = 96, K2 = 5;
-        BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N1, K1));
-        BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N2, K2));
+        static_assert(equihash_parameters_acceptable(N1, K1));
+        static_assert(equihash_parameters_acceptable(N2, K2));
         consensus.nEquihashN1 = N1;
         consensus.nEquihashK1 = K1;
         consensus.nEquihashN2 = N2;
