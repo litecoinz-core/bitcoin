@@ -447,7 +447,7 @@ libzcash::SproutPaymentAddress CWallet::GenerateNewSproutKey()
 }
 
 // Generate a new Sapling spending key and return its public payment address
-libzcash::SaplingPaymentAddress CWallet::GenerateNewSaplingZKey()
+libzcash::SaplingPaymentAddress CWallet::GenerateNewSaplingKey()
 {
     assert(!IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS));
     assert(!IsWalletFlagSet(WALLET_FLAG_BLANK_WALLET));
@@ -5725,7 +5725,7 @@ bool CWallet::GetNewSaplingDestination(const std::string label, libzcash::Paymen
     if (IsLocked()) return false;
 
     // Generate a new shielded key that is added to wallet
-    dest = GenerateNewSaplingZKey();
+    dest = GenerateNewSaplingKey();
 
     SetSaplingAddressBook(dest, label, "receive");
     return true;
