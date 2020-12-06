@@ -1051,7 +1051,7 @@ bool WalletBatch::WriteSproutKey(const libzcash::SproutPaymentAddress& addr, con
     return WriteIC(std::make_pair(DBKeys::SPROUT_KEY, addr), key, false);
 }
 
-bool WalletBatch::WriteSaplingZKey(const libzcash::SaplingIncomingViewingKey &ivk, const libzcash::SaplingExtendedSpendingKey &key, const CKeyMetadata  &keyMeta)
+bool WalletBatch::WriteSaplingKey(const libzcash::SaplingIncomingViewingKey &ivk, const libzcash::SaplingExtendedSpendingKey &key, const CKeyMetadata  &keyMeta)
 {
     if (!WriteIC(std::make_pair(DBKeys::SAPLING_KEYMETA, ivk), keyMeta))
         return false;

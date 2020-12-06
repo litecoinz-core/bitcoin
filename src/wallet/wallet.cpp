@@ -526,7 +526,7 @@ bool CWallet::AddSaplingZKey(const libzcash::SaplingExtendedSpendingKey &sk)
 
     if (!IsCrypted()) {
         auto ivk = sk.expsk.full_viewing_key().in_viewing_key();
-        return WalletBatch(*database).WriteSaplingZKey(ivk, sk, mapSaplingKeyMetadata[ivk]);
+        return WalletBatch(*database).WriteSaplingKey(ivk, sk, mapSaplingKeyMetadata[ivk]);
     }
 
     return true;
