@@ -591,15 +591,15 @@ bool CWallet::AddCryptedSproutSpendingKey(const libzcash::SproutPaymentAddress &
     {
         LOCK(cs_wallet);
         if (encrypted_batch)
-            return encrypted_batch->WriteCryptedZKey(address,
-                                                     rk,
-                                                     vchCryptedSecret,
-                                                     mapSproutZKeyMetadata[address]);
+            return encrypted_batch->WriteCryptedSproutKey(address,
+                                                          rk,
+                                                          vchCryptedSecret,
+                                                          mapSproutZKeyMetadata[address]);
         else
-            return WalletBatch(*database).WriteCryptedZKey(address,
-                                                           rk,
-                                                           vchCryptedSecret,
-                                                           mapSproutZKeyMetadata[address]);
+            return WalletBatch(*database).WriteCryptedSproutKey(address,
+                                                                rk,
+                                                                vchCryptedSecret,
+                                                                mapSproutZKeyMetadata[address]);
     }
     return false;
 }

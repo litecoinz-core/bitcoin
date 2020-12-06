@@ -1067,7 +1067,7 @@ bool WalletBatch::WriteSaplingPaymentAddress(const libzcash::SaplingPaymentAddre
     return WriteIC(std::make_pair(DBKeys::SAPLING_ADDRESS, addr), ivk, false);
 }
 
-bool WalletBatch::WriteCryptedZKey(const libzcash::SproutPaymentAddress & addr,
+bool WalletBatch::WriteCryptedSproutKey(const libzcash::SproutPaymentAddress & addr,
                                    const libzcash::ReceivingKey & rk,
                                    const std::vector<unsigned char>& vchCryptedSecret,
                                    const CKeyMetadata &keyMeta)
