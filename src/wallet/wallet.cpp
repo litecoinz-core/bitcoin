@@ -612,13 +612,13 @@ bool CWallet::AddCryptedSaplingSpendingKey(const libzcash::SaplingExtendedFullVi
     {
         LOCK(cs_wallet);
         if (encrypted_batch)
-            return encrypted_batch->WriteCryptedSaplingZKey(extfvk,
-                                                            vchCryptedSecret,
-                                                            mapSaplingZKeyMetadata[extfvk.fvk.in_viewing_key()]);
+            return encrypted_batch->WriteCryptedSaplingKey(extfvk,
+                                                           vchCryptedSecret,
+                                                           mapSaplingZKeyMetadata[extfvk.fvk.in_viewing_key()]);
         else
-            return WalletBatch(*database).WriteCryptedSaplingZKey(extfvk,
-                                                                  vchCryptedSecret,
-                                                                  mapSaplingZKeyMetadata[extfvk.fvk.in_viewing_key()]);
+            return WalletBatch(*database).WriteCryptedSaplingKey(extfvk,
+                                                                 vchCryptedSecret,
+                                                                 mapSaplingZKeyMetadata[extfvk.fvk.in_viewing_key()]);
     }
     return false;
 }

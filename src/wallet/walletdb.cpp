@@ -1083,9 +1083,9 @@ bool WalletBatch::WriteCryptedSproutKey(const libzcash::SproutPaymentAddress & a
     return true;
 }
 
-bool WalletBatch::WriteCryptedSaplingZKey(const libzcash::SaplingExtendedFullViewingKey &extfvk,
-                                          const std::vector<unsigned char>& vchCryptedSecret,
-                                          const CKeyMetadata &keyMeta)
+bool WalletBatch::WriteCryptedSaplingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk,
+                                         const std::vector<unsigned char>& vchCryptedSecret,
+                                         const CKeyMetadata &keyMeta)
 {
     auto ivk = extfvk.fvk.in_viewing_key();
 

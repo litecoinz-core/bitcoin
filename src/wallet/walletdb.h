@@ -372,9 +372,9 @@ public:
                               const libzcash::ReceivingKey & rk,
                               const std::vector<unsigned char>& vchCryptedSecret,
                               const CKeyMetadata &keyMeta);
-    bool WriteCryptedSaplingZKey(const libzcash::SaplingExtendedFullViewingKey &extfvk,
-                                 const std::vector<unsigned char>& vchCryptedSecret,
-                                 const CKeyMetadata &keyMeta);
+    bool WriteCryptedSaplingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk,
+                                const std::vector<unsigned char>& vchCryptedSecret,
+                                const CKeyMetadata &keyMeta);
 
     bool WriteSproutViewingKey(const libzcash::SproutViewingKey &vk);
     bool EraseSproutViewingKey(const libzcash::SproutViewingKey &vk);
