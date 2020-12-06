@@ -5051,7 +5051,7 @@ UniValue z_sendmany(const JSONRPCRequest& request)
 
     // Create operation and add to global queue
     std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
-    std::shared_ptr<AsyncRPCOperation> operation(new AsyncRPCOperation_sendmany(request, builder, contextualTx, fromaddress, taddrRecipients, zaddrRecipients, nMinDepth, nFee, contextInfo));
+    std::shared_ptr<AsyncRPCOperation> operation(new AsyncRPCOperation_sendmany(pwallet, builder, contextualTx, fromaddress, taddrRecipients, zaddrRecipients, nMinDepth, nFee, contextInfo));
     q->addOperation(operation);
     AsyncRPCOperationId operationId = operation->getId();
     return operationId;

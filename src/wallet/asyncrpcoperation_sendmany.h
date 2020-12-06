@@ -25,6 +25,8 @@
 // Default transaction fee if caller does not specify one.
 #define ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE   10000
 
+class TxValues;
+
 class SendManyRecipient {
 public:
     std::string address;
@@ -33,17 +35,6 @@ public:
 
     SendManyRecipient(std::string address_, CAmount amount_, std::string memo_ = "") :
         address(address_), amount(amount_), memo(memo_) {}
-};
-
-class SendManyInputUTXO {
-public:
-    uint256 txid;
-    int vout;
-    CAmount amount;
-    bool coinbase;
-
-    SendManyInputUTXO(uint256 txid_, int vout_, CAmount amount_, bool coinbase_) :
-        txid(txid_), vout(vout_), amount(amount_), coinbase(coinbase_) {}
 };
 
 class SendManyInputJSOP {
@@ -75,7 +66,7 @@ struct WitnessAnchorData {
 class AsyncRPCOperation_sendmany : public AsyncRPCOperation {
 public:
     AsyncRPCOperation_sendmany(
-        const JSONRPCRequest& request,
+        CWallet* const pwallet,
         Optional<TransactionBuilder> builder,
         CMutableTransaction contextualTx,
         std::string fromAddress,
@@ -101,7 +92,7 @@ public:
     bool paymentDisclosureMode = false; // Set to true to save esk for encrypted notes in payment disclosure database.
 
 private:
-    JSONRPCRequest request_;
+    CWallet* pwallet_;
     CTransactionRef tx_;
     std::string fromaddress_;
     std::vector<SendManyRecipient> t_outputs_;
@@ -124,7 +115,7 @@ private:
     // The key is the result string from calling SproutOutPoint::ToString()
     std::unordered_map<std::string, WitnessAnchorData> jsopWitnessAnchorMap;
 
-    std::vector<SendManyInputUTXO> t_inputs_;
+    std::vector<COutput> t_inputs_;
     std::vector<SendManyInputJSOP> z_sprout_inputs_;
     std::vector<SaplingNoteEntry> z_sapling_inputs_;
 
@@ -133,7 +124,9 @@ private:
     void add_taddr_change_output_to_tx(ReserveDestination& changedest, CAmount amount);
     void add_taddr_outputs_to_tx();
     bool find_unspent_notes();
-    bool find_utxos();
+    bool find_utxos(TxValues& txValues);
+    // Load transparent inputs into the transaction or the transactionBuilder (in case of have it)
+    bool load_inputs(TxValues& txValues);
     std::array<unsigned char, ZC_MEMO_SIZE> get_memo_from_hex_string(std::string s);
     bool main_impl();
 

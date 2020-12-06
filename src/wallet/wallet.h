@@ -762,6 +762,8 @@ public:
         }
     }
 
+    CAmount Value() const { return tx->tx->vout[i].nValue; }
+
     std::string ToString() const;
 
     inline CInputCoin GetInputCoin() const
@@ -1581,8 +1583,8 @@ public:
     std::pair<mapSaplingNoteData_t, SaplingIncomingViewingKeyMap> FindMySaplingNotes(const CTransaction& tx) const;
     bool IsSproutNullifierFromMe(const uint256& nullifier) const;
     bool IsSaplingNullifierFromMe(const uint256& nullifier) const;
-    void GetSproutNoteWitnesses(std::vector<SproutOutPoint> notes, std::vector<Optional<SproutWitness>>& witnesses, uint256 &final_anchor);
-    void GetSaplingNoteWitnesses(std::vector<SaplingOutPoint> notes, std::vector<Optional<SaplingWitness>>& witnesses, uint256 &final_anchor);
+    void GetSproutNoteWitnesses(std::vector<SproutOutPoint> notes, std::vector<Optional<SproutWitness>>& witnesses, uint256 &final_anchor) const;
+    void GetSaplingNoteWitnesses(std::vector<SaplingOutPoint> notes, std::vector<Optional<SaplingWitness>>& witnesses, uint256 &final_anchor) const;
 
     isminetype IsMine(const CTxIn& txin) const;
     /**
@@ -1777,10 +1779,10 @@ public:
     bool CanGetAddresses(bool internal = false);
 
     /* Return the current default address type */
-    OutputType GetDefaultAddressType();
+    OutputType GetDefaultAddressType() const;
 
     /* Return the current default change address type */
-    OutputType GetDefaultChangeType();
+    OutputType GetDefaultChangeType() const;
 
     /* Generates a new HD seed (will not be activated) */
     CPubKey GenerateNewSeed();

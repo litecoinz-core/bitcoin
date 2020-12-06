@@ -2730,7 +2730,7 @@ bool CWallet::IsSaplingNullifierFromMe(const uint256& nullifier) const
 
 void CWallet::GetSproutNoteWitnesses(std::vector<SproutOutPoint> notes,
                                      std::vector<Optional<SproutWitness>>& witnesses,
-                                     uint256 &final_anchor)
+                                     uint256 &final_anchor) const
 {
     LOCK(cs_wallet);
     witnesses.resize(notes.size());
@@ -2739,8 +2739,8 @@ void CWallet::GetSproutNoteWitnesses(std::vector<SproutOutPoint> notes,
     for (SproutOutPoint note : notes) {
         if (mapWallet.count(note.hash) &&
                 mapWallet.at(note.hash).mapSproutNoteData.count(note) &&
-                mapWallet.at(note.hash).mapSproutNoteData[note].witnesses.size() > 0) {
-            witnesses[i] = mapWallet.at(note.hash).mapSproutNoteData[note].witnesses.front();
+                mapWallet.at(note.hash).mapSproutNoteData.at(note).witnesses.size() > 0) {
+            witnesses[i] = mapWallet.at(note.hash).mapSproutNoteData.at(note).witnesses.front();
             if (!rt) {
                 rt = witnesses[i]->root();
             } else {
@@ -2757,7 +2757,7 @@ void CWallet::GetSproutNoteWitnesses(std::vector<SproutOutPoint> notes,
 
 void CWallet::GetSaplingNoteWitnesses(std::vector<SaplingOutPoint> notes,
                                       std::vector<Optional<SaplingWitness>>& witnesses,
-                                      uint256 &final_anchor)
+                                      uint256 &final_anchor) const
 {
     LOCK(cs_wallet);
     witnesses.resize(notes.size());
@@ -2766,8 +2766,8 @@ void CWallet::GetSaplingNoteWitnesses(std::vector<SaplingOutPoint> notes,
     for (SaplingOutPoint note : notes) {
         if (mapWallet.count(note.hash) &&
                 mapWallet.at(note.hash).mapSaplingNoteData.count(note) &&
-                mapWallet.at(note.hash).mapSaplingNoteData[note].witnesses.size() > 0) {
-            witnesses[i] = mapWallet.at(note.hash).mapSaplingNoteData[note].witnesses.front();
+                mapWallet.at(note.hash).mapSaplingNoteData.at(note).witnesses.size() > 0) {
+            witnesses[i] = mapWallet.at(note.hash).mapSaplingNoteData.at(note).witnesses.front();
             if (!rt) {
                 rt = witnesses[i]->root();
             } else {
@@ -3110,7 +3110,7 @@ bool CWallet::CanGetAddresses(bool internal)
     return keypool_has_keys;
 }
 
-OutputType CWallet::GetDefaultAddressType()
+OutputType CWallet::GetDefaultAddressType() const
 {
     if (::ChainActive().Height() > Params().GetConsensus().SegwitHeight)
         return m_default_address_type;
@@ -3118,7 +3118,7 @@ OutputType CWallet::GetDefaultAddressType()
         return OutputType::LEGACY;
 }
 
-OutputType CWallet::GetDefaultChangeType()
+OutputType CWallet::GetDefaultChangeType() const
 {
     if (::ChainActive().Height() > Params().GetConsensus().SegwitHeight)
         return m_default_change_type;
