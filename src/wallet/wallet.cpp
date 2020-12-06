@@ -564,7 +564,7 @@ void CWallet::LoadSproutKeyMetadata(const libzcash::SproutPaymentAddress &addr, 
     mapSproutKeyMetadata[addr] = meta;
 }
 
-void CWallet::LoadSaplingZKeyMetadata(const libzcash::SaplingIncomingViewingKey &ivk, const CKeyMetadata &meta)
+void CWallet::LoadSaplingKeyMetadata(const libzcash::SaplingIncomingViewingKey &ivk, const CKeyMetadata &meta)
 {
     AssertLockHeld(cs_wallet); // mapSaplingKeyMetadata
     mapSaplingKeyMetadata[ivk] = meta;
