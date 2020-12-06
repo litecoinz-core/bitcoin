@@ -510,7 +510,7 @@ bool CWallet::AddSproutZKey(const libzcash::SproutSpendingKey &key)
         RemoveSproutViewingKey(key.viewing_key());
 
     if (!IsCrypted()) {
-        return WalletBatch(*database).WriteZKey(addr, key, mapSproutKeyMetadata[addr]);
+        return WalletBatch(*database).WriteSproutKey(addr, key, mapSproutKeyMetadata[addr]);
     }
     return true;
 }

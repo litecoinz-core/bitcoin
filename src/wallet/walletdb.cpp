@@ -1042,7 +1042,7 @@ bool WalletBatch::WriteZecHDChain(const CZecHDChain& chain)
     return WriteIC(DBKeys::ZEC_HDCHAIN, chain);
 }
 
-bool WalletBatch::WriteZKey(const libzcash::SproutPaymentAddress& addr, const libzcash::SproutSpendingKey& key, const CKeyMetadata &keyMeta)
+bool WalletBatch::WriteSproutKey(const libzcash::SproutPaymentAddress& addr, const libzcash::SproutSpendingKey& key, const CKeyMetadata &keyMeta)
 {
     if (!WriteIC(std::make_pair(DBKeys::SPROUT_KEYMETA, addr), keyMeta))
         return false;
