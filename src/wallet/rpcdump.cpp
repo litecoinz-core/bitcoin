@@ -890,7 +890,7 @@ UniValue dumpwallet_impl(const JSONRPCRequest& request, bool fDumpZKeys)
         for (auto addr : sproutAddresses) {
             libzcash::SproutSpendingKey key;
             if (pwallet->GetSproutSpendingKey(addr, key)) {
-                std::string strTime = FormatISO8601DateTime(pwallet->mapSproutZKeyMetadata[addr].nCreateTime);
+                std::string strTime = FormatISO8601DateTime(pwallet->mapSproutKeyMetadata[addr].nCreateTime);
                 file << strprintf("%s %s # zaddr=%s\n", EncodeSpendingKey(key), strTime, EncodePaymentAddress(addr));
             }
         }

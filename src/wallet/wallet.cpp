@@ -427,7 +427,7 @@ libzcash::SproutPaymentAddress CWallet::GenerateNewSproutZKey()
 {
     assert(!IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS));
     assert(!IsWalletFlagSet(WALLET_FLAG_BLANK_WALLET));
-    AssertLockHeld(cs_wallet); // mapSproutZKeyMetadata
+    AssertLockHeld(cs_wallet); // mapSproutKeyMetadata
 
     auto k = libzcash::SproutSpendingKey::random();
     auto addr = k.address();
@@ -438,7 +438,7 @@ libzcash::SproutPaymentAddress CWallet::GenerateNewSproutZKey()
 
     // Create new metadata
     int64_t nCreationTime = GetTime();
-    mapSproutZKeyMetadata[addr] = CKeyMetadata(nCreationTime);
+    mapSproutKeyMetadata[addr] = CKeyMetadata(nCreationTime);
 
     if (!AddSproutZKey(k))
         throw std::runtime_error(std::string(__func__) + ": AddSproutZKey failed");
@@ -499,7 +499,7 @@ libzcash::SaplingPaymentAddress CWallet::GenerateNewSaplingZKey()
 // Add spending key to keystore and persist to disk
 bool CWallet::AddSproutZKey(const libzcash::SproutSpendingKey &key)
 {
-    AssertLockHeld(cs_wallet); // mapSproutZKeyMetadata
+    AssertLockHeld(cs_wallet); // mapSproutKeyMetadata
     auto addr = key.address();
 
     if (!AddSproutSpendingKey(key))
@@ -510,7 +510,7 @@ bool CWallet::AddSproutZKey(const libzcash::SproutSpendingKey &key)
         RemoveSproutViewingKey(key.viewing_key());
 
     if (!IsCrypted()) {
-        return WalletBatch(*database).WriteZKey(addr, key, mapSproutZKeyMetadata[addr]);
+        return WalletBatch(*database).WriteZKey(addr, key, mapSproutKeyMetadata[addr]);
     }
     return true;
 }
@@ -560,8 +560,8 @@ bool CWallet::LoadSaplingFullViewingKey(const libzcash::SaplingExtendedFullViewi
 
 void CWallet::LoadZKeyMetadata(const libzcash::SproutPaymentAddress &addr, const CKeyMetadata &meta)
 {
-    AssertLockHeld(cs_wallet); // mapSproutZKeyMetadata
-    mapSproutZKeyMetadata[addr] = meta;
+    AssertLockHeld(cs_wallet); // mapSproutKeyMetadata
+    mapSproutKeyMetadata[addr] = meta;
 }
 
 void CWallet::LoadSaplingZKeyMetadata(const libzcash::SaplingIncomingViewingKey &ivk, const CKeyMetadata &meta)
@@ -594,12 +594,12 @@ bool CWallet::AddCryptedSproutSpendingKey(const libzcash::SproutPaymentAddress &
             return encrypted_batch->WriteCryptedSproutKey(address,
                                                           rk,
                                                           vchCryptedSecret,
-                                                          mapSproutZKeyMetadata[address]);
+                                                          mapSproutKeyMetadata[address]);
         else
             return WalletBatch(*database).WriteCryptedSproutKey(address,
                                                                 rk,
                                                                 vchCryptedSecret,
-                                                                mapSproutZKeyMetadata[address]);
+                                                                mapSproutKeyMetadata[address]);
     }
     return false;
 }
@@ -7909,7 +7909,7 @@ KeyAddResult AddSpendingKeyToWallet::operator()(const libzcash::SproutSpendingKe
     if (m_wallet->HaveSproutSpendingKey(addr)) {
         return KeyAlreadyExists;
     } else if (m_wallet-> AddSproutZKey(sk)) {
-        m_wallet->mapSproutZKeyMetadata[addr].nCreateTime = nTime;
+        m_wallet->mapSproutKeyMetadata[addr].nCreateTime = nTime;
         return KeyAdded;
     } else {
         return KeyNotAdded;
