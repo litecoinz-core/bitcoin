@@ -440,8 +440,8 @@ libzcash::SproutPaymentAddress CWallet::GenerateNewSproutZKey()
     int64_t nCreationTime = GetTime();
     mapSproutKeyMetadata[addr] = CKeyMetadata(nCreationTime);
 
-    if (!AddSproutZKey(k))
-        throw std::runtime_error(std::string(__func__) + ": AddSproutZKey failed");
+    if (!AddSproutKey(k))
+        throw std::runtime_error(std::string(__func__) + ": AddSproutKey failed");
 
     return addr;
 }
@@ -497,7 +497,7 @@ libzcash::SaplingPaymentAddress CWallet::GenerateNewSaplingZKey()
 }
 
 // Add spending key to keystore and persist to disk
-bool CWallet::AddSproutZKey(const libzcash::SproutSpendingKey &key)
+bool CWallet::AddSproutKey(const libzcash::SproutSpendingKey &key)
 {
     AssertLockHeld(cs_wallet); // mapSproutKeyMetadata
     auto addr = key.address();
@@ -7908,7 +7908,7 @@ KeyAddResult AddSpendingKeyToWallet::operator()(const libzcash::SproutSpendingKe
     }
     if (m_wallet->HaveSproutSpendingKey(addr)) {
         return KeyAlreadyExists;
-    } else if (m_wallet-> AddSproutZKey(sk)) {
+    } else if (m_wallet-> AddSproutKey(sk)) {
         m_wallet->mapSproutKeyMetadata[addr].nCreateTime = nTime;
         return KeyAdded;
     } else {
