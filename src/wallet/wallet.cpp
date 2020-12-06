@@ -548,7 +548,7 @@ bool CWallet::LoadSproutKey(const libzcash::SproutSpendingKey &key)
     return AddSproutSpendingKey(key);
 }
 
-bool CWallet::LoadSaplingZKey(const libzcash::SaplingExtendedSpendingKey &key)
+bool CWallet::LoadSaplingKey(const libzcash::SaplingExtendedSpendingKey &key)
 {
     return AddSaplingSpendingKey(key);
 }

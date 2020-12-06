@@ -1386,7 +1386,7 @@ public:
     //! full viewing key to the keystore, to avoid this override.
     bool AddSaplingFullViewingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk);
     //! Adds spending key to the store, without saving it to disk (used by LoadWallet)
-    bool LoadSaplingZKey(const libzcash::SaplingExtendedSpendingKey &key);
+    bool LoadSaplingKey(const libzcash::SaplingExtendedSpendingKey &key);
     //! Load spending key metadata (used by LoadWallet)
     void LoadSaplingKeyMetadata(const libzcash::SaplingIncomingViewingKey &ivk, const CKeyMetadata &meta);
     //! Add Sapling full viewing key to the store, without saving it to disk (used by LoadWallet)

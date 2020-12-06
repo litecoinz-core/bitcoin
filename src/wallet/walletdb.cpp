@@ -435,9 +435,9 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             libzcash::SaplingExtendedSpendingKey key;
             ssValue >> key;
 
-            if (!pwallet->LoadSaplingZKey(key))
+            if (!pwallet->LoadSaplingKey(key))
             {
-                strErr = "Error reading wallet database: LoadSaplingZKey failed";
+                strErr = "Error reading wallet database: LoadSaplingKey failed";
                 return false;
             }
             wss.nSaplingKeys++;
