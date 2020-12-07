@@ -274,7 +274,8 @@ void InputControlDialog::viewItemSelectionChanged()
         if (!(item->data(COLUMN_ADDRESS, TxHashRole).toString().length() == 64))
         {
             unsigned int nQuantity = item->childCount();
-            CAmount nAmount = AmountFromValue(ValueFromString(item->data(COLUMN_AMOUNT, Qt::DisplayRole).toString().toStdString()));
+            std::string strAmount = item->data(COLUMN_AMOUNT, Qt::UserRole).toString().toStdString();
+            CAmount nAmount = ValueFromString(strAmount).get_int64();
             CAmount nPayFee = model->wallet().getCustomFee(*inputControl());
             CAmount nAfterFee = nAmount - nPayFee;
             inputControl()->Select(nQuantity, nAmount, nPayFee, nAfterFee);
