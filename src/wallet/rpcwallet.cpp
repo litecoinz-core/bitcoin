@@ -4803,6 +4803,8 @@ UniValue z_sendmany(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_NOT_INSYNC, "Blockchain is not fully synced, aborting to prevent linkability analysis!");
     }
 
+    EnsureWalletIsUnlocked(pwallet);
+
     // Check that the from address is valid.
     auto fromaddress = request.params[0].get_str();
     bool fromTaddr = false;
