@@ -465,6 +465,9 @@
                <verstretch>0</verstretch>
               </sizepolicy>
              </property>
+             <property name="placeholderText">
+              <string>Select a LitecoinZ address as input</string>
+             </property>
             </widget>
            </item>
           </layout>
