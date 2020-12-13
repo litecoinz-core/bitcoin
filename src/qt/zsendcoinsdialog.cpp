@@ -174,6 +174,7 @@ void ZSendCoinsDialog::on_sendButton_clicked()
     if (addressFrom.isEmpty())
     {
         valid = false;
+        ui->shieldFrom->setValid(false);
     }
 
     if(!valid || recipients.isEmpty())

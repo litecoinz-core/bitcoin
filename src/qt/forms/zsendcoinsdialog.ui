@@ -455,7 +455,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="shieldFrom">
+            <widget class="QValidatedLineEdit" name="shieldFrom">
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -913,6 +913,11 @@
   </layout>
  </widget>
  <customwidgets>
+  <customwidget>
+   <class>QValidatedLineEdit</class>
+   <extends>QLineEdit</extends>
+   <header>qt/qvalidatedlineedit.h</header>
+  </customwidget>
   <customwidget>
    <class>BitcoinAmountField</class>
    <extends>QLineEdit</extends>
