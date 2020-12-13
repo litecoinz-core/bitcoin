@@ -436,6 +436,9 @@ void InputControlDialog::updateView()
 
             // vout index
             itemOutput->setData(COLUMN_ADDRESS, VOutRole, output.n);
+
+            // disable sub-item
+            itemOutput->setDisabled(true);
         }
 
         // amount
@@ -505,6 +508,9 @@ void InputControlDialog::updateView()
 
             // vout index
             itemOutput->setData(COLUMN_ADDRESS, VOutRole, output.n);
+
+            // disable sub-item
+            itemOutput->setDisabled(true);
         }
 
         // quantity
@@ -575,6 +581,9 @@ void InputControlDialog::updateView()
 
             // vout index
             itemOutput->setData(COLUMN_ADDRESS, VOutRole, output.n);
+
+            // disable sub-item
+            itemOutput->setDisabled(true);
         }
 
         // quantity
