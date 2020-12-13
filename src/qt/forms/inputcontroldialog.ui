@@ -235,7 +235,7 @@
        <number>0</number>
       </property>
       <item>
-       <widget class="QLineEdit" name="shieldFrom">
+       <widget class="QValidatedLineEdit" name="shieldFrom">
         <property name="enabled">
          <bool>false</bool>
         </property>
@@ -315,6 +315,11 @@
   </layout>
  </widget>
  <customwidgets>
+  <customwidget>
+   <class>QValidatedLineEdit</class>
+   <extends>QLineEdit</extends>
+   <header>qt/qvalidatedlineedit.h</header>
+  </customwidget>
   <customwidget>
    <class>CoinControlTreeWidget</class>
    <extends>QTreeWidget</extends>

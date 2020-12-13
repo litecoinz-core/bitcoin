@@ -455,7 +455,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="shieldFrom">
+            <widget class="QValidatedLineEdit" name="shieldFrom">
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -464,6 +464,9 @@
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
+             </property>
+             <property name="placeholderText">
+              <string>Select a LitecoinZ address as input</string>
              </property>
             </widget>
            </item>
@@ -913,6 +916,11 @@
   </layout>
  </widget>
  <customwidgets>
+  <customwidget>
+   <class>QValidatedLineEdit</class>
+   <extends>QLineEdit</extends>
+   <header>qt/qvalidatedlineedit.h</header>
+  </customwidget>
   <customwidget>
    <class>BitcoinAmountField</class>
    <extends>QLineEdit</extends>
