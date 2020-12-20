@@ -296,7 +296,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     obj.pushKV("blocks",           (int)::ChainActive().Height());
     if (BlockAssembler::m_last_block_weight) obj.pushKV("currentblockweight", *BlockAssembler::m_last_block_weight);
     if (BlockAssembler::m_last_block_num_txs) obj.pushKV("currentblocktx", *BlockAssembler::m_last_block_num_txs);
-    obj.pushKV("difficulty",       (double)GetNetworkDifficulty(::ChainActive().Tip()));
+    obj.pushKV("difficulty",       (double)GetDifficulty(::ChainActive().Tip()));
     obj.pushKV("localsolps",       getlocalsolps(request));
     obj.pushKV("networksolps",     getnetworksolps(request));
     obj.pushKV("networkhashps",    getnetworkhashps(request));
