@@ -2525,6 +2525,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // same as the root of the Sapling tree
     if (chainparams.GetConsensus().NetworkUpgradeActive(pindex->nHeight, Consensus::UPGRADE_SAPLING)) {
         if (block.hashSaplingRoot != sapling_tree.root()) {
+            LogPrintf("hashSaplingRoot: %s - sapling_tree.root: %s", block.hashSaplingRoot.GetHex(), sapling_tree.root().GetHex());
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-sapling-root-in-block");
         }
     }

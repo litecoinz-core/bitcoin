@@ -206,14 +206,19 @@ public:
                 { 80000, uint256S("0x000000157847bab44d199ad34954da98910c726575716270771ee7e32ceba1d6")},
                 { 90000, uint256S("0x0000002564e3694cd1240d570fdcf9cf36791b2e2c462040fb78af34959dd02e")},
                 { 93096, uint256S("0x00000038101895ae9add3b5d288db258b053c4bdc39642aeb6be44f7f53bc929")},
+                { 95001, uint256S("0x0000000169dcc8f2b842beefd00bb7bf0069eba2acdbbfc70c9fa8edcbe326e1")},
+                { 120000, uint256S("0x000004c863a6f98cccecab76eab12b4a349f13f77ba6adab932197e2fb122f31")},
+                { 200000, uint256S("0x0000030578048515037b4fdcf86a0a5a100c1bff8df73a96992688d64dcd3aa1")},
+                { 262840, uint256S("0x000014ceea9e80561902ab4cde1d137e7a9925fe8388f72fa614e0314bd7f328")},
+                { 603615, uint256S("0x000005d20b3b77090a5b04a9ea7143a363da1da282c5eaefedb20ff0309eb314")},
             }
         };
 
         chainTxData = ChainTxData{
-            // Data from RPC: getchaintxstats 4096 00000000000000000005f8920febd3925f8272a6a71237563d78c2edfdd09ddf
-            /* nTime    */ 1529323588,
-            /* nTxCount */ 95703,
-            /* dTxRate  */ 1600,
+            // Data from RPC: getchaintxstats 4320 000005d20b3b77090a5b04a9ea7143a363da1da282c5eaefedb20ff0309eb314
+            /* nTime    */ 1608385504,
+            /* nTxCount */ 1550261,
+            /* dTxRate  */ 0.003369443837251596,
         };
 
         // Hardcoded fallback value for the Sprout shielded value pool balance

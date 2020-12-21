@@ -296,7 +296,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     obj.pushKV("blocks",           (int)::ChainActive().Height());
     if (BlockAssembler::m_last_block_weight) obj.pushKV("currentblockweight", *BlockAssembler::m_last_block_weight);
     if (BlockAssembler::m_last_block_num_txs) obj.pushKV("currentblocktx", *BlockAssembler::m_last_block_num_txs);
-    obj.pushKV("difficulty",       (double)GetNetworkDifficulty(::ChainActive().Tip()));
+    obj.pushKV("difficulty",       (double)GetDifficulty(::ChainActive().Tip()));
     obj.pushKV("localsolps",       getlocalsolps(request));
     obj.pushKV("networksolps",     getnetworksolps(request));
     obj.pushKV("networkhashps",    getnetworkhashps(request));
@@ -441,6 +441,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
             "  \"curtime\" : ttt,                  (numeric) current timestamp in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"bits\" : \"xxxxxxxx\",              (string) compressed target of next block\n"
             "  \"height\" : n                      (numeric) The height of the next block\n"
+            "  \"pow\" : \"xxxxxxxx\",               (string) proof of work in use\n"
             "  \"equihashn\" : n                   (numeric) Equihash N\n"
             "  \"equihashk\" : n                   (numeric) Equihash K\n"
             "}\n"
@@ -758,10 +759,18 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     }
     result.pushKV("curtime", pblock->GetBlockTime());
     result.pushKV("bits", strprintf("%08x", pblock->nBits));
+
     int height = pindexPrev->nHeight + 1;
     result.pushKV("height", (int64_t)height);
-    result.pushKV("equihashn", (int64_t)(Params().GetConsensus().EquihashN(height)));
-    result.pushKV("equihashk", (int64_t)(Params().GetConsensus().EquihashK(height)));
+
+    if (height < consensusParams.nLwmaForkHeight) {
+        result.pushKV("pow", "Digishield");
+    } else {
+        result.pushKV("pow", "Lwma");
+    }
+
+    result.pushKV("equihashn", (int64_t)(consensusParams.EquihashN(height)));
+    result.pushKV("equihashk", (int64_t)(consensusParams.EquihashK(height)));
 
     if (!pblocktemplate->vchCoinbaseCommitment.empty() && isSegwitEnabled) {
         result.pushKV("default_witness_commitment", HexStr(pblocktemplate->vchCoinbaseCommitment.begin(), pblocktemplate->vchCoinbaseCommitment.end()));
