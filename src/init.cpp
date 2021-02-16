@@ -115,7 +115,7 @@ static fs::path GetPidFile()
     return AbsPathForConfigVal(fs::path(gArgs.GetArg("-pid", BITCOIN_PID_FILENAME)));
 }
 
-NODISCARD static bool CreatePidFile()
+[[nodiscard]] static bool CreatePidFile()
 {
     fsbridge::ofstream file{GetPidFile()};
     if (file) {
