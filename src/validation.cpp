@@ -571,7 +571,7 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
     int nextBlockHeight = ::ChainActive().Height() + 1;
     auto consensusBranchId = CurrentEpochBranchId(nextBlockHeight, Params().GetConsensus());
 
-    auto verifier = libzcash::ProofVerifier::Strict();
+    auto verifier = ProofVerifier::Strict();
     if (!CheckTransaction(tx, state, verifier))
         return false; // state filled in by CheckTransaction
 
@@ -2124,8 +2124,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
     }
 
-    auto verifier = libzcash::ProofVerifier::Strict();
-    auto disabledVerifier = libzcash::ProofVerifier::Disabled();
+    auto verifier = ProofVerifier::Strict();
+    auto disabledVerifier = ProofVerifier::Disabled();
 
     // Grab the current consensus branch ID
     auto consensusBranchId = CurrentEpochBranchId(::ChainActive().Height() + 1, Params().GetConsensus());
@@ -3783,7 +3783,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     return true;
 }
 
-bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, libzcash::ProofVerifier& verifier, bool fCheckPOW, bool fCheckMerkleRoot)
+bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, ProofVerifier& verifier, bool fCheckPOW, bool fCheckMerkleRoot)
 {
     // These are checks that are independent of context.
 
@@ -4248,7 +4248,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     }
 
     // See method docstring for why this is always disabled
-    auto verifier = libzcash::ProofVerifier::Disabled();
+    auto verifier = ProofVerifier::Disabled();
 
     if (!CheckBlock(block, state, chainparams.GetConsensus(), verifier) ||
         !ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindex->pprev)) {
@@ -4300,7 +4300,7 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
 
         // Ensure that CheckBlock() passes before calling AcceptBlock, as
         // belt-and-suspenders.
-        auto verifier = libzcash::ProofVerifier::Disabled();
+        auto verifier = ProofVerifier::Disabled();
         bool ret = CheckBlock(*pblock, state, chainparams.GetConsensus(), verifier);
         if (ret) {
             // Store to disk
@@ -4333,7 +4333,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     indexDummy.phashBlock = &block_hash;
 
     // JoinSplit proofs are verified in ConnectBlock
-    auto verifier = libzcash::ProofVerifier::Disabled();
+    auto verifier = ProofVerifier::Disabled();
 
     // NOTE: CheckBlockHeader is called by CheckBlock
     if (!ContextualCheckBlockHeader(block, state, chainparams, pindexPrev, GetAdjustedTime()))
@@ -4793,7 +4793,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
     int nGoodTransactions = 0;
     CValidationState state;
     // No need to verify JoinSplits twice
-    auto verifier = libzcash::ProofVerifier::Disabled();
+    auto verifier = ProofVerifier::Disabled();
     int reportDone = 0;
     LogPrintf("[0%%]..."); /* Continued */
     for (pindex = ::ChainActive().Tip(); pindex && pindex->pprev; pindex = pindex->pprev) {

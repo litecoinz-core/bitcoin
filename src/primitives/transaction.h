@@ -229,43 +229,6 @@ public:
 
     JSDescription(): vpub_old(0), vpub_new(0) { }
 
-    JSDescription(
-            ZCJoinSplit& params,
-            const uint256& joinSplitPubKey,
-            const uint256& rt,
-            const std::array<libzcash::JSInput, ZC_NUM_JS_INPUTS>& inputs,
-            const std::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS>& outputs,
-            CAmount vpub_old,
-            CAmount vpub_new,
-            bool computeProof = true, // Set to false in some tests
-            uint256 *esk = nullptr // payment disclosure
-    );
-
-    static JSDescription Randomized(
-            ZCJoinSplit& params,
-            const uint256& joinSplitPubKey,
-            const uint256& rt,
-            std::array<libzcash::JSInput, ZC_NUM_JS_INPUTS>& inputs,
-            std::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS>& outputs,
-            std::array<size_t, ZC_NUM_JS_INPUTS>& inputMap,
-            std::array<size_t, ZC_NUM_JS_OUTPUTS>& outputMap,
-            CAmount vpub_old,
-            CAmount vpub_new,
-            bool computeProof = true, // Set to false in some tests
-            uint256 *esk = nullptr, // payment disclosure
-            std::function<int(int)> gen = GetRandInt
-    );
-
-    // Verifies that the JoinSplit proof is correct.
-    bool Verify(
-        ZCJoinSplit& params,
-        libzcash::ProofVerifier& verifier,
-        const uint256& joinSplitPubKey
-    ) const;
-
-    // Returns the calculated h_sig
-    uint256 h_sig(ZCJoinSplit& params, const uint256& joinSplitPubKey) const;
-
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>

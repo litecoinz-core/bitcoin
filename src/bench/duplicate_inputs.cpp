@@ -58,7 +58,7 @@ static void DuplicateInputs(benchmark::State& state)
 
     block.hashMerkleRoot = BlockMerkleRoot(block);
 
-    auto verifier = libzcash::ProofVerifier::Disabled();
+    auto verifier = ProofVerifier::Disabled();
     while (state.KeepRunning()) {
         CValidationState cvstate{};
         assert(!CheckBlock(block, cvstate, chainparams.GetConsensus(), verifier, false, false));

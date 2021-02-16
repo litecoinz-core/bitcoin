@@ -12,7 +12,7 @@
 #include <tinyformat.h>
 #include <util/strencodings.h>
 
-#include <zcashparams.h>
+#include <sodium.h>
 
 /**
  * Check a transaction contextually against a set of consensus rules valid at a given block height.
@@ -185,14 +185,14 @@ bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state,
     return true;
 }
 
-bool CheckTransaction(const CTransaction& tx, CValidationState &state, libzcash::ProofVerifier& verifier, bool fCheckDuplicateInputs)
+bool CheckTransaction(const CTransaction& tx, CValidationState &state, ProofVerifier& verifier, bool fCheckDuplicateInputs)
 {
     if (!CheckTransactionWithoutProofVerification(tx, state, fCheckDuplicateInputs)) {
         return false;
     } else {
         // Ensure that zk-SNARKs verify
         for (const JSDescription &joinsplit : tx.vJoinSplit) {
-            if (!joinsplit.Verify(*pzcashParams, verifier, tx.joinSplitPubKey))
+            if (!verifier.VerifySprout(joinsplit, tx.joinSplitPubKey))
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-joinsplit-verification-failed");
         }
         return true;

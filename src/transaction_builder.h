@@ -47,6 +47,37 @@ struct OutputDescriptionInfo {
         std::array<unsigned char, ZC_MEMO_SIZE> memo) : ovk(ovk), note(note), memo(memo) {}
 };
 
+struct JSDescriptionInfo {
+    uint256 joinSplitPubKey;
+    uint256 anchor;
+    // We store references to these so they are correctly randomised for the caller.
+    std::array<libzcash::JSInput, ZC_NUM_JS_INPUTS>& inputs;
+    std::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS>& outputs;
+    CAmount vpub_old;
+    CAmount vpub_new;
+
+    JSDescriptionInfo(
+        uint256 joinSplitPubKey,
+        uint256 anchor,
+        std::array<libzcash::JSInput, ZC_NUM_JS_INPUTS>& inputs,
+        std::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS>& outputs,
+        CAmount vpub_old,
+        CAmount vpub_new) : joinSplitPubKey(joinSplitPubKey), anchor(anchor), inputs(inputs), outputs(outputs), vpub_old(vpub_old), vpub_new(vpub_new) {}
+
+    JSDescription BuildDeterministic(
+        bool computeProof = true, // Set to false in some tests
+        uint256* esk = nullptr    // payment disclosure
+    );
+
+    JSDescription BuildRandomized(
+        std::array<size_t, ZC_NUM_JS_INPUTS>& inputMap,
+        std::array<size_t, ZC_NUM_JS_OUTPUTS>& outputMap,
+        bool computeProof = true, // Set to false in some tests
+        uint256* esk = nullptr,   // payment disclosure
+        std::function<int(int)> gen = GetRandInt
+    );
+};
+
 struct TransparentInputInfo {
     CScript scriptPubKey;
     CAmount value;
@@ -76,7 +107,6 @@ private:
     Consensus::Params consensusParams;
     int nHeight;
     const SigningProvider* provider;
-    ZCJoinSplit* sproutParams;
     const CCoinsViewCache* coinsView;
     CCriticalSection* cs_coinsView;
     CMutableTransaction mtx;
@@ -98,7 +128,6 @@ public:
         const Consensus::Params& consensusParams,
         int nHeight,
         SigningProvider* provider_ = nullptr,
-        ZCJoinSplit* sproutParams = nullptr,
         CCoinsViewCache* coinsView = nullptr,
         CCriticalSection* cs_coinsView = nullptr);
 

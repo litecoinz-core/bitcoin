@@ -23,15 +23,8 @@
 
 namespace libzcash {
 
-static CCriticalSection cs_ParamsIO;
-
-template<size_t NumInputs, size_t NumOutputs>
-class JoinSplitCircuit : public JoinSplit<NumInputs, NumOutputs> {
-public:
-    JoinSplitCircuit() {}
-    ~JoinSplitCircuit() {}
-
-    SproutProof prove(
+    template<size_t NumInputs, size_t NumOutputs>
+    SproutProof JoinSplit<NumInputs, NumOutputs>::prove(
         const std::array<JSInput, NumInputs>& inputs,
         const std::array<JSOutput, NumOutputs>& outputs,
         std::array<SproutNote, NumOutputs>& out_notes,
@@ -100,7 +93,7 @@ public:
         out_randomSeed = random_uint256();
 
         // Compute h_sig
-        uint256 h_sig = this->h_sig(out_randomSeed, out_nullifiers, joinSplitPubKey);
+        uint256 h_sig = JoinSplit<NumInputs, NumOutputs>::h_sig(out_randomSeed, out_nullifiers, joinSplitPubKey);
 
         // Sample phi
         uint252 phi = random_uint252();
@@ -209,13 +202,6 @@ public:
 
         return proof;
     }
-};
-
-template<size_t NumInputs, size_t NumOutputs>
-JoinSplit<NumInputs, NumOutputs>* JoinSplit<NumInputs, NumOutputs>::Prepared()
-{
-    return new JoinSplitCircuit<NumInputs, NumOutputs>();
-}
 
 template<size_t NumInputs, size_t NumOutputs>
 uint256 JoinSplit<NumInputs, NumOutputs>::h_sig(

@@ -14,6 +14,7 @@
 #include <net.h>
 #include <netbase.h>
 #include <policy/policy.h>
+#include <proof_verifier.h>
 #include <rpc/protocol.h>
 #include <rpc/request.h>
 #include <rpc/server.h>
@@ -30,7 +31,6 @@
 #include <wallet/wallet.h>
 #include <wallet/walletdb.h>
 #include <zcash/IncrementalMerkleTree.hpp>
-#include <zcashparams.h>
 
 #include <array>
 #include <chrono>
@@ -616,7 +616,10 @@ bool AsyncRPCOperation_sendmany::main_impl() {
 
             // Decrypt the change note's ciphertext to retrieve some data we need
             ZCNoteDecryption decryptor(std::get<libzcash::SproutSpendingKey>(spendingkey_).receiving_key());
-            auto hSig = prevJoinSplit.h_sig(*pzcashParams, tx_->joinSplitPubKey);
+            auto hSig = ZCJoinSplit::h_sig(
+                prevJoinSplit.randomSeed,
+                prevJoinSplit.nullifiers,
+                tx_->joinSplitPubKey);
             try {
                 libzcash::SproutNotePlaintext plaintext = libzcash::SproutNotePlaintext::decrypt(
                         decryptor,
@@ -1036,21 +1039,21 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
     uint256 esk; // payment disclosure - secret
 
     assert(mtx.fOverwintered && (mtx.nVersion >= SAPLING_TX_VERSION));
-    JSDescription jsdesc = JSDescription::Randomized(
-            *pzcashParams,
+    JSDescription jsdesc = JSDescriptionInfo(
             joinSplitPubKey_,
             anchor,
             inputs,
             outputs,
+            info.vpub_old,
+            info.vpub_new
+    ).BuildRandomized(
             inputMap,
             outputMap,
-            info.vpub_old,
-            info.vpub_new,
             !this->testmode,
             &esk); // parameter expects pointer to esk, so pass in address
     {
-        auto verifier = libzcash::ProofVerifier::Strict();
-        if (!(jsdesc.Verify(*pzcashParams, verifier, joinSplitPubKey_))) {
+        auto verifier = ProofVerifier::Strict();
+        if (!(verifier.VerifySprout(jsdesc, joinSplitPubKey_))) {
             throw std::runtime_error("error verifying joinsplit");
         }
     }
@@ -1102,7 +1105,7 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
         ss2 << ((unsigned char) 0x00);
         ss2 << jsdesc.ephemeralKey;
         ss2 << jsdesc.ciphertexts[0];
-        ss2 << jsdesc.h_sig(*pzcashParams, joinSplitPubKey_);
+        ss2 << ZCJoinSplit::h_sig(jsdesc.randomSeed, jsdesc.nullifiers, joinSplitPubKey_);
 
         encryptedNote1 = HexStr(ss2.begin(), ss2.end());
     }
@@ -1111,7 +1114,7 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
         ss2 << ((unsigned char) 0x01);
         ss2 << jsdesc.ephemeralKey;
         ss2 << jsdesc.ciphertexts[1];
-        ss2 << jsdesc.h_sig(*pzcashParams, joinSplitPubKey_);
+        ss2 << ZCJoinSplit::h_sig(jsdesc.randomSeed, jsdesc.nullifiers, joinSplitPubKey_);
 
         encryptedNote2 = HexStr(ss2.begin(), ss2.end());
     }

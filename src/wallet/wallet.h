@@ -28,6 +28,7 @@
 #include <wallet/walletutil.h>
 
 #include <zcash/Address.hpp>
+#include <zcash/Note.hpp>
 
 #include <algorithm>
 #include <atomic>

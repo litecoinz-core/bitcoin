@@ -36,8 +36,8 @@
 #include <validation.h>
 #include <wallet/coincontrol.h>
 #include <wallet/fees.h>
-#include <zcashparams.h>
 
+#include <zcash/JoinSplit.hpp>
 #include <zcash/Note.hpp>
 
 #include <algorithm>
@@ -1975,8 +1975,10 @@ bool CWallet::UpdateNullifierNoteMap()
                 if (!item.second.nullifier) {
                     if (GetNoteDecryptor(item.second.address, dec)) {
                         auto i = item.first.js;
-                        auto hSig = wtxItem.second.tx->vJoinSplit[i].h_sig(
-                            *pzcashParams, wtxItem.second.tx->joinSplitPubKey);
+                        auto hSig = ZCJoinSplit::h_sig(
+                            wtxItem.second.tx->vJoinSplit[i].randomSeed,
+                            wtxItem.second.tx->vJoinSplit[i].nullifiers,
+                            wtxItem.second.tx->joinSplitPubKey);
                         item.second.nullifier = GetSproutNoteNullifier(
                             wtxItem.second.tx->vJoinSplit[i],
                             item.second.address,
@@ -2038,8 +2040,10 @@ void CWallet::UpdateSproutNullifierNoteMapWithTx(CWalletTx& wtx) {
         else {
             if (GetNoteDecryptor(nd.address, dec)) {
                 auto i = item.first.js;
-                auto hSig = wtx.tx->vJoinSplit[i].h_sig(
-                    *pzcashParams, wtx.tx->joinSplitPubKey);
+                auto hSig = ZCJoinSplit::h_sig(
+                    wtx.tx->vJoinSplit[i].randomSeed,
+                    wtx.tx->vJoinSplit[i].nullifiers,
+                    wtx.tx->joinSplitPubKey);
                 auto optNullifier = GetSproutNoteNullifier(
                     wtx.tx->vJoinSplit[i],
                     item.second.address,
@@ -2630,7 +2634,10 @@ mapSproutNoteData_t CWallet::FindMySproutNotes(const CTransaction &tx) const
 
     mapSproutNoteData_t noteData;
     for (size_t i = 0; i < tx.vJoinSplit.size(); i++) {
-        auto hSig = tx.vJoinSplit[i].h_sig(*pzcashParams, tx.joinSplitPubKey);
+        auto hSig = ZCJoinSplit::h_sig(
+            tx.vJoinSplit[i].randomSeed,
+            tx.vJoinSplit[i].nullifiers,
+            tx.joinSplitPubKey);
         for (uint8_t j = 0; j < tx.vJoinSplit[i].ciphertexts.size(); j++) {
             for (const NoteDecryptorMap::value_type& item : mapNoteDecryptors) {
                 try {
@@ -4243,7 +4250,10 @@ void CWallet::AvailableSproutNotes(interfaces::Chain::Lock& locked_chain, std::v
 
             // determine amount of funds in the note
             libzcash::SproutNotePlaintext plaintext;
-            auto hSig = wtx.tx->vJoinSplit[i].h_sig(*pzcashParams, wtx.tx->joinSplitPubKey);
+            auto hSig = ZCJoinSplit::h_sig(
+                wtx.tx->vJoinSplit[i].randomSeed,
+                wtx.tx->vJoinSplit[i].nullifiers,
+                wtx.tx->joinSplitPubKey);
             try {
                 plaintext = libzcash::SproutNotePlaintext::decrypt(
                         decryptor,
@@ -7346,7 +7356,10 @@ std::pair<libzcash::SproutNotePlaintext, libzcash::SproutPaymentAddress> CWallet
     }
 
     const CTransactionRef tx = this->tx;
-    auto hSig = tx->vJoinSplit[jsop.js].h_sig(*pzcashParams, tx->joinSplitPubKey);
+    auto hSig = ZCJoinSplit::h_sig(
+        tx->vJoinSplit[jsop.js].randomSeed,
+        tx->vJoinSplit[jsop.js].nullifiers,
+        tx->joinSplitPubKey);
     try {
         libzcash::SproutNotePlaintext plaintext = libzcash::SproutNotePlaintext::decrypt(
                 decryptor,
@@ -7642,7 +7655,10 @@ void CWallet::GetFilteredNotes(
             }
 
             // determine amount of funds in the note
-            auto hSig = wtx.tx->vJoinSplit[i].h_sig(*pzcashParams, wtx.tx->joinSplitPubKey);
+            auto hSig = ZCJoinSplit::h_sig(
+                wtx.tx->vJoinSplit[i].randomSeed,
+                wtx.tx->vJoinSplit[i].nullifiers,
+                wtx.tx->joinSplitPubKey);
             try {
                 libzcash::SproutNotePlaintext plaintext = libzcash::SproutNotePlaintext::decrypt(
                         decryptor,

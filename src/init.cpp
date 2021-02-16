@@ -56,7 +56,6 @@
 #include <validation.h>
 #include <validationinterface.h>
 #include <walletinitinterface.h>
-#include <zcashparams.h>
 
 #include <stdint.h>
 #include <stdio.h>
@@ -294,8 +293,6 @@ void Shutdown(InitInterfaces& interfaces)
     UnregisterAllValidationInterfaces();
     GetMainSignals().UnregisterBackgroundSignalScheduler();
     GetMainSignals().UnregisterWithMempoolSignals(mempool);
-    delete pzcashParams;
-    pzcashParams = nullptr;
     globalVerifyHandle.reset();
     ECC_Stop();
     LogPrintf("%s: done\n", __func__);
@@ -811,7 +808,6 @@ static bool LoadParams()
         return false;
     }
 
-    pzcashParams = ZCJoinSplit::Prepared();
     static_assert(sizeof(fs::path::value_type) == sizeof(codeunit), "librustzcash not configured correctly");
 
     auto sapling_spend_str = sapling_spend.native();
@@ -1267,7 +1263,7 @@ bool AppInitSanityChecks()
     // ********************************************************* Step 4: sanity checks
 
     // Initialize libsodium
-    if (init_and_check_sodium() == -1) {
+    if (sodium_init() == -1) {
         return false;
     }
 
