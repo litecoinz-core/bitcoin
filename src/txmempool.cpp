@@ -868,7 +868,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             i++;
         }
 
-        std::unordered_map<uint256, SproutMerkleTree, CCoinsKeyHasher> intermediates;
+        std::unordered_map<uint256, SproutMerkleTree, SaltedTxidHasher> intermediates;
 
         for (const JSDescription &joinsplit : tx.vJoinSplit) {
             for (const uint256 &nf : joinsplit.nullifiers) {
@@ -1391,5 +1391,3 @@ void CTxMemPool::SetIsLoaded(bool loaded)
     LOCK(cs);
     m_is_loaded = loaded;
 }
-
-SaltedTxidHasher::SaltedTxidHasher() : k0(GetRand(std::numeric_limits<uint64_t>::max())), k1(GetRand(std::numeric_limits<uint64_t>::max())) {}
