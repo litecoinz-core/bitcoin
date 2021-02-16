@@ -1070,7 +1070,7 @@ std::set<std::pair<libzcash::PaymentAddress, uint256>> CWallet::GetNullifiersFor
     // (There may be more than one diversified address for a given ivk.)
     std::map<libzcash::SaplingIncomingViewingKey, std::vector<libzcash::SaplingPaymentAddress>> ivkMap;
     for (const auto & addr : addresses) {
-        auto saplingAddr = boost::get<libzcash::SaplingPaymentAddress>(&addr);
+        auto saplingAddr = std::get_if<libzcash::SaplingPaymentAddress>(&addr);
         if (saplingAddr != nullptr) {
             libzcash::SaplingIncomingViewingKey ivk;
             this->GetSaplingIncomingViewingKey(*saplingAddr, ivk);
@@ -4416,7 +4416,7 @@ std::map<libzcash::SproutPaymentAddress, std::vector<SproutOutput>> CWallet::Lis
 
     for (const SproutOutput& note : availableNotes) {
         libzcash::SproutPaymentAddress address = note.address;
-        bool hasSproutSpendingKey = HaveSproutSpendingKey(boost::get<libzcash::SproutPaymentAddress>(note.address));
+        bool hasSproutSpendingKey = HaveSproutSpendingKey(note.address);
         if (hasSproutSpendingKey) {
             result[address].emplace_back(std::move(note));
         }
@@ -4438,7 +4438,7 @@ std::map<libzcash::SaplingPaymentAddress, std::vector<SaplingOutput>> CWallet::L
         libzcash::SaplingPaymentAddress address = note.address;
         libzcash::SaplingIncomingViewingKey ivk;
         libzcash::SaplingExtendedFullViewingKey extfvk;
-        GetSaplingIncomingViewingKey(boost::get<libzcash::SaplingPaymentAddress>(note.address), ivk);
+        GetSaplingIncomingViewingKey(note.address, ivk);
         GetSaplingFullViewingKey(ivk, extfvk);
         bool hasSaplingSpendingKey = HaveSaplingSpendingKey(extfvk);
         if (hasSaplingSpendingKey) {
@@ -4825,7 +4825,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
             CScript scriptChange;
 
             // coin control: send change to custom address
-            if (!boost::get<CNoDestination>(&coin_control.destChange)) {
+            if (!std::get_if<CNoDestination>(&coin_control.destChange)) {
                 scriptChange = GetScriptForDestination(coin_control.destChange);
             } else { // no coin control: send change to newly generated address
                 // Note: We use a new key here to keep it from being obvious which side is the change.
@@ -6102,7 +6102,7 @@ unsigned int CWallet::ComputeTimeSmart(const CWalletTx& wtx) const
 
 bool CWallet::AddDestData(const CTxDestination &dest, const std::string &key, const std::string &value)
 {
-    if (boost::get<CNoDestination>(&dest))
+    if (std::get_if<CNoDestination>(&dest))
         return false;
 
     mapAddressBook[dest].destdata.insert(std::make_pair(key, value));

@@ -191,7 +191,7 @@ static UniValue validateaddress(const JSONRPCRequest& request)
     return ret;
 }
 
-class DescribePaymentAddressVisitor : public boost::static_visitor<UniValue>
+class DescribePaymentAddressVisitor
 {
 public:
     UniValue operator()(const libzcash::InvalidEncoding &zaddr) const { return UniValue(UniValue::VOBJ); }
@@ -262,11 +262,11 @@ static UniValue z_validateaddress(const JSONRPCRequest& request)
         ret.pushKV("address", strAddress);
 
 #ifdef ENABLE_WALLET
-        bool mine = boost::apply_visitor(HaveSpendingKeyForPaymentAddress(pwallet), address);
+        bool mine = std::visit(HaveSpendingKeyForPaymentAddress(pwallet), address);
         ret.pushKV("ismine", mine);
 #endif
 
-        UniValue detail = boost::apply_visitor(DescribePaymentAddressVisitor(), address);
+        UniValue detail = std::visit(DescribePaymentAddressVisitor(), address);
         ret.pushKVs(detail);
     }
     return ret;
@@ -482,7 +482,7 @@ static UniValue verifymessage(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address");
     }
 
-    const PKHash *pkhash = boost::get<PKHash>(&destination);
+    const PKHash *pkhash = std::get_if<PKHash>(&destination);
     if (!pkhash) {
         throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to key");
     }
@@ -591,14 +591,14 @@ static bool getIndexKey(const CTxDestination& dest, uint160& hashBytes, int& typ
     if (!IsValidDestination(dest)) {
         return false;
     }
-    if (dest.type() == typeid(PKHash)) {
-        auto x = boost::get<PKHash>(&dest);
+    if (std::holds_alternative<PKHash>(dest)) {
+        auto x = std::get_if<PKHash>(&dest);
         memcpy(&hashBytes, x->begin(), 20);
         type = CScript::P2PKH;
         return true;
     }
-    if (dest.type() == typeid(ScriptHash)) {
-        auto x = boost::get<ScriptHash>(&dest);
+    if (std::holds_alternative<ScriptHash>(dest)) {
+        auto x = std::get_if<ScriptHash>(&dest);
         memcpy(&hashBytes, x->begin(), 20);
         type = CScript::P2SH;
         return true;

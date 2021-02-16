@@ -561,7 +561,7 @@ static UniValue signmessage(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address");
     }
 
-    const PKHash *pkhash = boost::get<PKHash>(&dest);
+    const PKHash* pkhash = std::get_if<PKHash>(&dest);
     if (!pkhash) {
         throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to key");
     }
@@ -1284,7 +1284,7 @@ static UniValue z_listreceivedbyaddress(const JSONRPCRequest& request)
     }
 
     // Visitor to support Sprout and Sapling addrs
-    if (!boost::apply_visitor(PaymentAddressBelongsToWallet(pwallet), zaddr)) {
+    if (!std::visit(PaymentAddressBelongsToWallet(pwallet), zaddr)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "From address does not belong to this node, zaddr spending key or viewing key not found.");
     }
 
@@ -1294,7 +1294,7 @@ static UniValue z_listreceivedbyaddress(const JSONRPCRequest& request)
     pwallet->GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, fromaddress, nMinDepth, false, false);
 
     std::set<std::pair<libzcash::PaymentAddress, uint256>> nullifierSet;
-    auto hasSpendingKey = boost::apply_visitor(HaveSpendingKeyForPaymentAddress(pwallet), zaddr);
+    auto hasSpendingKey = std::visit(HaveSpendingKeyForPaymentAddress(pwallet), zaddr);
     if (hasSpendingKey) {
         nullifierSet = pwallet->GetNullifiersForAddresses({zaddr});
     }
@@ -3070,7 +3070,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
             }
 
             if (scriptPubKey.IsPayToScriptHash()) {
-                const CScriptID& hash = CScriptID(boost::get<ScriptHash>(address));
+                const CScriptID& hash = CScriptID(std::get<ScriptHash>(address));
                 CScript redeemScript;
                 if (pwallet->GetCScript(hash, redeemScript)) {
                     entry.pushKV("redeemScript", HexStr(redeemScript.begin(), redeemScript.end()));
@@ -3080,7 +3080,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
                         bool extracted = ExtractDestination(redeemScript, witness_destination);
                         assert(extracted);
                         // Also return the witness script
-                        const WitnessV0ScriptHash& whash = boost::get<WitnessV0ScriptHash>(witness_destination);
+                        const WitnessV0ScriptHash& whash = std::get<WitnessV0ScriptHash>(witness_destination);
                         CScriptID id;
                         CRIPEMD160().Write(whash.begin(), whash.size()).Finalize(id.begin());
                         CScript witnessScript;
@@ -3090,7 +3090,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
                     }
                 }
             } else if (scriptPubKey.IsPayToWitnessScriptHash()) {
-                const WitnessV0ScriptHash& whash = boost::get<WitnessV0ScriptHash>(address);
+                const WitnessV0ScriptHash& whash = std::get<WitnessV0ScriptHash>(address);
                 CScriptID id;
                 CRIPEMD160().Write(whash.begin(), whash.size()).Finalize(id.begin());
                 CScript witnessScript;
@@ -3202,7 +3202,7 @@ static UniValue z_listunspent(const JSONRPCRequest& request)
             if (!IsValidPaymentAddress(zaddr)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid LitecoinZ zaddress: ") + input.get_str());
             }
-            if (!fIncludeWatchonly && !boost::apply_visitor(HaveSpendingKeyForPaymentAddress(pwallet), zaddr)) {
+            if (!fIncludeWatchonly && !std::visit(HaveSpendingKeyForPaymentAddress(pwallet), zaddr)) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, spending key for address does not belong to wallet: ") + address);
             }
             if (!setAddress.insert(address).second) {
@@ -3873,7 +3873,7 @@ UniValue rescanblockchain(const JSONRPCRequest& request)
     return response;
 }
 
-class DescribeWalletAddressVisitor : public boost::static_visitor<UniValue>
+class DescribeWalletAddressVisitor
 {
 public:
     CWallet * const pwallet;
@@ -3892,7 +3892,7 @@ public:
             UniValue subobj(UniValue::VOBJ);
             UniValue detail = DescribeAddress(embedded);
             subobj.pushKVs(detail);
-            UniValue wallet_detail = boost::apply_visitor(*this, embedded);
+            UniValue wallet_detail = std::visit(*this, embedded);
             subobj.pushKVs(wallet_detail);
             subobj.pushKV("address", EncodeDestination(embedded));
             subobj.pushKV("scriptPubKey", HexStr(subscript.begin(), subscript.end()));
@@ -3970,7 +3970,7 @@ static UniValue DescribeWalletAddress(CWallet* pwallet, const CTxDestination& de
     UniValue ret(UniValue::VOBJ);
     UniValue detail = DescribeAddress(dest);
     ret.pushKVs(detail);
-    ret.pushKVs(boost::apply_visitor(DescribeWalletAddressVisitor(pwallet), dest));
+    ret.pushKVs(std::visit(DescribeWalletAddressVisitor(pwallet), dest));
     return ret;
 }
 
@@ -4817,12 +4817,12 @@ UniValue z_sendmany(const JSONRPCRequest& request)
         }
 
         // Check that we have the spending key
-        if (!boost::apply_visitor(HaveSpendingKeyForPaymentAddress(pwallet), res)) {
+        if (!std::visit(HaveSpendingKeyForPaymentAddress(pwallet), res)) {
              throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "From address does not belong to this node, zaddr spending key not found.");
         }
 
         // Remember whether this is a Sprout or Sapling address
-        fromSapling = boost::get<libzcash::SaplingPaymentAddress>(&res) != nullptr;
+        fromSapling = std::get_if<libzcash::SaplingPaymentAddress>(&res) != nullptr;
     }
     // This logic will need to be updated if we add a new shielded pool
     bool fromSprout = !(fromTaddr || fromSapling);
@@ -4865,7 +4865,7 @@ UniValue z_sendmany(const JSONRPCRequest& request)
             if (IsValidPaymentAddress(res)) {
                 isZaddr = true;
 
-                bool toSapling = boost::get<libzcash::SaplingPaymentAddress>(&res) != nullptr;
+                bool toSapling = std::get_if<libzcash::SaplingPaymentAddress>(&res) != nullptr;
                 bool toSprout = !toSapling;
                 noSproutAddrs = noSproutAddrs && toSapling;
 
@@ -4961,7 +4961,7 @@ UniValue z_sendmany(const JSONRPCRequest& request)
     for (size_t i = 0; i < zaddrRecipients.size(); i++) {
         auto address = zaddrRecipients[i].address;
         auto res = DecodePaymentAddress(address);
-        bool toSapling = boost::get<libzcash::SaplingPaymentAddress>(&res) != nullptr;
+        bool toSapling = std::get_if<libzcash::SaplingPaymentAddress>(&res) != nullptr;
         if (toSapling) {
             mtx.vShieldedOutput.push_back(OutputDescription());
         } else {
@@ -5112,7 +5112,7 @@ static UniValue z_getbalance(const JSONRPCRequest& request)
         if (!IsValidPaymentAddress(res)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid from address, should be a taddr or zaddr.");
         }
-        if (!boost::apply_visitor(PaymentAddressBelongsToWallet(pwallet), res)) {
+        if (!std::visit(PaymentAddressBelongsToWallet(pwallet), res)) {
              throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "From address does not belong to this node, spending key or viewing key not found.");
         }
     }

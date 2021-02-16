@@ -295,7 +295,7 @@ bool AddressTableModel::setData(const QModelIndex &index, const QVariant &value,
             } else if(index.column() == Address) {
                 CTxDestination newAddress = DecodeDestination(value.toString().toStdString());
                 // Refuse to set invalid address, set error status and return false
-                if(boost::get<CNoDestination>(&newAddress))
+                if(std::get_if<CNoDestination>(&newAddress))
                 {
                     editStatus = INVALID_ADDRESS;
                     return false;
@@ -339,7 +339,7 @@ bool AddressTableModel::setData(const QModelIndex &index, const QVariant &value,
             } else if(index.column() == Address) {
                 libzcash::PaymentAddress newAddress = DecodePaymentAddress(value.toString().toStdString());
                 // Refuse to set invalid address, set error status and return false
-                if(boost::get<libzcash::InvalidEncoding>(&newAddress))
+                if(std::get_if<libzcash::InvalidEncoding>(&newAddress))
                 {
                     editStatus = INVALID_ADDRESS;
                     return false;
@@ -383,7 +383,7 @@ bool AddressTableModel::setData(const QModelIndex &index, const QVariant &value,
             } else if(index.column() == Address) {
                 libzcash::PaymentAddress newAddress = DecodePaymentAddress(value.toString().toStdString());
                 // Refuse to set invalid address, set error status and return false
-                if(boost::get<libzcash::InvalidEncoding>(&newAddress))
+                if(std::get_if<libzcash::InvalidEncoding>(&newAddress))
                 {
                     editStatus = INVALID_ADDRESS;
                     return false;
@@ -659,9 +659,9 @@ bool AddressTableModel::getAddressData(const QString &address,
     else
     {
         libzcash::PaymentAddress dest = DecodePaymentAddress(strAddress);
-        if(boost::get<libzcash::SproutPaymentAddress>(&dest))
+        if(std::get_if<libzcash::SproutPaymentAddress>(&dest))
             addressbook = AddressTableModel::Sprout;
-        else if(boost::get<libzcash::SaplingPaymentAddress>(&dest))
+        else if(std::get_if<libzcash::SaplingPaymentAddress>(&dest))
             addressbook = AddressTableModel::Sapling;
     }
 

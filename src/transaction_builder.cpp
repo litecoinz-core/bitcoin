@@ -12,7 +12,7 @@
 #include <util/moneystr.h>
 #include <util/system.h>
 
-#include <boost/variant.hpp>
+#include <variant>
 
 #include <librustzcash.h>
 

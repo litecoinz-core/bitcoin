@@ -26,7 +26,7 @@ static constexpr size_t GROTH_PROOF_SIZE = (
     48); // π_C
 
 typedef std::array<unsigned char, GROTH_PROOF_SIZE> GrothProof;
-typedef boost::variant<PHGRProof, GrothProof> SproutProof;
+typedef std::variant<PHGRProof, GrothProof> SproutProof;
 
 class JSInput {
 public:

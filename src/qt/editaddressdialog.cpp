@@ -110,9 +110,9 @@ void EditAddressDialog::accept()
     else
     {
         libzcash::PaymentAddress dest = DecodePaymentAddress(strAddress);
-        if(boost::get<libzcash::SproutPaymentAddress>(&dest))
+        if(std::get_if<libzcash::SproutPaymentAddress>(&dest))
             addressbook = AddressTableModel::Sprout;
-        else if(boost::get<libzcash::SaplingPaymentAddress>(&dest))
+        else if(std::get_if<libzcash::SaplingPaymentAddress>(&dest))
             addressbook = AddressTableModel::Sapling;
     }
 

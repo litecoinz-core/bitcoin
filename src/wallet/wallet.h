@@ -1933,7 +1933,7 @@ int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wall
 // Shielded key and address generalizations
 //
 
-class PaymentAddressBelongsToWallet : public boost::static_visitor<bool>
+class PaymentAddressBelongsToWallet
 {
 private:
     CWallet *m_wallet;
@@ -1945,7 +1945,7 @@ public:
     bool operator()(const libzcash::InvalidEncoding& no) const;
 };
 
-class GetViewingKeyForPaymentAddress : public boost::static_visitor<Optional<libzcash::ViewingKey>>
+class GetViewingKeyForPaymentAddress
 {
 private:
     CWallet *m_wallet;
@@ -1957,7 +1957,7 @@ public:
     Optional<libzcash::ViewingKey> operator()(const libzcash::InvalidEncoding& no) const;
 };
 
-class HaveSpendingKeyForPaymentAddress : public boost::static_visitor<bool>
+class HaveSpendingKeyForPaymentAddress
 {
 private:
     CWallet *m_wallet;
@@ -1969,7 +1969,7 @@ public:
     bool operator()(const libzcash::InvalidEncoding& no) const;
 };
 
-class GetSpendingKeyForPaymentAddress : public boost::static_visitor<Optional<libzcash::SpendingKey>>
+class GetSpendingKeyForPaymentAddress
 {
 private:
     CWallet *m_wallet;
@@ -1988,7 +1988,7 @@ enum KeyAddResult {
     KeyNotAdded,
 };
 
-class AddViewingKeyToWallet : public boost::static_visitor<KeyAddResult>
+class AddViewingKeyToWallet
 {
 private:
     CWallet *m_wallet;
@@ -2000,7 +2000,7 @@ public:
     KeyAddResult operator()(const libzcash::InvalidEncoding& no) const;
 };
 
-class AddSpendingKeyToWallet : public boost::static_visitor<KeyAddResult>
+class AddSpendingKeyToWallet
 {
 private:
     CWallet *m_wallet;

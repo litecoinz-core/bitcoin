@@ -471,7 +471,7 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog* dialog)
         else if(ExtractDestination(out.txout.scriptPubKey, address))
         {
             CPubKey pubkey;
-            PKHash *pkhash = boost::get<PKHash>(&address);
+            PKHash* pkhash = std::get_if<PKHash>(&address);
             if (pkhash && model->wallet().getPubKey(CKeyID(*pkhash), pubkey))
             {
                 nBytesInputs += (pubkey.IsCompressed() ? 148 : 180);
