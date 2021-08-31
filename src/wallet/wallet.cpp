@@ -1024,6 +1024,7 @@ void CWallet::ChainStateFlushed(const CBlockLocator& loc)
         return;
     }
     try {
+        LOCK(cs_wallet);
         for (std::pair<const uint256, CWalletTx>& wtxItem : mapWallet) {
             auto wtx = wtxItem.second;
             // We skip transactions for which mapSproutNoteData and mapSaplingNoteData
