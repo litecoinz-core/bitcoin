@@ -282,6 +282,15 @@ namespace GUIUtil
      * Call QMenu::popup() only on supported QT_QPA_PLATFORM.
      */
     void PopupMenu(QMenu* menu, const QPoint& point, QAction* at_action = nullptr);
+
+    /**
+     * Returns true if pixmap has been set.
+     *
+     * QPixmap* QLabel::pixmap() is deprecated since Qt 5.15.
+     */
+    bool HasPixmap(const QLabel* label);
+    QImage GetImage(const QLabel* label);
+
 } // namespace GUIUtil
 
 #endif // BITCOIN_QT_GUIUTIL_H
