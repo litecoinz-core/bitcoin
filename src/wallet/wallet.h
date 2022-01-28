@@ -1352,11 +1352,11 @@ public:
     //! Generates a new Sprout zaddr
     libzcash::SproutPaymentAddress GenerateNewSproutKey() EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds spending key to the store, and saves it to disk
-    bool AddSproutKey(const libzcash::SproutSpendingKey &key);
+    bool AddSproutKey(const libzcash::SproutSpendingKey &key) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds spending key to the store, without saving it to disk (used by LoadWallet)
     bool LoadSproutKey(const libzcash::SproutSpendingKey &key);
     //! Load spending key metadata (used by LoadWallet)
-    void LoadSproutKeyMetadata(const libzcash::SproutPaymentAddress &addr, const CKeyMetadata &meta);
+    void LoadSproutKeyMetadata(const libzcash::SproutPaymentAddress &addr, const CKeyMetadata &meta) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds an encrypted spending key to the store, without saving it to disk (used by LoadWallet)
     bool LoadCryptedSproutKey(const libzcash::SproutPaymentAddress &addr,
                               const libzcash::ReceivingKey &rk,
@@ -1367,8 +1367,8 @@ public:
                                      const std::vector<unsigned char> &vchCryptedSecret);
 
     //! Adds a Sprout viewing key to the store, and saves it to disk.
-    bool AddSproutViewingKey(const libzcash::SproutViewingKey &vk);
-    bool RemoveSproutViewingKey(const libzcash::SproutViewingKey &vk);
+    bool AddSproutViewingKey(const libzcash::SproutViewingKey &vk) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    bool RemoveSproutViewingKey(const libzcash::SproutViewingKey &vk) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds a Sprout viewing key to the store, without saving it to disk (used by LoadWallet)
     bool LoadSproutViewingKey(const libzcash::SproutViewingKey &dest);
 
@@ -1378,18 +1378,18 @@ public:
     //! Generates new Sapling key
     libzcash::SaplingPaymentAddress GenerateNewSaplingKey() EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds Sapling spending key to the store, and saves it to disk
-    bool AddSaplingKey(const libzcash::SaplingExtendedSpendingKey &key);
+    bool AddSaplingKey(const libzcash::SaplingExtendedSpendingKey &key) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Add Sapling full viewing key to the wallet.
     //!
     //! This overrides CBasicKeyStore::AddSaplingFullViewingKey to persist the
     //! full viewing key to disk. Inside CCryptoKeyStore and CBasicKeyStore,
     //! CBasicKeyStore::AddSaplingFullViewingKey is called directly when adding a
     //! full viewing key to the keystore, to avoid this override.
-    bool AddSaplingFullViewingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk);
+    bool AddSaplingFullViewingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds spending key to the store, without saving it to disk (used by LoadWallet)
     bool LoadSaplingKey(const libzcash::SaplingExtendedSpendingKey &key);
     //! Load spending key metadata (used by LoadWallet)
-    void LoadSaplingKeyMetadata(const libzcash::SaplingIncomingViewingKey &ivk, const CKeyMetadata &meta);
+    void LoadSaplingKeyMetadata(const libzcash::SaplingIncomingViewingKey &ivk, const CKeyMetadata &meta) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Add Sapling full viewing key to the store, without saving it to disk (used by LoadWallet)
     bool LoadSaplingFullViewingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk);
     //! Adds an encrypted spending key to the store, without saving it to disk (used by LoadWallet)
@@ -1397,7 +1397,7 @@ public:
     bool AddCryptedSaplingSpendingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk,
                                       const std::vector<unsigned char> &vchCryptedSecret);
     //! Adds a Sapling incoming viewing key to the store, and saves it to disk.
-    bool AddSaplingIncomingViewingKey(const libzcash::SaplingIncomingViewingKey &ivk, const libzcash::SaplingPaymentAddress &addr);
+    bool AddSaplingIncomingViewingKey(const libzcash::SaplingIncomingViewingKey &ivk, const libzcash::SaplingPaymentAddress &addr) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds a Sapling payment address -> incoming viewing key map entry,
     //! without saving it to disk (used by LoadWallet)
     bool LoadSaplingPaymentAddress(const libzcash::SaplingPaymentAddress &addr, const libzcash::SaplingIncomingViewingKey &ivk);
