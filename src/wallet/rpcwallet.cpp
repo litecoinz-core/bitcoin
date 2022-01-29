@@ -4715,6 +4715,8 @@ static UniValue z_getnewaddress(const JSONRPCRequest& request)
     if (!request.params[0].isNull())
         label = LabelFromValue(request.params[0]);
 
+    bool isSaplingEnabled = (::ChainActive().Height() > Params().GetConsensus().vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight);
+
     auto address_type = defaultType;
     if (!request.params[1].isNull()) {
         address_type = request.params[1].get_str();
@@ -4724,7 +4726,12 @@ static UniValue z_getnewaddress(const JSONRPCRequest& request)
     std::string error;
 
     if (address_type == ADDR_TYPE_SPROUT) {
-        throw JSONRPCError(RPC_METHOD_DEPRECATED, "Generation of new sprout addresses is deprecated and will be fully removed in 3.1.0");
+        if (isSaplingEnabled) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Generation of new sprout addresses is deprecated and will be fully removed in 3.1.0");
+        }
+        if (!pwallet->GetNewSproutDestination(label, dest, error)) {
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
+        }
     } else if (address_type == ADDR_TYPE_SAPLING) {
         if (!pwallet->GetNewSaplingDestination(label, dest, error)) {
             throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);

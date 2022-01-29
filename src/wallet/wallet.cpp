@@ -423,11 +423,15 @@ void CWallet::DeriveNewChildKey(WalletBatch &batch, CKeyMetadata& metadata, CKey
 }
 
 // Generate a new spending key and return its public payment address
-libzcash::SproutPaymentAddress CWallet::GenerateNewSproutKey()
+libzcash::SproutPaymentAddress CWallet::GenerateNewSproutKey(WalletBatch &batch)
 {
     assert(!IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS));
     assert(!IsWalletFlagSet(WALLET_FLAG_BLANK_WALLET));
     AssertLockHeld(cs_wallet); // mapSproutKeyMetadata
+
+    // Create new metadata
+    int64_t nCreationTime = GetTime();
+    CKeyMetadata metadata(nCreationTime);
 
     auto k = libzcash::SproutSpendingKey::random();
     auto addr = k.address();
@@ -436,18 +440,17 @@ libzcash::SproutPaymentAddress CWallet::GenerateNewSproutKey()
     if (HaveSproutSpendingKey(addr))
         throw std::runtime_error(std::string(__func__) + ": Collision detected");
 
-    // Create new metadata
-    int64_t nCreationTime = GetTime();
-    mapSproutKeyMetadata[addr] = CKeyMetadata(nCreationTime);
+    mapSproutKeyMetadata[addr] = metadata;
+    UpdateTimeFirstKey(nCreationTime);
 
-    if (!AddSproutKey(k))
+    if (!AddSproutKeyWithDB(batch, k))
         throw std::runtime_error(std::string(__func__) + ": AddSproutKey failed");
 
     return addr;
 }
 
 // Generate a new Sapling spending key and return its public payment address
-libzcash::SaplingPaymentAddress CWallet::GenerateNewSaplingKey()
+libzcash::SaplingPaymentAddress CWallet::GenerateNewSaplingKey(WalletBatch &batch)
 {
     assert(!IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS));
     assert(!IsWalletFlagSet(WALLET_FLAG_BLANK_WALLET));
@@ -488,8 +491,9 @@ libzcash::SaplingPaymentAddress CWallet::GenerateNewSaplingKey()
 
     auto ivk = xsk.expsk.full_viewing_key().in_viewing_key();
     mapSaplingKeyMetadata[ivk] = metadata;
+    UpdateTimeFirstKey(nCreationTime);
 
-    if (!AddSaplingKey(xsk)) {
+    if (!AddSaplingKeyWithDB(batch, xsk)) {
         throw std::runtime_error(std::string(__func__) + ": AddSaplingKey failed");
     }
     // return default sapling payment address.
@@ -497,9 +501,13 @@ libzcash::SaplingPaymentAddress CWallet::GenerateNewSaplingKey()
 }
 
 // Add spending key to keystore and persist to disk
-bool CWallet::AddSproutKey(const libzcash::SproutSpendingKey &key)
+bool CWallet::AddSproutKeyWithDB(WalletBatch& batch, const libzcash::SproutSpendingKey &key)
 {
     AssertLockHeld(cs_wallet); // mapSproutKeyMetadata
+
+    // Make sure we aren't adding private keys to private key disabled wallets
+    assert(!IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS));
+
     auto addr = key.address();
 
     if (!AddSproutSpendingKey(key))
@@ -510,15 +518,20 @@ bool CWallet::AddSproutKey(const libzcash::SproutSpendingKey &key)
         RemoveSproutViewingKey(key.viewing_key());
 
     if (!IsCrypted()) {
-        return WalletBatch(*database).WriteSproutKey(addr, key, mapSproutKeyMetadata[addr]);
+        return batch.WriteSproutKey(addr, key, mapSproutKeyMetadata[addr]);
     }
+
+    UnsetWalletFlagWithDB(batch, WALLET_FLAG_BLANK_WALLET);
     return true;
 }
 
 // Add spending key to keystore
-bool CWallet::AddSaplingKey(const libzcash::SaplingExtendedSpendingKey &sk)
+bool CWallet::AddSaplingKeyWithDB(WalletBatch& batch, const libzcash::SaplingExtendedSpendingKey &sk)
 {
     AssertLockHeld(cs_wallet); // mapSaplingKeyMetadata
+
+    // Make sure we aren't adding private keys to private key disabled wallets
+    assert(!IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS));
 
     if (!AddSaplingSpendingKey(sk)) {
         return false;
@@ -526,9 +539,10 @@ bool CWallet::AddSaplingKey(const libzcash::SaplingExtendedSpendingKey &sk)
 
     if (!IsCrypted()) {
         auto ivk = sk.expsk.full_viewing_key().in_viewing_key();
-        return WalletBatch(*database).WriteSaplingKey(ivk, sk, mapSaplingKeyMetadata[ivk]);
+        return batch.WriteSaplingKey(ivk, sk, mapSaplingKeyMetadata[ivk]);
     }
 
+    UnsetWalletFlagWithDB(batch, WALLET_FLAG_BLANK_WALLET);
     return true;
 }
 
@@ -541,16 +555,6 @@ bool CWallet::AddSaplingFullViewingKey(const libzcash::SaplingExtendedFullViewin
     }
 
     return WalletBatch(*database).WriteSaplingExtendedFullViewingKey(extfvk);
-}
-
-bool CWallet::LoadSproutKey(const libzcash::SproutSpendingKey &key)
-{
-    return AddSproutSpendingKey(key);
-}
-
-bool CWallet::LoadSaplingKey(const libzcash::SaplingExtendedSpendingKey &key)
-{
-    return AddSaplingSpendingKey(key);
 }
 
 bool CWallet::LoadSaplingFullViewingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk)
@@ -712,6 +716,18 @@ bool CWallet::AddKeyPubKey(const CKey& secret, const CPubKey &pubkey)
 {
     WalletBatch batch(*database);
     return CWallet::AddKeyPubKeyWithDB(batch, secret, pubkey);
+}
+
+bool CWallet::AddSproutKey(const libzcash::SproutSpendingKey &key)
+{
+    WalletBatch batch(*database);
+    return CWallet::AddSproutKeyWithDB(batch, key);
+}
+
+bool CWallet::AddSaplingKey(const libzcash::SaplingExtendedSpendingKey &key)
+{
+    WalletBatch batch(*database);
+    return CWallet::AddSaplingKeyWithDB(batch, key);
 }
 
 bool CWallet::AddCryptedKey(const CPubKey &vchPubKey, const std::vector<unsigned char> &vchCryptedSecret)
@@ -5664,12 +5680,11 @@ bool CWallet::GetNewSproutDestination(const std::string label, libzcash::Payment
     LOCK(cs_wallet);
     error.clear();
 
-    TopUpKeyPool();
-
     if (IsLocked()) return false;
 
     // Generate a new sprout key that is added to wallet
-    dest = GenerateNewSproutKey();
+    WalletBatch batch(*database);
+    dest = GenerateNewSproutKey(batch);
 
     SetSproutAddressBook(dest, label, "receive");
     return true;
@@ -5680,12 +5695,11 @@ bool CWallet::GetNewSaplingDestination(const std::string label, libzcash::Paymen
     LOCK(cs_wallet);
     error.clear();
 
-    TopUpKeyPool();
-
     if (IsLocked()) return false;
 
     // Generate a new shielded key that is added to wallet
-    dest = GenerateNewSaplingKey();
+    WalletBatch batch(*database);
+    dest = GenerateNewSaplingKey(batch);
 
     SetSaplingAddressBook(dest, label, "receive");
     return true;
