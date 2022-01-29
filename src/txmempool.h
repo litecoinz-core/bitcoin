@@ -360,20 +360,6 @@ enum class MemPoolRemovalReason {
     REPLACED,    //!< Removed for replacement
 };
 
-class SaltedTxidHasher
-{
-private:
-    /** Salt */
-    const uint64_t k0, k1;
-
-public:
-    SaltedTxidHasher();
-
-    size_t operator()(const uint256& txid) const {
-        return SipHashUint256(k0, k1, txid);
-    }
-};
-
 /**
  * CTxMemPool stores valid-according-to-the-current-best-chain transactions
  * that may be included in the next block.

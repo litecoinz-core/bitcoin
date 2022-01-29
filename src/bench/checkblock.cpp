@@ -36,7 +36,7 @@ static void DeserializeAndCheckBlockTest(benchmark::State& state)
     stream.write(&a, 1); // Prevent compaction
 
     const auto chainParams = CreateChainParams(CBaseChainParams::REGTEST);
-    auto verifier = libzcash::ProofVerifier::Disabled();
+    auto verifier = ProofVerifier::Disabled();
 
     while (state.KeepRunning()) {
         CBlock block; // Note that CBlock caches its checked state, so we need to recreate it here

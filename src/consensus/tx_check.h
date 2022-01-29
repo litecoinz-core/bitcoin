@@ -7,7 +7,7 @@
 #define BITCOIN_CONSENSUS_TX_CHECK_H
 
 #include <chainparams.h>
-#include <zcash/Proof.hpp>
+#include <proof_verifier.h>
 
 #include <librustzcash.h>
 
@@ -26,7 +26,7 @@ class CValidationState;
 bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state, int nHeight);
 
 /** Context-independent validity checks */
-bool CheckTransaction(const CTransaction& tx, CValidationState& state, libzcash::ProofVerifier& verifier, bool fCheckDuplicateInputs=true);
+bool CheckTransaction(const CTransaction& tx, CValidationState& state, ProofVerifier& verifier, bool fCheckDuplicateInputs=true);
 bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidationState &state, bool fCheckDuplicateInputs);
 
 #endif // BITCOIN_CONSENSUS_TX_CHECK_H

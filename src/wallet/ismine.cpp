@@ -218,14 +218,14 @@ isminetype IsMine(const CWallet& keystore, const libzcash::SaplingPaymentAddress
 
 isminetype IsMine(const CWallet& keystore, const libzcash::PaymentAddress& address)
 {
-    if (boost::get<libzcash::SproutPaymentAddress>(&address) != nullptr)
+    if (std::get_if<libzcash::SproutPaymentAddress>(&address) != nullptr)
     {
-        auto dest = boost::get<libzcash::SproutPaymentAddress>(address);
+        auto dest = std::get<libzcash::SproutPaymentAddress>(address);
         return IsMine(keystore, dest);
     }
-    else if (boost::get<libzcash::SaplingPaymentAddress>(&address) != nullptr)
+    else if (std::get_if<libzcash::SaplingPaymentAddress>(&address) != nullptr)
     {
-        auto dest = boost::get<libzcash::SaplingPaymentAddress>(address);
+        auto dest = std::get<libzcash::SaplingPaymentAddress>(address);
         return IsMine(keystore, dest);
     }
     assert(false);

@@ -199,7 +199,7 @@ BOOST_AUTO_TEST_CASE(sighash_from_data)
           stream >> tx;
 
           CValidationState state;
-          auto verifier = libzcash::ProofVerifier::Disabled();
+          auto verifier = ProofVerifier::Disabled();
           BOOST_CHECK_MESSAGE(CheckTransaction(*tx, state, verifier), strTest);
           BOOST_CHECK(state.IsValid());
 

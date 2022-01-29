@@ -14,6 +14,7 @@
 #include <net.h>
 #include <netbase.h>
 #include <policy/policy.h>
+#include <proof_verifier.h>
 #include <rpc/protocol.h>
 #include <rpc/request.h>
 #include <rpc/server.h>
@@ -30,7 +31,6 @@
 #include <wallet/wallet.h>
 #include <wallet/walletdb.h>
 #include <zcash/IncrementalMerkleTree.hpp>
-#include <zcashparams.h>
 
 #include <array>
 #include <chrono>
@@ -97,13 +97,13 @@ AsyncRPCOperation_sendmany::AsyncRPCOperation_sendmany(
         auto address = DecodePaymentAddress(fromAddress);
         if (IsValidPaymentAddress(address)) {
             // We don't need to lock on the wallet as spending key related methods are thread-safe
-            if (!boost::apply_visitor(HaveSpendingKeyForPaymentAddress(pwallet_), address)) {
+            if (!std::visit(HaveSpendingKeyForPaymentAddress(pwallet_), address)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid from address, no spending key found for zaddr");
             }
 
             isfromzaddr_ = true;
             frompaymentaddress_ = address;
-            auto sk = boost::apply_visitor(GetSpendingKeyForPaymentAddress(pwallet_), address);
+            auto sk = std::visit(GetSpendingKeyForPaymentAddress(pwallet_), address);
             spendingkey_ = sk.get();
         } else {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid from address");
@@ -286,7 +286,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         libzcash::SaplingExpandedSpendingKey expsk;
         uint256 ovk;
         if (isfromzaddr_) {
-            auto sk = boost::get<libzcash::SaplingExtendedSpendingKey>(spendingkey_);
+            auto sk = std::get<libzcash::SaplingExtendedSpendingKey>(spendingkey_);
             expsk = sk.expsk;
             ovk = expsk.full_viewing_key().ovk;
         } else {
@@ -356,8 +356,8 @@ bool AsyncRPCOperation_sendmany::main_impl() {
             auto hexMemo = r.memo;
 
             auto addr = DecodePaymentAddress(address);
-            assert(boost::get<libzcash::SaplingPaymentAddress>(&addr) != nullptr);
-            auto to = boost::get<libzcash::SaplingPaymentAddress>(addr);
+            assert(std::get_if<libzcash::SaplingPaymentAddress>(&addr) != nullptr);
+            auto to = std::get<libzcash::SaplingPaymentAddress>(addr);
 
             auto memo = get_memo_from_hex_string(hexMemo);
 
@@ -509,7 +509,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
                 zOutputsDeque.pop_front();
 
                 libzcash::PaymentAddress pa = DecodePaymentAddress(address);
-                libzcash::JSOutput jso = libzcash::JSOutput(boost::get<libzcash::SproutPaymentAddress>(pa), value);
+                libzcash::JSOutput jso = libzcash::JSOutput(std::get<libzcash::SproutPaymentAddress>(pa), value);
                 if (hexMemo.size() > 0) {
                     jso.memo = get_memo_from_hex_string(hexMemo);
                 }
@@ -553,7 +553,9 @@ bool AsyncRPCOperation_sendmany::main_impl() {
     }
 
     // Keep track of treestate within this transaction
-    std::unordered_map<uint256, SproutMerkleTree, CCoinsKeyHasher> intermediates;
+    // The SaltedTxidHasher is fine to use here; it salts the map keys automatically
+    // with randomness generated on construction.
+    std::unordered_map<uint256, SproutMerkleTree, SaltedTxidHasher> intermediates;
     std::vector<uint256> previousCommitments;
 
     while (!vpubNewProcessed) {
@@ -613,8 +615,11 @@ bool AsyncRPCOperation_sendmany::main_impl() {
             intermediates.insert(std::make_pair(tree.root(), tree));    // chained js are interstitial (found in between block boundaries)
 
             // Decrypt the change note's ciphertext to retrieve some data we need
-            ZCNoteDecryption decryptor(boost::get<libzcash::SproutSpendingKey>(spendingkey_).receiving_key());
-            auto hSig = prevJoinSplit.h_sig(*pzcashParams, tx_->joinSplitPubKey);
+            ZCNoteDecryption decryptor(std::get<libzcash::SproutSpendingKey>(spendingkey_).receiving_key());
+            auto hSig = ZCJoinSplit::h_sig(
+                prevJoinSplit.randomSeed,
+                prevJoinSplit.nullifiers,
+                tx_->joinSplitPubKey);
             try {
                 libzcash::SproutNotePlaintext plaintext = libzcash::SproutNotePlaintext::decrypt(
                         decryptor,
@@ -623,7 +628,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
                         hSig,
                         (unsigned char) changeOutputIndex);
 
-                libzcash::SproutNote note = plaintext.note(boost::get<libzcash::SproutPaymentAddress>(frompaymentaddress_));
+                libzcash::SproutNote note = plaintext.note(std::get<libzcash::SproutPaymentAddress>(frompaymentaddress_));
                 info.notes.push_back(note);
 
                 jsInputValue += plaintext.value();
@@ -772,7 +777,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         } else {
             libzcash::PaymentAddress pa = DecodePaymentAddress(address);
             // If we are here, we know we have no Sapling outputs.
-            libzcash::JSOutput jso = libzcash::JSOutput(boost::get<libzcash::SproutPaymentAddress>(pa), value);
+            libzcash::JSOutput jso = libzcash::JSOutput(std::get<libzcash::SproutPaymentAddress>(pa), value);
             if (hexMemo.size() > 0) {
                 jso.memo = get_memo_from_hex_string(hexMemo);
             }
@@ -781,7 +786,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
 
         // create output for any change
         if (jsChange>0) {
-            info.vjsout.push_back(libzcash::JSOutput(boost::get<libzcash::SproutPaymentAddress>(frompaymentaddress_), jsChange));
+            info.vjsout.push_back(libzcash::JSOutput(std::get<libzcash::SproutPaymentAddress>(frompaymentaddress_), jsChange));
 
             LogPrint(BCLog::ZRPC, "%s: generating note for change (amount=%s)\n",
                     getId(),
@@ -1000,7 +1005,7 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
         if (!witnesses[i]) {
             throw std::runtime_error("joinsplit input could not be found in tree");
         }
-        info.vjsin.push_back(libzcash::JSInput(*witnesses[i], info.notes[i], boost::get<libzcash::SproutSpendingKey>(spendingkey_)));
+        info.vjsin.push_back(libzcash::JSInput(*witnesses[i], info.notes[i], std::get<libzcash::SproutSpendingKey>(spendingkey_)));
     }
 
     // Make sure there are two inputs and two outputs
@@ -1034,21 +1039,21 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
     uint256 esk; // payment disclosure - secret
 
     assert(mtx.fOverwintered && (mtx.nVersion >= SAPLING_TX_VERSION));
-    JSDescription jsdesc = JSDescription::Randomized(
-            *pzcashParams,
+    JSDescription jsdesc = JSDescriptionInfo(
             joinSplitPubKey_,
             anchor,
             inputs,
             outputs,
+            info.vpub_old,
+            info.vpub_new
+    ).BuildRandomized(
             inputMap,
             outputMap,
-            info.vpub_old,
-            info.vpub_new,
             !this->testmode,
             &esk); // parameter expects pointer to esk, so pass in address
     {
-        auto verifier = libzcash::ProofVerifier::Strict();
-        if (!(jsdesc.Verify(*pzcashParams, verifier, joinSplitPubKey_))) {
+        auto verifier = ProofVerifier::Strict();
+        if (!(verifier.VerifySprout(jsdesc, joinSplitPubKey_))) {
             throw std::runtime_error("error verifying joinsplit");
         }
     }
@@ -1100,7 +1105,7 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
         ss2 << ((unsigned char) 0x00);
         ss2 << jsdesc.ephemeralKey;
         ss2 << jsdesc.ciphertexts[0];
-        ss2 << jsdesc.h_sig(*pzcashParams, joinSplitPubKey_);
+        ss2 << ZCJoinSplit::h_sig(jsdesc.randomSeed, jsdesc.nullifiers, joinSplitPubKey_);
 
         encryptedNote1 = HexStr(ss2.begin(), ss2.end());
     }
@@ -1109,7 +1114,7 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
         ss2 << ((unsigned char) 0x01);
         ss2 << jsdesc.ephemeralKey;
         ss2 << jsdesc.ciphertexts[1];
-        ss2 << jsdesc.h_sig(*pzcashParams, joinSplitPubKey_);
+        ss2 << ZCJoinSplit::h_sig(jsdesc.randomSeed, jsdesc.nullifiers, joinSplitPubKey_);
 
         encryptedNote2 = HexStr(ss2.begin(), ss2.end());
     }

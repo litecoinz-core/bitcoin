@@ -237,9 +237,8 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::
     return true;
 }
 
-namespace
-{
-class CScriptVisitor : public boost::static_visitor<bool>
+namespace {
+class CScriptVisitor
 {
 private:
     CScript *script;
@@ -290,7 +289,7 @@ CScript GetScriptForDestination(const CTxDestination& dest)
 {
     CScript script;
 
-    boost::apply_visitor(CScriptVisitor(&script), dest);
+    std::visit(CScriptVisitor(&script), dest);
     return script;
 }
 
@@ -323,7 +322,7 @@ CScript GetScriptForWitness(const CScript& redeemscript)
 }
 
 bool IsValidDestination(const CTxDestination& dest) {
-    return dest.which() != 0;
+    return dest.index() != 0;
 }
 
 CTxDestination DestFromAddressHash(int scriptType, uint160& addressHash)

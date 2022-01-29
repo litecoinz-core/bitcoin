@@ -586,7 +586,7 @@ UniValue importwallet_impl(const JSONRPCRequest& request, bool fImportZKeys)
                 Optional<std::string> hdKeypath = (vstr.size() > 3) ? Optional<std::string>(vstr[2]) : nullopt;
                 Optional<std::string> seedFpStr = (vstr.size() > 3) ? Optional<std::string>(vstr[3]) : nullopt;
                 if (IsValidSpendingKey(spendingkey)) {
-                    auto addResult = boost::apply_visitor(
+                    auto addResult = std::visit(
                         AddSpendingKeyToWallet(pwallet, Params().GetConsensus(), nTime, hdKeypath, seedFpStr, true), spendingkey);
                     if (addResult == KeyAlreadyExists){
                         pwallet->WalletLogPrintf("Skipping import of zaddr (key already present)");
@@ -1627,7 +1627,7 @@ UniValue z_exportkey(const JSONRPCRequest& request)
     }
 
     // Sapling support
-    auto sk = boost::apply_visitor(GetSpendingKeyForPaymentAddress(pwallet), address);
+    auto sk = std::visit(GetSpendingKeyForPaymentAddress(pwallet), address);
     if (!sk) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Private key for zaddress " + strAddress + " is not known");
     }
@@ -1711,7 +1711,7 @@ UniValue z_importkey(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid spending key");
         }
 
-        auto addrInfo = boost::apply_visitor(libzcash::AddressInfoFromSpendingKey{}, spendingkey);
+        auto addrInfo = std::visit(libzcash::AddressInfoFromSpendingKey{}, spendingkey);
         auto type = addrInfo.first;
         auto dest = addrInfo.second;
 
@@ -1719,7 +1719,7 @@ UniValue z_importkey(const JSONRPCRequest& request)
         result.pushKV("address", EncodePaymentAddress(dest));
 
         // Sapling support
-        auto addResult = boost::apply_visitor(AddSpendingKeyToWallet(pwallet, Params().GetConsensus()), spendingkey);
+        auto addResult = std::visit(AddSpendingKeyToWallet(pwallet, Params().GetConsensus()), spendingkey);
         if (addResult == KeyAlreadyExists) {
             return result;
         }
@@ -1812,12 +1812,12 @@ UniValue z_importviewingkey(const JSONRPCRequest& request)
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
 
-    auto addrInfo = boost::apply_visitor(libzcash::AddressInfoFromViewingKey{}, viewingkey);
+    auto addrInfo = std::visit(libzcash::AddressInfoFromViewingKey{}, viewingkey);
     UniValue result(UniValue::VOBJ);
     result.pushKV("type", addrInfo.first);
     result.pushKV("address", EncodePaymentAddress(addrInfo.second));
 
-    auto addResult = boost::apply_visitor(AddViewingKeyToWallet(pwallet), viewingkey);
+    auto addResult = std::visit(AddViewingKeyToWallet(pwallet), viewingkey);
     if (addResult == SpendingKeyExists) {
         throw JSONRPCError(RPC_WALLET_ERROR, "The wallet already contains the private key for this viewing key");
     } else if (addResult == KeyAlreadyExists) {
@@ -1879,7 +1879,7 @@ UniValue z_exportviewingkey(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid zaddr");
     }
 
-    auto vk = boost::apply_visitor(GetViewingKeyForPaymentAddress(pwallet), address);
+    auto vk = std::visit(GetViewingKeyForPaymentAddress(pwallet), address);
     if (vk) {
         return EncodeViewingKey(vk.get());
     } else {

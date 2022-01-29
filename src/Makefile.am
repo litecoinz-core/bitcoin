@@ -292,7 +292,6 @@ BITCOIN_CORE_H = \
   wallet/walletutil.h \
   wallet/coinselection.h \
   warnings.h \
-  zcashparams.h \
   zmq/zmqabstractnotifier.h \
   zmq/zmqconfig.h\
   zmq/zmqnotificationinterface.h \
@@ -492,6 +491,8 @@ libbitcoin_consensus_a_SOURCES = \
   primitives/block.h \
   primitives/transaction.cpp \
   primitives/transaction.h \
+  proof_verifier.h \
+  proof_verifier.cpp \
   pubkey.cpp \
   pubkey.h \
   script/bitcoinconsensus.cpp \
@@ -545,7 +546,6 @@ libbitcoin_common_a_SOURCES = \
   transaction_builder.cpp \
   versionbitsinfo.cpp \
   warnings.cpp \
-  zcashparams.cpp \
   $(BITCOIN_CORE_H) \
   $(LIBZCASH_H)
 
@@ -712,7 +712,6 @@ zcash_libzcash_a_SOURCES = \
   zcash/address/sprout.cpp \
   zcash/address/zip32.cpp \
   zcash/JoinSplit.cpp \
-  zcash/Proof.cpp \
   zcash/Note.cpp \
   zcash/prf.cpp \
   zcash/util.cpp

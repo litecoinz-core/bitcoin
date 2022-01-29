@@ -28,6 +28,7 @@
 #include <wallet/walletutil.h>
 
 #include <zcash/Address.hpp>
+#include <zcash/Note.hpp>
 
 #include <algorithm>
 #include <atomic>
@@ -1008,6 +1009,9 @@ private:
 
     //! Adds a key to the store, and saves it to disk.
     bool AddKeyPubKeyWithDB(WalletBatch &batch, const CKey& key, const CPubKey &pubkey) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    bool AddSproutKeyWithDB(WalletBatch &batch, const libzcash::SproutSpendingKey &key) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    bool AddSaplingKeyWithDB(WalletBatch &batch, const libzcash::SaplingExtendedSpendingKey &key) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+
     //! Adds a watch-only address to the store, and saves it to disk.
     bool AddWatchOnlyWithDB(WalletBatch &batch, const CScript& dest, int64_t create_time) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
@@ -1287,13 +1291,24 @@ public:
      * Generate a new key
      */
     CPubKey GenerateNewKey(WalletBatch& batch, bool internal = false) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    libzcash::SproutPaymentAddress GenerateNewSproutKey(WalletBatch& batch) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    libzcash::SaplingPaymentAddress GenerateNewSaplingKey(WalletBatch& batch) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+
     //! Adds a key to the store, and saves it to disk.
     bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey) override EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    bool AddSproutKey(const libzcash::SproutSpendingKey &key) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    bool AddSaplingKey(const libzcash::SaplingExtendedSpendingKey &key) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds a key to the store, without saving it to disk (used by LoadWallet)
     bool LoadKey(const CKey& key, const CPubKey &pubkey) { return AddKeyPubKeyInner(key, pubkey); }
+    bool LoadSproutKey(const libzcash::SproutSpendingKey &key) { return AddSproutSpendingKey(key); }
+    bool LoadSaplingKey(const libzcash::SaplingExtendedSpendingKey &key) { return AddSaplingSpendingKey(key); }
+
     //! Load metadata (used by LoadWallet)
     void LoadKeyMetadata(const CKeyID& keyID, const CKeyMetadata &metadata) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     void LoadScriptMetadata(const CScriptID& script_id, const CKeyMetadata &metadata) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    void LoadSproutKeyMetadata(const libzcash::SproutPaymentAddress &addr, const CKeyMetadata &meta) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    void LoadSaplingKeyMetadata(const libzcash::SaplingIncomingViewingKey &ivk, const CKeyMetadata &meta) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+
     //! Upgrade stored CKeyMetadata objects to store key origin info as KeyOriginInfo
     void UpgradeKeyMetadata() EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
@@ -1348,14 +1363,6 @@ public:
     /**
       * Sprout ZKeys
       */
-    //! Generates a new Sprout zaddr
-    libzcash::SproutPaymentAddress GenerateNewSproutKey() EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
-    //! Adds spending key to the store, and saves it to disk
-    bool AddSproutKey(const libzcash::SproutSpendingKey &key);
-    //! Adds spending key to the store, without saving it to disk (used by LoadWallet)
-    bool LoadSproutKey(const libzcash::SproutSpendingKey &key);
-    //! Load spending key metadata (used by LoadWallet)
-    void LoadSproutKeyMetadata(const libzcash::SproutPaymentAddress &addr, const CKeyMetadata &meta);
     //! Adds an encrypted spending key to the store, without saving it to disk (used by LoadWallet)
     bool LoadCryptedSproutKey(const libzcash::SproutPaymentAddress &addr,
                               const libzcash::ReceivingKey &rk,
@@ -1366,29 +1373,21 @@ public:
                                      const std::vector<unsigned char> &vchCryptedSecret);
 
     //! Adds a Sprout viewing key to the store, and saves it to disk.
-    bool AddSproutViewingKey(const libzcash::SproutViewingKey &vk);
-    bool RemoveSproutViewingKey(const libzcash::SproutViewingKey &vk);
+    bool AddSproutViewingKey(const libzcash::SproutViewingKey &vk) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    bool RemoveSproutViewingKey(const libzcash::SproutViewingKey &vk) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds a Sprout viewing key to the store, without saving it to disk (used by LoadWallet)
     bool LoadSproutViewingKey(const libzcash::SproutViewingKey &dest);
 
     /**
       * Sapling ZKeys
       */
-    //! Generates new Sapling key
-    libzcash::SaplingPaymentAddress GenerateNewSaplingKey() EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
-    //! Adds Sapling spending key to the store, and saves it to disk
-    bool AddSaplingKey(const libzcash::SaplingExtendedSpendingKey &key);
     //! Add Sapling full viewing key to the wallet.
     //!
     //! This overrides CBasicKeyStore::AddSaplingFullViewingKey to persist the
     //! full viewing key to disk. Inside CCryptoKeyStore and CBasicKeyStore,
     //! CBasicKeyStore::AddSaplingFullViewingKey is called directly when adding a
     //! full viewing key to the keystore, to avoid this override.
-    bool AddSaplingFullViewingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk);
-    //! Adds spending key to the store, without saving it to disk (used by LoadWallet)
-    bool LoadSaplingKey(const libzcash::SaplingExtendedSpendingKey &key);
-    //! Load spending key metadata (used by LoadWallet)
-    void LoadSaplingKeyMetadata(const libzcash::SaplingIncomingViewingKey &ivk, const CKeyMetadata &meta);
+    bool AddSaplingFullViewingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Add Sapling full viewing key to the store, without saving it to disk (used by LoadWallet)
     bool LoadSaplingFullViewingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk);
     //! Adds an encrypted spending key to the store, without saving it to disk (used by LoadWallet)
@@ -1396,7 +1395,7 @@ public:
     bool AddCryptedSaplingSpendingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk,
                                       const std::vector<unsigned char> &vchCryptedSecret);
     //! Adds a Sapling incoming viewing key to the store, and saves it to disk.
-    bool AddSaplingIncomingViewingKey(const libzcash::SaplingIncomingViewingKey &ivk, const libzcash::SaplingPaymentAddress &addr);
+    bool AddSaplingIncomingViewingKey(const libzcash::SaplingIncomingViewingKey &ivk, const libzcash::SaplingPaymentAddress &addr) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds a Sapling payment address -> incoming viewing key map entry,
     //! without saving it to disk (used by LoadWallet)
     bool LoadSaplingPaymentAddress(const libzcash::SaplingPaymentAddress &addr, const libzcash::SaplingIncomingViewingKey &ivk);
@@ -1933,7 +1932,7 @@ int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wall
 // Shielded key and address generalizations
 //
 
-class PaymentAddressBelongsToWallet : public boost::static_visitor<bool>
+class PaymentAddressBelongsToWallet
 {
 private:
     CWallet *m_wallet;
@@ -1945,7 +1944,7 @@ public:
     bool operator()(const libzcash::InvalidEncoding& no) const;
 };
 
-class GetViewingKeyForPaymentAddress : public boost::static_visitor<Optional<libzcash::ViewingKey>>
+class GetViewingKeyForPaymentAddress
 {
 private:
     CWallet *m_wallet;
@@ -1957,7 +1956,7 @@ public:
     Optional<libzcash::ViewingKey> operator()(const libzcash::InvalidEncoding& no) const;
 };
 
-class HaveSpendingKeyForPaymentAddress : public boost::static_visitor<bool>
+class HaveSpendingKeyForPaymentAddress
 {
 private:
     CWallet *m_wallet;
@@ -1969,7 +1968,7 @@ public:
     bool operator()(const libzcash::InvalidEncoding& no) const;
 };
 
-class GetSpendingKeyForPaymentAddress : public boost::static_visitor<Optional<libzcash::SpendingKey>>
+class GetSpendingKeyForPaymentAddress
 {
 private:
     CWallet *m_wallet;
@@ -1988,7 +1987,7 @@ enum KeyAddResult {
     KeyNotAdded,
 };
 
-class AddViewingKeyToWallet : public boost::static_visitor<KeyAddResult>
+class AddViewingKeyToWallet
 {
 private:
     CWallet *m_wallet;
@@ -2000,7 +1999,7 @@ public:
     KeyAddResult operator()(const libzcash::InvalidEncoding& no) const;
 };
 
-class AddSpendingKeyToWallet : public boost::static_visitor<KeyAddResult>
+class AddSpendingKeyToWallet
 {
 private:
     CWallet *m_wallet;

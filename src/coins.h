@@ -85,6 +85,20 @@ public:
     }
 };
 
+class SaltedTxidHasher
+{
+private:
+    /** Salt */
+    const uint64_t k0, k1;
+
+public:
+    SaltedTxidHasher();
+
+    size_t operator()(const uint256& txid) const {
+        return SipHashUint256(k0, k1, txid);
+    }
+};
+
 class SaltedOutpointHasher
 {
 private:
@@ -109,24 +123,6 @@ public:
      */
     size_t operator()(const COutPoint& id) const noexcept {
         return SipHashUint256Extra(k0, k1, id.hash, id.n);
-    }
-};
-
-class CCoinsKeyHasher
-{
-private:
-    uint256 salt;
-
-public:
-    CCoinsKeyHasher();
-
-    /**
-     * This *must* return size_t. With Boost 1.46 on 32-bit systems the
-     * unordered_map will behave unpredictably if the custom hasher returns a
-     * uint64_t, resulting in failures when syncing the chain (#4634).
-     */
-    size_t operator()(const uint256& key) const {
-        return key.GetHash(salt);
     }
 };
 
@@ -194,9 +190,9 @@ enum ShieldedType
 };
 
 typedef std::unordered_map<COutPoint, CCoinsCacheEntry, SaltedOutpointHasher> CCoinsMap;
-typedef std::unordered_map<uint256, CAnchorsSproutCacheEntry, CCoinsKeyHasher> CAnchorsSproutMap;
-typedef std::unordered_map<uint256, CAnchorsSaplingCacheEntry, CCoinsKeyHasher> CAnchorsSaplingMap;
-typedef std::unordered_map<uint256, CNullifiersCacheEntry, CCoinsKeyHasher> CNullifiersMap;
+typedef std::unordered_map<uint256, CAnchorsSproutCacheEntry, SaltedTxidHasher> CAnchorsSproutMap;
+typedef std::unordered_map<uint256, CAnchorsSaplingCacheEntry, SaltedTxidHasher> CAnchorsSaplingMap;
+typedef std::unordered_map<uint256, CNullifiersCacheEntry, SaltedTxidHasher> CNullifiersMap;
 
 /** Cursor for iterating over CoinsView state */
 class CCoinsViewCursor

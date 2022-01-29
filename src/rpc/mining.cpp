@@ -52,8 +52,10 @@ static UniValue GetNetworkHashPS(int lookup, int height) {
 
     // If lookup is -1, then use difficulty averaging window.
     if (lookup <= 0) {
-        if (::ChainActive().Height() < Params().GetConsensus().nLwmaForkHeight)
+        if (::ChainActive().Height() < Params().GetConsensus().nLegacyLwmaForkHeight)
             lookup = Params().GetConsensus().nDigishieldAveragingWindow;
+        else if (::ChainActive().Height() < Params().GetConsensus().nLwmaForkHeight)
+            lookup = Params().GetConsensus().nLegacyLwmaAveragingWindow;
         else
             lookup = Params().GetConsensus().nLwmaAveragingWindow;
     }
@@ -763,11 +765,12 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     int height = pindexPrev->nHeight + 1;
     result.pushKV("height", (int64_t)height);
 
-    if (height < consensusParams.nLwmaForkHeight) {
+    if (height < consensusParams.nLegacyLwmaForkHeight)
         result.pushKV("pow", "Digishield");
-    } else {
+    else if (height < consensusParams.nLwmaForkHeight)
+        result.pushKV("pow", "Lwma Legacy");
+    else
         result.pushKV("pow", "Lwma");
-    }
 
     result.pushKV("equihashn", (int64_t)(consensusParams.EquihashN(height)));
     result.pushKV("equihashk", (int64_t)(consensusParams.EquihashK(height)));

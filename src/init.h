@@ -11,8 +11,6 @@
 #include <string>
 #include <util/system.h>
 
-#include <zcash/JoinSplit.hpp>
-
 namespace interfaces {
 class Chain;
 class ChainClient;

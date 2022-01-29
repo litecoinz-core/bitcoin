@@ -149,7 +149,10 @@ struct Params {
     /** Block height where Equihash<144,5> becomes active */
     int nEquihashForkHeight;
 
-    /** Block height at which Zawy's LWMA difficulty algorithm becomes active */
+    /** Block height at which Legacy Zawy's LWMA (10 minutes block time) difficulty algorithm becomes active */
+    int nLegacyLwmaForkHeight;
+
+    /** Block height at which Zawy's LWMA (2.5 minutes block time) difficulty algorithm becomes active */
     int nLwmaForkHeight;
 
     /** Proof of work parameters */
@@ -186,10 +189,14 @@ struct Params {
     int64_t DigishieldMinActualTimespan() const { return (DigishieldAveragingWindowTimespan() * (100 - nDigishieldMaxAdjustUp  )) / 100; }
     int64_t DigishieldMaxActualTimespan() const { return (DigishieldAveragingWindowTimespan() * (100 + nDigishieldMaxAdjustDown)) / 100; }
 
+    // Params for Legacy Lwma difficulty adjustment algorithm.
+    int64_t nLegacyLwmaAveragingWindow;
+    int64_t nLegacyPowTargetSpacing;
+
     // Params for Lwma difficulty adjustment algorithm.
     int64_t nLwmaAveragingWindow;
-
     int64_t nPowTargetSpacing;
+
     uint256 nMinimumChainWork;
     uint256 defaultAssumeValid;
 

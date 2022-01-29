@@ -23,13 +23,12 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
     if (params.fPowNoRetargeting)
         return pindexLast->nBits;
 
-    if (nHeight < params.nLwmaForkHeight) {
-        // Regular Digishield v3.
-        return DigishieldGetNextWorkRequired(pindexLast, pblock, params);
-    } else {
-        // Zawy's LWMA.
-        return LwmaGetNextWorkRequired(pindexLast, pblock, params);
-    }
+    if (nHeight < params.nLegacyLwmaForkHeight)
+        return DigishieldGetNextWorkRequired(pindexLast, pblock, params); // Regular Digishield v3
+    else if (nHeight < params.nLwmaForkHeight)
+        return LwmaGetNextWorkRequired(pindexLast, pblock, params, true); // Legacy Zawy's LWMA
+    else
+        return LwmaGetNextWorkRequired(pindexLast, pblock, params, false); // Zawy's LWMA
 }
 
 unsigned int DigishieldGetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
@@ -118,25 +117,28 @@ unsigned int DigishieldCalculateNextWorkRequired(const CBlockIndex* pindexLast, 
     return bnNew.GetCompact();
 }
 
-unsigned int LwmaGetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
+unsigned int LwmaGetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params, bool fLegacy)
 {
+    int64_t nPowTargetSpacing = params.nPowTargetSpacing;
+    int64_t nLwmaAveragingWindow = params.nLwmaAveragingWindow;
+
+    if (fLegacy) {
+        nPowTargetSpacing =  params.nLegacyPowTargetSpacing;
+        nLwmaAveragingWindow = params.nLegacyLwmaAveragingWindow;
+    }
+
     // Special difficulty rule for testnet:
     // If the new block's timestamp is more than 2 * 10 minutes
     // then allow mining of a min-difficulty block.
     if (params.fPowAllowMinDifficultyBlocks &&
-        pblock->GetBlockTime() > pindexLast->GetBlockTime() + params.nPowTargetSpacing * 2) {
+        pblock->GetBlockTime() > pindexLast->GetBlockTime() + nPowTargetSpacing * 2) {
         return UintToArith256(params.powLimit).GetCompact();
     }
-    return LwmaCalculateNextWorkRequired(pindexLast, params);
+    return LwmaCalculateNextWorkRequired(pindexLast, params, nPowTargetSpacing, nLwmaAveragingWindow);
 }
 
-unsigned int LwmaCalculateNextWorkRequired(const CBlockIndex* pindexLast, const Consensus::Params& params)
+unsigned int LwmaCalculateNextWorkRequired(const CBlockIndex* pindexLast, const Consensus::Params& params, const int64_t T, const int64_t N)
 {
-    const int64_t T = params.nPowTargetSpacing;
-
-    // For T=600, 300, 150 use approximately N=60, 90, 120
-    const int64_t N = params.nLwmaAveragingWindow;
-
     // Define a k that will be used to get a proper average after weighting the solvetimes.
     const int64_t k = N * (N + 1) * T / 2;
 

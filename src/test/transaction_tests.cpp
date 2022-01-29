@@ -154,7 +154,7 @@ BOOST_AUTO_TEST_CASE(tx_valid)
             CTransaction tx(deserialize, stream);
 
             CValidationState state;
-            auto verifier = libzcash::ProofVerifier::Disabled();
+            auto verifier = ProofVerifier::Disabled();
             BOOST_CHECK_MESSAGE(CheckTransaction(tx, state, verifier), strTest);
             BOOST_CHECK(state.IsValid());
 
@@ -242,7 +242,7 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
             CTransaction tx(deserialize, stream);
 
             CValidationState state;
-            auto verifier = libzcash::ProofVerifier::Disabled();
+            auto verifier = ProofVerifier::Disabled();
             fValid = CheckTransaction(tx, state, verifier) && state.IsValid();
 
             PrecomputedTransactionData txdata(tx);
@@ -278,7 +278,7 @@ BOOST_AUTO_TEST_CASE(basic_transaction_tests)
     CMutableTransaction tx;
     stream >> tx;
     CValidationState state;
-    auto verifier = libzcash::ProofVerifier::Disabled();
+    auto verifier = ProofVerifier::Disabled();
     BOOST_CHECK_MESSAGE(CheckTransaction(CTransaction(tx), state, verifier) && state.IsValid(), "Simple deserialized transaction should be valid.");
 
     // Check that duplicate txins fail

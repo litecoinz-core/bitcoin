@@ -55,9 +55,8 @@ bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins,
 CCoinsViewCursor *CCoinsViewBacked::Cursor() const { return base->Cursor(); }
 size_t CCoinsViewBacked::EstimateSize() const { return base->EstimateSize(); }
 
+SaltedTxidHasher::SaltedTxidHasher() : k0(GetRand(std::numeric_limits<uint64_t>::max())), k1(GetRand(std::numeric_limits<uint64_t>::max())) {}
 SaltedOutpointHasher::SaltedOutpointHasher() : k0(GetRand(std::numeric_limits<uint64_t>::max())), k1(GetRand(std::numeric_limits<uint64_t>::max())) {}
-
-CCoinsKeyHasher::CCoinsKeyHasher() : salt(GetRandHash()) {}
 
 CCoinsViewCache::CCoinsViewCache(CCoinsView *baseIn) : CCoinsViewBacked(baseIn), cachedCoinsUsage(0) {}
 
@@ -573,7 +572,7 @@ CAmount CCoinsViewCache::GetValueIn(const CTransaction& tx) const
 
 bool CCoinsViewCache::HaveShieldedRequirements(const CTransaction& tx) const
 {
-    std::unordered_map<uint256, SproutMerkleTree, CCoinsKeyHasher> intermediates;
+    std::unordered_map<uint256, SproutMerkleTree, SaltedTxidHasher> intermediates;
     for (const JSDescription &joinsplit : tx.vJoinSplit)
     {
         for (const uint256& nullifier : joinsplit.nullifiers)

@@ -287,7 +287,7 @@ public:
  * that debug log output is not sent to any file at all).
  */
 
-NODISCARD static bool InterpretOption(std::string key, std::string val, unsigned int flags,
+[[nodiscard]] static bool InterpretOption(std::string key, std::string val, unsigned int flags,
                                       std::map<std::string, std::vector<std::string>>& args,
                                       std::string& error)
 {

@@ -92,10 +92,13 @@ public:
         consensus.nDigishieldMaxAdjustUp = 16; // 16% adjustment up
 
         // POW DDA LWMA Parameters
-        consensus.nLwmaForkHeight = 600000;
-        consensus.nLwmaAveragingWindow = 60;
+        consensus.nLegacyLwmaForkHeight = 600000;
+        consensus.nLegacyLwmaAveragingWindow = 60;
+        consensus.nLegacyPowTargetSpacing = 10 * 60;
+        consensus.nLwmaForkHeight = std::numeric_limits<int>::max();
+        consensus.nLwmaAveragingWindow = 120;
+        consensus.nPowTargetSpacing = 2.5 * 60;
 
-        consensus.nPowTargetSpacing = 10 * 60;
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
         consensus.nRuleChangeActivationThreshold = 1916; // 95% of 2016
@@ -256,10 +259,13 @@ public:
         consensus.nDigishieldMaxAdjustUp = 16; // 16% adjustment up
 
         // POW DDA LWMA Parameters
-        consensus.nLwmaForkHeight = 6500;
-        consensus.nLwmaAveragingWindow = 60;
+        consensus.nLegacyLwmaForkHeight = 6500;
+        consensus.nLegacyLwmaAveragingWindow = 60;
+        consensus.nLegacyPowTargetSpacing = 10 * 60;
+        consensus.nLwmaForkHeight = 7000;
+        consensus.nLwmaAveragingWindow = 120;
+        consensus.nPowTargetSpacing = 2.5 * 60;
 
-        consensus.nPowTargetSpacing = 10 * 60;
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
         consensus.nRuleChangeActivationThreshold = 1512; // 75% for testchains
@@ -396,10 +402,13 @@ public:
         consensus.nDigishieldMaxAdjustUp = 0; // Turn off adjustment up
 
         // POW DDA LWMA Parameters
+        consensus.nLegacyLwmaForkHeight = std::numeric_limits<int>::max();
+        consensus.nLegacyLwmaAveragingWindow = 60;
+        consensus.nLegacyPowTargetSpacing = 10 * 60;
         consensus.nLwmaForkHeight = -1; // Activated on regtest
-        consensus.nLwmaAveragingWindow = 60;
+        consensus.nLwmaAveragingWindow = 120;
+        consensus.nPowTargetSpacing = 2.5 * 60;
 
-        consensus.nPowTargetSpacing = 10 * 60;
         consensus.fPowAllowMinDifficultyBlocks = true;
         consensus.fPowNoRetargeting = true;
         consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
