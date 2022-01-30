@@ -1,8 +1,8 @@
 package=curl
-$(package)_version=7.66.0
+$(package)_version=7.50.3
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_download_path=https://curl.haxx.se/download
-$(package)_sha256_hash=d0393da38ac74ffac67313072d7fe75b1fa1010eb5987f63f349b024a36b7ffb
+$(package)_sha256_hash=3991c2234986178af3b3f693e5afa35d49da2ab4ba61292e3817222446dca7e1
 $(package)_dependencies=openssl
 
 define $(package)_set_vars
