@@ -4725,6 +4725,8 @@ static UniValue z_getnewaddress(const JSONRPCRequest& request)
     libzcash::PaymentAddress dest;
     std::string error;
 
+    EnsureWalletIsUnlocked(pwallet);
+
     if (address_type == ADDR_TYPE_SPROUT) {
         if (isSaplingEnabled) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Generation of new sprout addresses is deprecated and will be fully removed in 3.1.0");
