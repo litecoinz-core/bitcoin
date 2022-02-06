@@ -128,10 +128,6 @@ bool DecryptKey(const CKeyingMaterial& vMasterKey, const std::vector<unsigned ch
 
 bool DecryptZecHDSeed(const CKeyingMaterial& vMasterKey, const std::vector<unsigned char>& vchCryptedSecret, const uint256& seedFp, HDSeed& seed);
 
-bool DecryptSproutSpendingKey(const CKeyingMaterial& vMasterKey,
-                              const std::vector<unsigned char>& vchCryptedSecret,
-                              const libzcash::SproutPaymentAddress& address,
-                              libzcash::SproutSpendingKey& sk);
 bool DecryptSaplingSpendingKey(const CKeyingMaterial& vMasterKey,
                                const std::vector<unsigned char>& vchCryptedSecret,
                                const libzcash::SaplingExtendedFullViewingKey& extfvk,

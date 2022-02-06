@@ -53,7 +53,6 @@ public:
     static const QString Receive;   /**< Specifies receive address */
 
     static const QString Base;     /**< Specifies base address */
-    static const QString Sprout;   /**< Specifies sprout address */
     static const QString Sapling;  /**< Specifies sapling address */
 
     static const QString All;

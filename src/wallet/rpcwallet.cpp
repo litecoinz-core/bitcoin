@@ -1246,8 +1246,6 @@ static UniValue z_listreceivedbyaddress(const JSONRPCRequest& request)
             "  \"txid\": \"txid\",           (string) the transaction id\n"
             "  \"amount\": xxxxx,         (numeric) the amount of value in the note\n"
             "  \"memo\": xxxxx,           (string) hexadecimal string representation of memo field\n"
-            "  \"jsindex\" (sprout) : n,     (numeric) the joinsplit index\n"
-            "  \"jsoutindex\" (sprout) : n,     (numeric) the output index of the joinsplit\n"
             "  \"outindex\" (sapling) : n,     (numeric) the output index\n"
             "  \"change\": true|false,    (boolean) true if the address that received the note is also one of the sending addresses\n"
             "}\n"
@@ -1283,34 +1281,19 @@ static UniValue z_listreceivedbyaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid zaddr.");
     }
 
-    // Visitor to support Sprout and Sapling addrs
+    // Visitor to support Sapling addresses
     if (!std::visit(PaymentAddressBelongsToWallet(pwallet), zaddr)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "From address does not belong to this node, zaddr spending key or viewing key not found.");
     }
 
     UniValue result(UniValue::VARR);
-    std::vector<SproutNoteEntry> sproutEntries;
     std::vector<SaplingNoteEntry> saplingEntries;
-    pwallet->GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, fromaddress, nMinDepth, false, false);
+    pwallet->GetFilteredNotes(*locked_chain, saplingEntries, fromaddress, nMinDepth, false, false);
 
     std::set<std::pair<libzcash::PaymentAddress, uint256>> nullifierSet;
     auto hasSpendingKey = std::visit(HaveSpendingKeyForPaymentAddress(pwallet), zaddr);
     if (hasSpendingKey) {
         nullifierSet = pwallet->GetNullifiersForAddresses({zaddr});
-    }
-
-    for (SproutNoteEntry & entry : sproutEntries) {
-        UniValue obj(UniValue::VOBJ);
-        obj.pushKV("txid", entry.jsop.hash.ToString());
-        obj.pushKV("amount", ValueFromAmount(CAmount(entry.note.value())));
-        std::string data(entry.memo.begin(), entry.memo.end());
-        obj.pushKV("memo", HexStr(data));
-        obj.pushKV("jsindex", entry.jsop.js);
-        obj.pushKV("jsoutindex", entry.jsop.n);
-        if (hasSpendingKey) {
-            obj.pushKV("change", pwallet->IsNoteSproutChange(nullifierSet, entry.address, entry.jsop));
-        }
-        result.push_back(obj);
     }
 
     for (SaplingNoteEntry & entry : saplingEntries) {
@@ -2062,7 +2045,6 @@ static UniValue walletpassphrase(const JSONRPCRequest& request)
     }
 
     // No need to check return values, because the wallet was unlocked above
-    pwallet->UpdateNullifierNoteMap();
     pwallet->TopUpKeyPool();
 
     pwallet->nRelockTime = GetTime() + nSleepTime;
@@ -3132,7 +3114,6 @@ static UniValue z_listunspent(const JSONRPCRequest& request)
                 "Optionally filter to only include notes sent to specified addresses.\n"
                 "When minconf is 0, unspent notes with zero confirmations are returned, even though they are not immediately spendable.\n"
                 "Results are an array of Objects, each of which has:\n"
-                "{txid, jsindex, jsoutindex, confirmations, address, amount, memo} (Sprout)\n"
                 "{txid, outindex, confirmations, address, amount, memo} (Sapling)\n",
                 {
                     {"minconf", RPCArg::Type::NUM, /* default */ "1", "The minimum confirmations to filter"},
@@ -3148,8 +3129,6 @@ static UniValue z_listunspent(const JSONRPCRequest& request)
             "[                   (array of json object)\n"
             "  {\n"
             "    \"txid\" : \"txid\",           (string) the transaction id \n"
-            "    \"jsindex\" (sprout) : n,    (numeric) the joinsplit index\n"
-            "    \"jsoutindex\" (sprout) : n, (numeric) the output index of the joinsplit\n"
             "    \"outindex\" (sapling) : n,  (numeric) the output index\n"
             "    \"confirmations\" : n,       (numeric) the number of confirmations\n"
             "    \"spendable\" : true|false,  (boolean) true if note can be spent by wallet, false if address is watchonly\n"
@@ -3213,11 +3192,6 @@ static UniValue z_listunspent(const JSONRPCRequest& request)
     } else {
         // User did not provide zaddrs, so use default i.e. all addresses
         {
-            std::set<libzcash::SproutPaymentAddress> za;
-            pwallet->GetSproutPaymentAddresses(za);
-            zaddrs.insert(za.begin(), za.end());
-        }
-        {
             std::set<libzcash::SaplingPaymentAddress> za;
             pwallet->GetSaplingPaymentAddresses(za);
             zaddrs.insert(za.begin(), za.end());
@@ -3237,34 +3211,9 @@ static UniValue z_listunspent(const JSONRPCRequest& request)
         return results;
     }
 
-    std::vector<SproutNoteEntry> sproutEntries;
     std::vector<SaplingNoteEntry> saplingEntries;
-    pwallet->GetFilteredNotes(*locked_chain, sproutEntries, saplingEntries, &zaddrs, nMinDepth, nMaxDepth, true, !fIncludeWatchonly, false);
+    pwallet->GetFilteredNotes(*locked_chain, saplingEntries, &zaddrs, nMinDepth, nMaxDepth, true, !fIncludeWatchonly, false);
     std::set<std::pair<libzcash::PaymentAddress, uint256>> nullifierSet = pwallet->GetNullifiersForAddresses(zaddrs);
-
-    for (auto & entry : sproutEntries) {
-        UniValue obj(UniValue::VOBJ);
-        obj.pushKV("txid", entry.jsop.hash.ToString());
-        obj.pushKV("jsindex", (int)entry.jsop.js );
-        obj.pushKV("jsoutindex", (int)entry.jsop.n);
-        obj.pushKV("confirmations", entry.confirmations);
-        bool hasSproutSpendingKey = HaveSpendingKeyForPaymentAddress(pwallet)(entry.address);
-        obj.pushKV("spendable", hasSproutSpendingKey);
-        obj.pushKV("address", EncodePaymentAddress(entry.address));
-
-        auto i = pwallet->mapSproutAddressBook.find(entry.address);
-        if (i != pwallet->mapSproutAddressBook.end()) {
-            obj.pushKV("label", i->second.name);
-        }
-
-        obj.pushKV("amount", ValueFromAmount(CAmount(entry.note.value())));
-        std::string data(entry.memo.begin(), entry.memo.end());
-        obj.pushKV("memo", HexStr(data));
-        if (hasSproutSpendingKey) {
-            obj.pushKV("change", pwallet->IsNoteSproutChange(nullifierSet, entry.address, entry.jsop));
-        }
-        results.push_back(obj);
-    }
 
     for (auto & entry : saplingEntries) {
         UniValue obj(UniValue::VOBJ);
@@ -4715,8 +4664,6 @@ static UniValue z_getnewaddress(const JSONRPCRequest& request)
     if (!request.params[0].isNull())
         label = LabelFromValue(request.params[0]);
 
-    bool isSaplingEnabled = (::ChainActive().Height() > Params().GetConsensus().vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight);
-
     auto address_type = defaultType;
     if (!request.params[1].isNull()) {
         address_type = request.params[1].get_str();
@@ -4728,12 +4675,7 @@ static UniValue z_getnewaddress(const JSONRPCRequest& request)
     EnsureWalletIsUnlocked(pwallet);
 
     if (address_type == ADDR_TYPE_SPROUT) {
-        if (isSaplingEnabled) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Generation of new sprout addresses is deprecated and will be fully removed in 3.1.0");
-        }
-        if (!pwallet->GetNewSproutDestination(label, dest, error)) {
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
-        }
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "SPROUT addesses were removed");
     } else if (address_type == ADDR_TYPE_SAPLING) {
         if (!pwallet->GetNewSaplingDestination(label, dest, error)) {
             throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
@@ -4836,6 +4778,9 @@ UniValue z_sendmany(const JSONRPCRequest& request)
     // This logic will need to be updated if we add a new shielded pool
     bool fromSprout = !(fromTaddr || fromSapling);
 
+    if (fromSprout)
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "SPROUT addesses were removed");
+
     UniValue outputs = request.params[1].get_array();
 
     if (outputs.size()==0)
@@ -4844,15 +4789,11 @@ UniValue z_sendmany(const JSONRPCRequest& request)
     // Keep track of addresses to spot duplicates
     std::set<std::string> setAddress;
 
-    // Track whether we see any Sprout addresses
-    bool noSproutAddrs = !fromSprout;
-
     // Recipients
     std::vector<SendManyRecipient> taddrRecipients;
     std::vector<SendManyRecipient> zaddrRecipients;
     CAmount nTotalOut = 0;
 
-    bool containsSproutOutput = false;
     bool containsSaplingOutput = false;
 
     for (const UniValue& o : outputs.getValues()) {
@@ -4876,23 +4817,11 @@ UniValue z_sendmany(const JSONRPCRequest& request)
 
                 bool toSapling = std::get_if<libzcash::SaplingPaymentAddress>(&res) != nullptr;
                 bool toSprout = !toSapling;
-                noSproutAddrs = noSproutAddrs && toSapling;
 
-                containsSproutOutput |= toSprout;
                 containsSaplingOutput |= toSapling;
 
-                // Sending to both Sprout and Sapling is currently unsupported using z_sendmany
-                if (containsSproutOutput && containsSaplingOutput) {
-                    throw JSONRPCError(
-                        RPC_INVALID_PARAMETER,
-                        "Cannot send to both Sprout and Sapling addresses using z_sendmany");
-                }
-
-                // If sending between shielded addresses, they must be the same type
-                if ((fromSprout && toSapling) || (fromSapling && toSprout)) {
-                    throw JSONRPCError(
-                        RPC_INVALID_PARAMETER,
-                        "Cannot send between Sprout and Sapling addresses using z_sendmany");
+                if (toSprout) {
+                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "SPROUT addesses were removed");
                 }
             } else {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, unknown address format: ") + address);
@@ -5046,9 +4975,7 @@ UniValue z_sendmany(const JSONRPCRequest& request)
 
     // Builder (used if Sapling addresses are involved)
     Optional<TransactionBuilder> builder;
-    if (noSproutAddrs) {
-        builder = TransactionBuilder(Params().GetConsensus(), nextBlockHeight, pwallet);
-    }
+    builder = TransactionBuilder(Params().GetConsensus(), nextBlockHeight, pwallet);
 
     // Contextual transaction we will build on
     // (used if no Sapling addresses are involved)
@@ -5157,7 +5084,7 @@ UniValue z_gettotalbalance(const JSONRPCRequest& request)
                  RPCResult{
             "{\n"
             "  \"transparent\": xxxxx,  (numeric) the total balance of transparent funds\n"
-            "  \"private\": xxxxx,      (numeric) the total balance of shielded funds (in both Sprout and Sapling addresses)\n"
+            "  \"private\": xxxxx,      (numeric) the total balance of shielded funds\n"
             "  \"total\": xxxxx,        (numeric) the total balance of both transparent and shielded funds\n"
             "}\n"
                  },
@@ -5225,12 +5152,8 @@ UniValue z_viewtransaction(const JSONRPCRequest& request)
             "  \"spends\" : [\n"
             "    {\n"
             "      \"type\" : \"sprout|sapling\",      (string) The type of address\n"
-            "      \"js\" : n,                       (numeric, sprout) the index of the JSDescription within vJoinSplit\n"
-            "      \"jsSpend\" : n,                  (numeric, sprout) the index of the spend within the JSDescription\n"
             "      \"spend\" : n,                    (numeric, sapling) the index of the spend within vShieldedSpend\n"
             "      \"txidPrev\" : \"transactionid\",   (string) The id for the transaction this note was created in\n"
-            "      \"jsPrev\" : n,                   (numeric, sprout) the index of the JSDescription within vJoinSplit\n"
-            "      \"jsOutputPrev\" : n,             (numeric, sprout) the index of the output within the JSDescription\n"
             "      \"outputPrev\" : n,               (numeric, sapling) the index of the output within the vShieldedOutput\n"
             "      \"address\" : \"zcashaddress\",     (string) The Zcash address involved in the transaction\n"
             "      \"value\" : x.xxx                 (numeric) The amount in " + CURRENCY_UNIT + "\n"
@@ -5241,8 +5164,6 @@ UniValue z_viewtransaction(const JSONRPCRequest& request)
             "  \"outputs\" : [\n"
             "    {\n"
             "      \"type\" : \"sprout|sapling\",      (string) The type of address\n"
-            "      \"js\" : n,                       (numeric, sprout) the index of the JSDescription within vJoinSplit\n"
-            "      \"jsOutput\" : n,                 (numeric, sprout) the index of the output within the JSDescription\n"
             "      \"output\" : n,                   (numeric, sapling) the index of the output within the vShieldedOutput\n"
             "      \"address\" : \"zcashaddress\",     (string) The Zcash address involved in the transaction\n"
             "      \"outgoing\" : true|false         (boolean, sapling) True if the output is not for an address in the wallet\n"
@@ -5256,7 +5177,7 @@ UniValue z_viewtransaction(const JSONRPCRequest& request)
             "}\n"
                  },
                 RPCExamples{
-            "\nList of Sprout and Sapling shielded addresses:\n"
+            "\nList of Sapling shielded addresses:\n"
             + HelpExampleCli("z_viewtransaction", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"") +
             "\nAs a JSON-RPC call\n"
             + HelpExampleRpc("z_viewtransaction", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"")
@@ -5282,57 +5203,6 @@ UniValue z_viewtransaction(const JSONRPCRequest& request)
     auto addMemo = [](UniValue &entry, std::array<unsigned char, ZC_MEMO_SIZE> &memo) {
         entry.pushKV("memo", HexStr(memo));
     };
-
-    // Sprout spends
-    for (size_t i = 0; i < wtx.tx->vJoinSplit.size(); ++i) {
-        for (size_t j = 0; j < wtx.tx->vJoinSplit[i].nullifiers.size(); ++j) {
-            auto nullifier = wtx.tx->vJoinSplit[i].nullifiers[j];
-
-            // Fetch the note that is being spent, if ours
-            auto res = pwallet->mapSproutNullifiersToNotes.find(nullifier);
-            if (res == pwallet->mapSproutNullifiersToNotes.end()) {
-                continue;
-            }
-            auto jsop = res->second;
-            auto wtxPrev = pwallet->mapWallet.at(jsop.hash);
-
-            auto decrypted = wtxPrev.DecryptSproutNote(jsop);
-            auto notePt = decrypted.first;
-            auto pa = decrypted.second;
-
-            UniValue entry(UniValue::VOBJ);
-            entry.pushKV("type", ADDR_TYPE_SPROUT);
-            entry.pushKV("js", (int)i);
-            entry.pushKV("jsSpend", (int)j);
-            entry.pushKV("txidPrev", jsop.hash.GetHex());
-            entry.pushKV("jsPrev", (int)jsop.js);
-            entry.pushKV("jsOutputPrev", (int)jsop.n);
-            entry.pushKV("address", EncodePaymentAddress(pa));
-            entry.pushKV("value", ValueFromAmount(notePt.value()));
-            entry.pushKV("valueZat", notePt.value());
-            spends.push_back(entry);
-        }
-    }
-
-    // Sprout outputs
-    for (auto & pair : wtx.mapSproutNoteData) {
-        SproutOutPoint jsop = pair.first;
-
-        auto decrypted = wtx.DecryptSproutNote(jsop);
-        auto notePt = decrypted.first;
-        auto pa = decrypted.second;
-        auto memo = notePt.memo();
-
-        UniValue entry(UniValue::VOBJ);
-        entry.pushKV("type", ADDR_TYPE_SPROUT);
-        entry.pushKV("js", (int)jsop.js);
-        entry.pushKV("jsOutput", (int)jsop.n);
-        entry.pushKV("address", EncodePaymentAddress(pa));
-        entry.pushKV("value", ValueFromAmount(notePt.value()));
-        entry.pushKV("valueZat", notePt.value());
-        addMemo(entry, memo);
-        outputs.push_back(entry);
-    }
 
     // Collect OutgoingViewingKeys for recovering output information
     std::set<uint256> ovks;
@@ -5428,18 +5298,18 @@ UniValue z_listaddresses(const JSONRPCRequest& request)
     }
 
     RPCHelpMan{"z_listaddresses",
-                "\nReturns the list of Sprout and Sapling shielded addresses belonging to the wallet.\n",
+                "\nReturns the list of Sapling shielded addresses belonging to the wallet.\n",
                 {
                     {"includeWatchonly", RPCArg::Type::BOOL, /* default */ "false", "Also include watchonly addresses."},
                 },
                  RPCResult{
             "[                     (json array of string)\n"
-            "  \"address\"           (string) a Sprout and Sapling shielded addresses belonging to the wallet\n"
+            "  \"address\"           (string) a Sapling shielded addresses belonging to the wallet\n"
             "  ,...\n"
             "]\n"
                  },
                 RPCExamples{
-            "\nList of Sprout and Sapling shielded addresses:\n"
+            "\nList of Sapling shielded addresses:\n"
             + HelpExampleCli("z_listaddresses", "") +
             "\nAs a JSON-RPC call\n"
             + HelpExampleRpc("z_listaddresses", "")
@@ -5455,15 +5325,6 @@ UniValue z_listaddresses(const JSONRPCRequest& request)
     }
 
     UniValue ret(UniValue::VARR);
-    {
-        std::set<libzcash::SproutPaymentAddress> addresses;
-        pwallet->GetSproutPaymentAddresses(addresses);
-        for (auto addr : addresses) {
-            if (fIncludeWatchonly || HaveSpendingKeyForPaymentAddress(pwallet)(addr)) {
-                ret.push_back(EncodePaymentAddress(addr));
-            }
-        }
-    }
     {
         std::set<libzcash::SaplingPaymentAddress> addresses;
         pwallet->GetSaplingPaymentAddresses(addresses);
@@ -5493,9 +5354,6 @@ UniValue z_exportviewingkey(const JSONRPCRequest& request); // in rpcdump.cpp
 UniValue z_importviewingkey(const JSONRPCRequest& request); // in rpcdump.cpp
 UniValue z_exportwallet(const JSONRPCRequest& request); // in rpcdump.cpp
 UniValue z_importwallet(const JSONRPCRequest& request); // in rpcdump.cpp
-
-extern UniValue z_getpaymentdisclosure(const JSONRPCRequest& request); // in rpcdisclosure.cpp
-extern UniValue z_validatepaymentdisclosure(const JSONRPCRequest& request); // in rpcdisclosure.cpp
 
 // clang-format off
 static const CRPCCommand commands[] =
@@ -5575,9 +5433,6 @@ static const CRPCCommand commands[] =
     { "wallet",             "z_listunspent",                    &z_listunspent,                 {"minconf","maxconf","includeWatchonly","addresses"} },
     { "wallet",             "z_listreceivedbyaddress",          &z_listreceivedbyaddress,       {"address", "minconf"} },
     { "wallet",             "z_viewtransaction",                &z_viewtransaction,             {"txid"} },
-
-    { "disclosure",         "z_getpaymentdisclosure",           &z_getpaymentdisclosure,        {"txid","js_index","output_index","message"} },
-    { "disclosure",         "z_validatepaymentdisclosure",      &z_validatepaymentdisclosure,   {"paymentdisclosure"} },
 };
 // clang-format on
 

@@ -277,27 +277,19 @@ public:
 
     /** transparent */
     bool WriteName(const std::string& strAddress, const std::string& strName);
-    /** sprout */
-    bool WriteSproutName(const std::string& strAddress, const std::string& strName);
     /** sapling */
     bool WriteSaplingName(const std::string& strAddress, const std::string& strName);
     /** transparent */
     bool EraseName(const std::string& strAddress);
-    /** sprout */
-    bool EraseSproutName(const std::string& strAddress);
     /** sapling */
     bool EraseSaplingName(const std::string& strAddress);
 
     /** transparent */
     bool WritePurpose(const std::string& strAddress, const std::string& purpose);
-    /** sprout */
-    bool WriteSproutPurpose(const std::string& strAddress, const std::string& purpose);
     /** sapling */
     bool WriteSaplingPurpose(const std::string& strAddress, const std::string& purpose);
     /** transparent */
     bool ErasePurpose(const std::string& strAddress);
-    /** sprout */
-    bool EraseSproutPurpose(const std::string& strAddress);
     /** sapling */
     bool EraseSaplingPurpose(const std::string& strAddress);
 
@@ -365,19 +357,12 @@ public:
     bool WriteZecHDChain(const CZecHDChain& chain);
 
     /// Write spending key to wallet database, where key is payment address and value is spending key.
-    bool WriteSproutKey(const libzcash::SproutPaymentAddress& addr, const libzcash::SproutSpendingKey& key, const CKeyMetadata &keyMeta);
     bool WriteSaplingKey(const libzcash::SaplingIncomingViewingKey &ivk, const libzcash::SaplingExtendedSpendingKey &key, const CKeyMetadata  &keyMeta);
     bool WriteSaplingPaymentAddress(const libzcash::SaplingPaymentAddress &addr, const libzcash::SaplingIncomingViewingKey &ivk);
-    bool WriteCryptedSproutKey(const libzcash::SproutPaymentAddress & addr,
-                              const libzcash::ReceivingKey & rk,
-                              const std::vector<unsigned char>& vchCryptedSecret,
-                              const CKeyMetadata &keyMeta);
     bool WriteCryptedSaplingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk,
                                 const std::vector<unsigned char>& vchCryptedSecret,
                                 const CKeyMetadata &keyMeta);
 
-    bool WriteSproutViewingKey(const libzcash::SproutViewingKey &vk);
-    bool EraseSproutViewingKey(const libzcash::SproutViewingKey &vk);
     bool WriteSaplingExtendedFullViewingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk);
     bool EraseSaplingExtendedFullViewingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk);
 

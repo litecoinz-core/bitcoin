@@ -79,6 +79,12 @@ bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state,
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-oversize");
     }
 
+    // Rules that drop joinsplit transactions (SPROUT):
+    if (nHeight > chainparams.GetConsensus().DropSproutHeight) {
+        if (tx.vJoinSplit.size() > 0 )
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "tx-joinsplits-disabled");
+    }
+
     auto consensusBranchId = CurrentEpochBranchId(nHeight, chainparams.GetConsensus());
     auto prevConsensusBranchId = PrevEpochBranchId(consensusBranchId, chainparams.GetConsensus());
     uint256 dataToBeSigned;

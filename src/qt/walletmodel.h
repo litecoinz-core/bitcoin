@@ -164,7 +164,6 @@ private:
     std::unique_ptr<interfaces::Handler> m_handler_unload;
     std::unique_ptr<interfaces::Handler> m_handler_status_changed;
     std::unique_ptr<interfaces::Handler> m_handler_address_book_changed;
-    std::unique_ptr<interfaces::Handler> m_handler_sprout_address_book_changed;
     std::unique_ptr<interfaces::Handler> m_handler_sapling_address_book_changed;
     std::unique_ptr<interfaces::Handler> m_handler_transaction_changed;
     std::unique_ptr<interfaces::Handler> m_handler_show_progress;
@@ -232,8 +231,6 @@ public Q_SLOTS:
     void updateTransaction();
     /* New, updated or removed transparent address book entry */
     void updateAddressBook(const QString &address, const QString &label, bool isMine, const QString &purpose, int status);
-    /* New, updated or removed sprout address book entry */
-    void updateSproutAddressBook(const QString &address, const QString &label, bool isMine, const QString &purpose, int status);
     /* New, updated or removed sapling address book entry */
     void updateSaplingAddressBook(const QString &address, const QString &label, bool isMine, const QString &purpose, int status);
     /* Watch-only added */

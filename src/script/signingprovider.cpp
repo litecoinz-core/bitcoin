@@ -205,69 +205,6 @@ bool FillableSigningProvider::GetZecHDSeed(HDSeed& seedOut) const
     }
 }
 
-bool FillableSigningProvider::AddSproutSpendingKey(const libzcash::SproutSpendingKey &sk)
-{
-    LOCK(cs_KeyStore);
-    auto address = sk.address();
-    mapSproutSpendingKeys[address] = sk;
-    mapNoteDecryptors.insert(std::make_pair(address, ZCNoteDecryption(sk.receiving_key())));
-    return true;
-}
-
-bool FillableSigningProvider::HaveSproutSpendingKey(const libzcash::SproutPaymentAddress &address) const
-{
-    LOCK(cs_KeyStore);
-    return mapSproutSpendingKeys.count(address) > 0;
-}
-
-bool FillableSigningProvider::GetSproutSpendingKey(const libzcash::SproutPaymentAddress &address, libzcash::SproutSpendingKey& skOut) const
-{
-    {
-        LOCK(cs_KeyStore);
-        SproutSpendingKeyMap::const_iterator mi = mapSproutSpendingKeys.find(address);
-        if (mi != mapSproutSpendingKeys.end())
-        {
-            skOut = mi->second;
-            return true;
-        }
-    }
-    return false;
-}
-
-bool FillableSigningProvider::GetNoteDecryptor(const libzcash::SproutPaymentAddress &address, ZCNoteDecryption &decOut) const
-{
-    {
-        LOCK(cs_KeyStore);
-        NoteDecryptorMap::const_iterator mi = mapNoteDecryptors.find(address);
-        if (mi != mapNoteDecryptors.end())
-        {
-            decOut = mi->second;
-            return true;
-        }
-    }
-    return false;
-}
-
-void FillableSigningProvider::GetSproutPaymentAddresses(std::set<libzcash::SproutPaymentAddress> &setAddress) const
-{
-    setAddress.clear();
-    {
-        LOCK(cs_KeyStore);
-        SproutSpendingKeyMap::const_iterator mi = mapSproutSpendingKeys.begin();
-        while (mi != mapSproutSpendingKeys.end())
-        {
-            setAddress.insert((*mi).first);
-            mi++;
-        }
-        SproutViewingKeyMap::const_iterator mvi = mapSproutViewingKeys.begin();
-        while (mvi != mapSproutViewingKeys.end())
-        {
-            setAddress.insert((*mvi).first);
-            mvi++;
-        }
-    }
-}
-
 bool FillableSigningProvider::AddSaplingSpendingKey(const libzcash::SaplingExtendedSpendingKey &sk)
 {
     LOCK(cs_KeyStore);
@@ -378,39 +315,6 @@ void FillableSigningProvider::GetSaplingPaymentAddresses(std::set<libzcash::Sapl
             mi++;
         }
     }
-}
-
-bool FillableSigningProvider::AddSproutViewingKey(const libzcash::SproutViewingKey &vk)
-{
-    LOCK(cs_KeyStore);
-    auto address = vk.address();
-    mapSproutViewingKeys[address] = vk;
-    mapNoteDecryptors.insert(std::make_pair(address, ZCNoteDecryption(vk.sk_enc)));
-    return true;
-}
-
-bool FillableSigningProvider::RemoveSproutViewingKey(const libzcash::SproutViewingKey &vk)
-{
-    LOCK(cs_KeyStore);
-    mapSproutViewingKeys.erase(vk.address());
-    return true;
-}
-
-bool FillableSigningProvider::HaveSproutViewingKey(const libzcash::SproutPaymentAddress &address) const
-{
-    LOCK(cs_KeyStore);
-    return mapSproutViewingKeys.count(address) > 0;
-}
-
-bool FillableSigningProvider::GetSproutViewingKey(const libzcash::SproutPaymentAddress &address, libzcash::SproutViewingKey& vkOut) const
-{
-    LOCK(cs_KeyStore);
-    SproutViewingKeyMap::const_iterator mi = mapSproutViewingKeys.find(address);
-    if (mi != mapSproutViewingKeys.end()) {
-        vkOut = mi->second;
-        return true;
-    }
-    return false;
 }
 
 CKeyID GetKeyForDestination(const SigningProvider& store, const CTxDestination& dest)

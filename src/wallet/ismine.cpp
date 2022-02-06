@@ -193,16 +193,6 @@ isminetype IsMine(const CWallet& keystore, const CTxDestination& dest)
     return IsMine(keystore, script);
 }
 
-isminetype IsMine(const CWallet& keystore, const libzcash::SproutPaymentAddress& address)
-{
-    if (keystore.HaveSproutSpendingKey(address))
-        return ISMINE_SPENDABLE;
-    if (keystore.HaveSproutViewingKey(address))
-        return ISMINE_WATCH_ONLY;
-
-    return ISMINE_NO;
-}
-
 isminetype IsMine(const CWallet& keystore, const libzcash::SaplingPaymentAddress& address)
 {
     libzcash::SaplingIncomingViewingKey ivk;
@@ -218,15 +208,6 @@ isminetype IsMine(const CWallet& keystore, const libzcash::SaplingPaymentAddress
 
 isminetype IsMine(const CWallet& keystore, const libzcash::PaymentAddress& address)
 {
-    if (std::get_if<libzcash::SproutPaymentAddress>(&address) != nullptr)
-    {
-        auto dest = std::get<libzcash::SproutPaymentAddress>(address);
-        return IsMine(keystore, dest);
-    }
-    else if (std::get_if<libzcash::SaplingPaymentAddress>(&address) != nullptr)
-    {
-        auto dest = std::get<libzcash::SaplingPaymentAddress>(address);
-        return IsMine(keystore, dest);
-    }
-    assert(false);
+    auto dest = std::get<libzcash::SaplingPaymentAddress>(address);
+    return IsMine(keystore, dest);
 }

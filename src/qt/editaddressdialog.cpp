@@ -108,13 +108,7 @@ void EditAddressDialog::accept()
     if(IsValidDestinationString(strAddress))
         addressbook = AddressTableModel::Base;
     else
-    {
-        libzcash::PaymentAddress dest = DecodePaymentAddress(strAddress);
-        if(std::get_if<libzcash::SproutPaymentAddress>(&dest))
-            addressbook = AddressTableModel::Sprout;
-        else if(std::get_if<libzcash::SaplingPaymentAddress>(&dest))
-            addressbook = AddressTableModel::Sapling;
-    }
+        addressbook = AddressTableModel::Sapling;
 
     if(!saveCurrentRow())
     {

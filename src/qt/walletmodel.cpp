@@ -114,13 +114,6 @@ void WalletModel::updateAddressBook(const QString &address, const QString &label
         addressTableModel->updateEntry(AddressTableModel::Base, address, label, isMine, purpose, status);
 }
 
-void WalletModel::updateSproutAddressBook(const QString &address, const QString &label,
-        bool isMine, const QString &purpose, int status)
-{
-    if(addressTableModel)
-        addressTableModel->updateEntry(AddressTableModel::Sprout, address, label, isMine, purpose, status);
-}
-
 void WalletModel::updateSaplingAddressBook(const QString &address, const QString &label,
         bool isMine, const QString &purpose, int status)
 {
@@ -432,24 +425,6 @@ static void NotifyAddressBookChanged(WalletModel *walletmodel,
     assert(invoked);
 }
 
-static void NotifySproutAddressBookChanged(WalletModel *walletmodel,
-        const libzcash::PaymentAddress &address, const std::string &label, bool isMine,
-        const std::string &purpose, ChangeType status)
-{
-    QString strAddress = QString::fromStdString(EncodePaymentAddress(address));
-    QString strLabel = QString::fromStdString(label);
-    QString strPurpose = QString::fromStdString(purpose);
-
-    qDebug() << "NotifySproutAddressBookChanged: " + strAddress + " " + strLabel + " isMine=" + QString::number(isMine) + " purpose=" + strPurpose + " status=" + QString::number(status);
-    bool invoked = QMetaObject::invokeMethod(walletmodel, "updateSproutAddressBook", Qt::QueuedConnection,
-                              Q_ARG(QString, strAddress),
-                              Q_ARG(QString, strLabel),
-                              Q_ARG(bool, isMine),
-                              Q_ARG(QString, strPurpose),
-                              Q_ARG(int, status));
-    assert(invoked);
-}
-
 static void NotifySaplingAddressBookChanged(WalletModel *walletmodel,
         const libzcash::PaymentAddress &address, const std::string &label, bool isMine,
         const std::string &purpose, ChangeType status)
@@ -504,7 +479,6 @@ void WalletModel::subscribeToCoreSignals()
     m_handler_unload = m_wallet->handleUnload(std::bind(&NotifyUnload, this));
     m_handler_status_changed = m_wallet->handleStatusChanged(std::bind(&NotifyKeyStoreStatusChanged, this));
     m_handler_address_book_changed = m_wallet->handleAddressBookChanged(std::bind(NotifyAddressBookChanged, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
-    m_handler_sprout_address_book_changed = m_wallet->handleSproutAddressBookChanged(std::bind(NotifySproutAddressBookChanged, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
     m_handler_sapling_address_book_changed = m_wallet->handleSaplingAddressBookChanged(std::bind(NotifySaplingAddressBookChanged, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
     m_handler_transaction_changed = m_wallet->handleTransactionChanged(std::bind(NotifyTransactionChanged, this, std::placeholders::_1, std::placeholders::_2));
     m_handler_show_progress = m_wallet->handleShowProgress(std::bind(ShowProgress, this, std::placeholders::_1, std::placeholders::_2));
@@ -518,7 +492,6 @@ void WalletModel::unsubscribeFromCoreSignals()
     m_handler_unload->disconnect();
     m_handler_status_changed->disconnect();
     m_handler_address_book_changed->disconnect();
-    m_handler_sprout_address_book_changed->disconnect();
     m_handler_sapling_address_book_changed->disconnect();
     m_handler_transaction_changed->disconnect();
     m_handler_show_progress->disconnect();

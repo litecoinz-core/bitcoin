@@ -47,37 +47,6 @@ struct OutputDescriptionInfo {
         std::array<unsigned char, ZC_MEMO_SIZE> memo) : ovk(ovk), note(note), memo(memo) {}
 };
 
-struct JSDescriptionInfo {
-    uint256 joinSplitPubKey;
-    uint256 anchor;
-    // We store references to these so they are correctly randomised for the caller.
-    std::array<libzcash::JSInput, ZC_NUM_JS_INPUTS>& inputs;
-    std::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS>& outputs;
-    CAmount vpub_old;
-    CAmount vpub_new;
-
-    JSDescriptionInfo(
-        uint256 joinSplitPubKey,
-        uint256 anchor,
-        std::array<libzcash::JSInput, ZC_NUM_JS_INPUTS>& inputs,
-        std::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS>& outputs,
-        CAmount vpub_old,
-        CAmount vpub_new) : joinSplitPubKey(joinSplitPubKey), anchor(anchor), inputs(inputs), outputs(outputs), vpub_old(vpub_old), vpub_new(vpub_new) {}
-
-    JSDescription BuildDeterministic(
-        bool computeProof = true, // Set to false in some tests
-        uint256* esk = nullptr    // payment disclosure
-    );
-
-    JSDescription BuildRandomized(
-        std::array<size_t, ZC_NUM_JS_INPUTS>& inputMap,
-        std::array<size_t, ZC_NUM_JS_OUTPUTS>& outputMap,
-        bool computeProof = true, // Set to false in some tests
-        uint256* esk = nullptr,   // payment disclosure
-        std::function<int(int)> gen = GetRandInt
-    );
-};
-
 struct TransparentInputInfo {
     CScript scriptPubKey;
     CAmount value;
@@ -114,12 +83,9 @@ private:
 
     std::vector<SpendDescriptionInfo> spends;
     std::vector<OutputDescriptionInfo> outputs;
-    std::vector<libzcash::JSInput> jsInputs;
-    std::vector<libzcash::JSOutput> jsOutputs;
     std::vector<TransparentInputInfo> tIns;
 
     Optional<std::pair<uint256, libzcash::SaplingPaymentAddress>> saplingChangeAddr;
-    Optional<libzcash::SproutPaymentAddress> sproutChangeAddr;
     Optional<CTxDestination> tChangeAddr;
 
 public:
@@ -147,18 +113,6 @@ public:
         CAmount value,
         std::array<unsigned char, ZC_MEMO_SIZE> memo = {{0xF6}});
 
-    // Throws if the anchor does not match the anchor used by
-    // previously-added Sprout inputs.
-    void AddSproutInput(
-        libzcash::SproutSpendingKey sk,
-        libzcash::SproutNote note,
-        SproutWitness witness);
-
-    void AddSproutOutput(
-        libzcash::SproutPaymentAddress to,
-        CAmount value,
-        std::array<unsigned char, ZC_MEMO_SIZE> memo = {{0xF6}});
-
     // Assumes that the value correctly corresponds to the provided UTXO.
     void AddTransparentInput(COutPoint utxo, CScript scriptPubKey, CAmount value);
 
@@ -166,22 +120,9 @@ public:
 
     void SendChangeTo(libzcash::SaplingPaymentAddress changeAddr, uint256 ovk);
 
-    void SendChangeTo(libzcash::SproutPaymentAddress);
-
     void SendChangeTo(CTxDestination& changeAddr);
 
     TransactionBuilderResult Build();
-
-private:
-    void CreateJSDescriptions();
-
-    void CreateJSDescription(
-        uint64_t vpub_old,
-        uint64_t vpub_new,
-        std::array<libzcash::JSInput, ZC_NUM_JS_INPUTS> vjsin,
-        std::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS> vjsout,
-        std::array<size_t, ZC_NUM_JS_INPUTS>& inputMap,
-        std::array<size_t, ZC_NUM_JS_OUTPUTS>& outputMap);
 };
 
 #endif /* TRANSACTION_BUILDER_H */

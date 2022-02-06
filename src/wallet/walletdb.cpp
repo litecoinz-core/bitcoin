@@ -74,11 +74,6 @@ bool WalletBatch::WriteName(const std::string& strAddress, const std::string& st
     return WriteIC(std::make_pair(DBKeys::NAME, strAddress), strName);
 }
 
-bool WalletBatch::WriteSproutName(const std::string& strAddress, const std::string& strName)
-{
-    return WriteIC(std::make_pair(DBKeys::SPROUT_NAME, strAddress), strName);
-}
-
 bool WalletBatch::WriteSaplingName(const std::string& strAddress, const std::string& strName)
 {
     return WriteIC(std::make_pair(DBKeys::SAPLING_NAME, strAddress), strName);
@@ -89,13 +84,6 @@ bool WalletBatch::EraseName(const std::string& strAddress)
     // This should only be used for sending addresses, never for receiving addresses,
     // receiving addresses must always have an address book entry if they're not change return.
     return EraseIC(std::make_pair(DBKeys::NAME, strAddress));
-}
-
-bool WalletBatch::EraseSproutName(const std::string& strAddress)
-{
-    // This should only be used for sending addresses, never for receiving addresses,
-    // receiving addresses must always have an address book entry if they're not change return.
-    return EraseIC(std::make_pair(DBKeys::SPROUT_NAME, strAddress));
 }
 
 bool WalletBatch::EraseSaplingName(const std::string& strAddress)
@@ -110,11 +98,6 @@ bool WalletBatch::WritePurpose(const std::string& strAddress, const std::string&
     return WriteIC(std::make_pair(DBKeys::PURPOSE, strAddress), strPurpose);
 }
 
-bool WalletBatch::WriteSproutPurpose(const std::string& strAddress, const std::string& strPurpose)
-{
-    return WriteIC(std::make_pair(DBKeys::SPROUT_PURPOSE, strAddress), strPurpose);
-}
-
 bool WalletBatch::WriteSaplingPurpose(const std::string& strAddress, const std::string& strPurpose)
 {
     return WriteIC(std::make_pair(DBKeys::SAPLING_PURPOSE, strAddress), strPurpose);
@@ -123,11 +106,6 @@ bool WalletBatch::WriteSaplingPurpose(const std::string& strAddress, const std::
 bool WalletBatch::ErasePurpose(const std::string& strAddress)
 {
     return EraseIC(std::make_pair(DBKeys::PURPOSE, strAddress));
-}
-
-bool WalletBatch::EraseSproutPurpose(const std::string& strAddress)
-{
-    return EraseIC(std::make_pair(DBKeys::SPROUT_PURPOSE, strAddress));
 }
 
 bool WalletBatch::EraseSaplingPurpose(const std::string& strAddress)
@@ -250,11 +228,6 @@ public:
     unsigned int nWatchKeys{0};
     unsigned int nKeyMeta{0};
 
-    unsigned int nSproutKeys{0};
-    unsigned int nSproutCKeys{0};
-    unsigned int nSproutWatchKeys{0};
-    unsigned int nSproutKeyMeta{0};
-
     unsigned int nSaplingKeys{0};
     unsigned int nSaplingCKeys{0};
     unsigned int nSaplingWatchKeys{0};
@@ -285,9 +258,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             ssKey >> strAddress;
             ssValue >> pwallet->mapAddressBook[DecodeDestination(strAddress)].name;
         } else if (strType == DBKeys::SPROUT_NAME) {
-            std::string strAddress;
-            ssKey >> strAddress;
-            ssValue >> pwallet->mapSproutAddressBook[DecodePaymentAddress(strAddress)].name;
+            // IGNORE
         } else if (strType == DBKeys::SAPLING_NAME) {
             std::string strAddress;
             ssKey >> strAddress;
@@ -297,9 +268,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             ssKey >> strAddress;
             ssValue >> pwallet->mapAddressBook[DecodeDestination(strAddress)].purpose;
         } else if (strType == DBKeys::SPROUT_PURPOSE) {
-            std::string strAddress;
-            ssKey >> strAddress;
-            ssValue >> pwallet->mapSproutAddressBook[DecodePaymentAddress(strAddress)].purpose;
+            // IGNORE
         } else if (strType == DBKeys::SAPLING_PURPOSE) {
             std::string strAddress;
             ssKey >> strAddress;
@@ -346,13 +315,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             if (fYes == '1')
                 pwallet->LoadWatchOnly(script);
         } else if (strType == DBKeys::SPROUT_WATCHS) {
-            wss.nSproutWatchKeys++;
-            libzcash::SproutViewingKey vk;
-            ssKey >> vk;
-            char fYes;
-            ssValue >> fYes;
-            if (fYes == '1')
-                pwallet->LoadSproutViewingKey(vk);
+            // IGNORE
         } else if (strType == DBKeys::SAPLING_WATCHS) {
             wss.nSaplingWatchKeys++;
             libzcash::SaplingExtendedFullViewingKey extfvk;
@@ -417,18 +380,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 return false;
             }
         } else if (strType == DBKeys::SPROUT_KEY) {
-            libzcash::SproutPaymentAddress addr;
-            ssKey >> addr;
-            libzcash::SproutSpendingKey key;
-            ssValue >> key;
-
-            if (!pwallet->LoadSproutKey(key))
-            {
-                strErr = "Error reading wallet database: LoadSproutKey failed";
-                return false;
-            }
-
-            wss.nSproutKeys++;
+            // IGNORE
         } else if (strType == DBKeys::SAPLING_KEY) {
             libzcash::SaplingIncomingViewingKey ivk;
             ssKey >> ivk;
@@ -473,22 +425,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             }
             wss.fIsEncrypted = true;
         } else if (strType == DBKeys::SPROUT_CRYPTED_KEY) {
-            libzcash::SproutPaymentAddress addr;
-            ssKey >> addr;
-            // Deserialization of a pair is just one item after another
-            uint256 rkValue;
-            ssValue >> rkValue;
-            libzcash::ReceivingKey rk(rkValue);
-            std::vector<unsigned char> vchCryptedSecret;
-            ssValue >> vchCryptedSecret;
-            wss.nSproutCKeys++;
-
-            if (!pwallet->LoadCryptedSproutKey(addr, rk, vchCryptedSecret))
-            {
-                strErr = "Error reading wallet database: LoadCryptedSproutKey failed";
-                return false;
-            }
-            wss.fIsEncrypted = true;
+            // IGNORE
         } else if (strType == DBKeys::SAPLING_CRYPTED_KEY) {
             libzcash::SaplingIncomingViewingKey ivk;
             ssKey >> ivk;
@@ -512,12 +449,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             wss.nKeyMeta++;
             pwallet->LoadKeyMetadata(vchPubKey.GetID(), keyMeta);
         } else if (strType == DBKeys::SPROUT_KEYMETA) {
-            libzcash::SproutPaymentAddress addr;
-            ssKey >> addr;
-            CKeyMetadata keyMeta;
-            ssValue >> keyMeta;
-            wss.nSproutKeyMeta++;
-            pwallet->LoadSproutKeyMetadata(addr, keyMeta);
+            // IGNORE
         } else if (strType == DBKeys::SAPLING_KEYMETA) {
             libzcash::SaplingIncomingViewingKey ivk;
             ssKey >> ivk;
@@ -546,8 +478,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             wss.nKeyMeta++;
             pwallet->LoadScriptMetadata(CScriptID(script), keyMeta);
         } else if (strType == DBKeys::SPROUT_WATCHMETA) {
-            wss.nSproutKeyMeta++;
-            /** TO-DO */
+            // IGNORE
         } else if (strType == DBKeys::SAPLING_WATCHMETA) {
             wss.nSaplingKeyMeta++;
             /** TO-DO */
@@ -749,9 +680,6 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
 
     pwallet->WalletLogPrintf("Keys: %u plaintext, %u encrypted, %u w/ metadata, %u total.\n",
            wss.nKeys, wss.nCKeys, wss.nKeyMeta, wss.nKeys + wss.nCKeys);
-
-    pwallet->WalletLogPrintf("Sprout Keys: %u plaintext, %u encrypted, %u w/ metadata, %u total.\n",
-           wss.nSproutKeys, wss.nSproutCKeys, wss.nSproutKeyMeta, wss.nSproutKeys + wss.nSproutCKeys);
 
     pwallet->WalletLogPrintf("Sapling Keys: %u plaintext, %u encrypted, %u w/ metadata, %u total.\n",
            wss.nSaplingKeys, wss.nSaplingCKeys, wss.nSaplingKeyMeta, wss.nSaplingKeys + wss.nSaplingCKeys);
@@ -1042,15 +970,6 @@ bool WalletBatch::WriteZecHDChain(const CZecHDChain& chain)
     return WriteIC(DBKeys::ZEC_HDCHAIN, chain);
 }
 
-bool WalletBatch::WriteSproutKey(const libzcash::SproutPaymentAddress& addr, const libzcash::SproutSpendingKey& key, const CKeyMetadata &keyMeta)
-{
-    if (!WriteIC(std::make_pair(DBKeys::SPROUT_KEYMETA, addr), keyMeta))
-        return false;
-
-    // pair is: tuple_key("zkey", paymentaddress) --> secretkey
-    return WriteIC(std::make_pair(DBKeys::SPROUT_KEY, addr), key, false);
-}
-
 bool WalletBatch::WriteSaplingKey(const libzcash::SaplingIncomingViewingKey &ivk, const libzcash::SaplingExtendedSpendingKey &key, const CKeyMetadata  &keyMeta)
 {
     if (!WriteIC(std::make_pair(DBKeys::SAPLING_KEYMETA, ivk), keyMeta))
@@ -1062,22 +981,6 @@ bool WalletBatch::WriteSaplingKey(const libzcash::SaplingIncomingViewingKey &ivk
 bool WalletBatch::WriteSaplingPaymentAddress(const libzcash::SaplingPaymentAddress &addr, const libzcash::SaplingIncomingViewingKey &ivk)
 {
     return WriteIC(std::make_pair(DBKeys::SAPLING_ADDRESS, addr), ivk, false);
-}
-
-bool WalletBatch::WriteCryptedSproutKey(const libzcash::SproutPaymentAddress & addr,
-                                   const libzcash::ReceivingKey & rk,
-                                   const std::vector<unsigned char>& vchCryptedSecret,
-                                   const CKeyMetadata &keyMeta)
-{
-    if (!WriteIC(std::make_pair(DBKeys::SPROUT_KEYMETA, addr), keyMeta)) {
-        return false;
-    }
-
-    if (!WriteIC(std::make_pair(DBKeys::SPROUT_CRYPTED_KEY, addr), std::make_pair(rk, vchCryptedSecret), false)) {
-        return false;
-    }
-    EraseIC(std::make_pair(DBKeys::SPROUT_KEY, addr));
-    return true;
 }
 
 bool WalletBatch::WriteCryptedSaplingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk,
@@ -1095,16 +998,6 @@ bool WalletBatch::WriteCryptedSaplingKey(const libzcash::SaplingExtendedFullView
     }
     EraseIC(std::make_pair(DBKeys::SAPLING_KEY, ivk));
     return true;
-}
-
-bool WalletBatch::WriteSproutViewingKey(const libzcash::SproutViewingKey &vk)
-{
-    return WriteIC(std::make_pair(DBKeys::SPROUT_WATCHS, vk), '1', false);
-}
-
-bool WalletBatch::EraseSproutViewingKey(const libzcash::SproutViewingKey &vk)
-{
-    return EraseIC(std::make_pair(DBKeys::SPROUT_WATCHS, vk));
 }
 
 bool WalletBatch::WriteSaplingExtendedFullViewingKey(const libzcash::SaplingExtendedFullViewingKey &extfvk)

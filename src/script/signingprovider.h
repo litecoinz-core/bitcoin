@@ -37,13 +37,6 @@ public:
     //! Get the Zec HD seed for this keystore
     virtual bool GetZecHDSeed(HDSeed& seedOut) const { return false; }
 
-    //! Add a spending key to the store.
-    virtual bool AddSproutSpendingKey(const libzcash::SproutSpendingKey &sk) { return false; }
-
-    //! Check whether a spending key corresponding to a given payment address is present in the store.
-    virtual bool HaveSproutSpendingKey(const libzcash::SproutPaymentAddress &address) const { return false; }
-    virtual bool GetSproutSpendingKey(const libzcash::SproutPaymentAddress &address, libzcash::SproutSpendingKey& skOut) const { return false; }
-
     //! Add a Sapling spending key to the store.
     virtual bool AddSaplingSpendingKey(const libzcash::SaplingExtendedSpendingKey &sk) { return false; }
 
@@ -61,12 +54,6 @@ public:
     virtual bool HaveSaplingIncomingViewingKey(const libzcash::SaplingPaymentAddress &addr) const { return false; }
     virtual bool GetSaplingIncomingViewingKey(const libzcash::SaplingPaymentAddress &addr, libzcash::SaplingIncomingViewingKey& ivkOut) const { return false; }
     virtual bool GetSaplingExtendedSpendingKey(const libzcash::SaplingPaymentAddress &addr, libzcash::SaplingExtendedSpendingKey &extskOut) const { return false; }
-
-    //! Support for Sprout viewing keys
-    virtual bool AddSproutViewingKey(const libzcash::SproutViewingKey &vk) { return false; }
-    virtual bool RemoveSproutViewingKey(const libzcash::SproutViewingKey &vk) { return false; }
-    virtual bool HaveSproutViewingKey(const libzcash::SproutPaymentAddress &address) const { return false; }
-    virtual bool GetSproutViewingKey(const libzcash::SproutPaymentAddress &address, libzcash::SproutViewingKey& vkOut) const { return false; }
 };
 
 extern const SigningProvider& DUMMY_SIGNING_PROVIDER;
@@ -115,17 +102,9 @@ protected:
     KeyMap mapKeys GUARDED_BY(cs_KeyStore);
     ScriptMap mapScripts GUARDED_BY(cs_KeyStore);
 
-    using SproutSpendingKeyMap = std::map<libzcash::SproutPaymentAddress, libzcash::SproutSpendingKey>;
-    using SproutViewingKeyMap = std::map<libzcash::SproutPaymentAddress, libzcash::SproutViewingKey>;
-    using NoteDecryptorMap = std::map<libzcash::SproutPaymentAddress, ZCNoteDecryption>;
-
     using SaplingSpendingKeyMap = std::map<libzcash::SaplingExtendedFullViewingKey, libzcash::SaplingExtendedSpendingKey>;
     using SaplingFullViewingKeyMap = std::map<libzcash::SaplingIncomingViewingKey, libzcash::SaplingExtendedFullViewingKey>;
     using SaplingIncomingViewingKeyMap = std::map<libzcash::SaplingPaymentAddress, libzcash::SaplingIncomingViewingKey>;
-
-    SproutSpendingKeyMap mapSproutSpendingKeys GUARDED_BY(cs_KeyStore);
-    SproutViewingKeyMap mapSproutViewingKeys GUARDED_BY(cs_KeyStore);
-    NoteDecryptorMap mapNoteDecryptors GUARDED_BY(cs_KeyStore);
 
     SaplingSpendingKeyMap mapSaplingSpendingKeys GUARDED_BY(cs_KeyStore);
     SaplingFullViewingKeyMap mapSaplingFullViewingKeys GUARDED_BY(cs_KeyStore);
@@ -152,15 +131,6 @@ public:
     //! Get the Zec HD seed for this keystore
     virtual bool GetZecHDSeed(HDSeed& seedOut) const override;
 
-    //! Add a spending key to the store.
-    virtual bool AddSproutSpendingKey(const libzcash::SproutSpendingKey &sk) override;
-
-    //! Check whether a spending key corresponding to a given payment address is present in the store.
-    virtual bool HaveSproutSpendingKey(const libzcash::SproutPaymentAddress &address) const override;
-    virtual bool GetSproutSpendingKey(const libzcash::SproutPaymentAddress &address, libzcash::SproutSpendingKey& skOut) const override;
-    virtual bool GetNoteDecryptor(const libzcash::SproutPaymentAddress &address, ZCNoteDecryption &decOut) const;
-    virtual void GetSproutPaymentAddresses(std::set<libzcash::SproutPaymentAddress> &setAddress) const;
-
     //! Add a Sapling spending key to the store.
     virtual bool AddSaplingSpendingKey(const libzcash::SaplingExtendedSpendingKey &sk) override;
 
@@ -179,12 +149,6 @@ public:
     virtual bool GetSaplingIncomingViewingKey(const libzcash::SaplingPaymentAddress &addr, libzcash::SaplingIncomingViewingKey& ivkOut) const override;
     virtual bool GetSaplingExtendedSpendingKey(const libzcash::SaplingPaymentAddress &addr, libzcash::SaplingExtendedSpendingKey &extskOut) const override;
     virtual void GetSaplingPaymentAddresses(std::set<libzcash::SaplingPaymentAddress> &setAddress) const;
-
-    //! Support for Sprout viewing keys
-    virtual bool AddSproutViewingKey(const libzcash::SproutViewingKey &vk) override;
-    virtual bool RemoveSproutViewingKey(const libzcash::SproutViewingKey &vk) override;
-    virtual bool HaveSproutViewingKey(const libzcash::SproutPaymentAddress &address) const override;
-    virtual bool GetSproutViewingKey(const libzcash::SproutPaymentAddress &address, libzcash::SproutViewingKey& vkOut) const override;
 };
 
 /** Return the CKeyID of the key involved in a script (if there is a unique one). */

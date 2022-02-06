@@ -100,7 +100,6 @@ static void WalletShowInfo(CWallet* wallet_instance)
     tfm::format(std::cout, "Keypool Size: %u\n", wallet_instance->GetKeyPoolSize());
     tfm::format(std::cout, "Transactions: %zu\n", wallet_instance->mapWallet.size());
     tfm::format(std::cout, "Transparent Address Book: %zu\n", wallet_instance->mapAddressBook.size());
-    tfm::format(std::cout, "Sprout Address Book: %zu\n", wallet_instance->mapSproutAddressBook.size());
     tfm::format(std::cout, "Sapling Address Book: %zu\n", wallet_instance->mapSaplingAddressBook.size());
 }
 

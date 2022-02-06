@@ -154,23 +154,6 @@ bool DecryptZecHDSeed(const CKeyingMaterial& vMasterKey, const std::vector<unsig
     return seed.Fingerprint() == seedFp;
 }
 
-bool DecryptSproutSpendingKey(const CKeyingMaterial& vMasterKey,
-                              const std::vector<unsigned char>& vchCryptedSecret,
-                              const libzcash::SproutPaymentAddress& address,
-                              libzcash::SproutSpendingKey& sk)
-{
-    CKeyingMaterial vchSecret;
-    if (!DecryptSecret(vMasterKey, vchCryptedSecret, address.GetHash(), vchSecret))
-        return false;
-
-    if (vchSecret.size() != libzcash::SerializedSproutSpendingKeySize)
-        return false;
-
-    CSecureDataStream ss(vchSecret, SER_NETWORK, PROTOCOL_VERSION);
-    ss >> sk;
-    return sk.address() == address;
-}
-
 bool DecryptSaplingSpendingKey(const CKeyingMaterial& vMasterKey,
                                const std::vector<unsigned char>& vchCryptedSecret,
                                const libzcash::SaplingExtendedFullViewingKey& extfvk,

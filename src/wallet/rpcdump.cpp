@@ -882,18 +882,6 @@ UniValue dumpwallet_impl(const JSONRPCRequest& request, bool fDumpZKeys)
     file << "\n";
 
     if (fDumpZKeys) {
-        std::set<libzcash::SproutPaymentAddress> sproutAddresses;
-        pwallet->GetSproutPaymentAddresses(sproutAddresses);
-        file << "\n";
-        file << "# Zkeys\n";
-        file << "\n";
-        for (auto addr : sproutAddresses) {
-            libzcash::SproutSpendingKey key;
-            if (pwallet->GetSproutSpendingKey(addr, key)) {
-                std::string strTime = FormatISO8601DateTime(pwallet->mapSproutKeyMetadata[addr].nCreateTime);
-                file << strprintf("%s %s # zaddr=%s\n", EncodeSpendingKey(key), strTime, EncodePaymentAddress(addr));
-            }
-        }
         std::set<libzcash::SaplingPaymentAddress> saplingAddresses;
         pwallet->GetSaplingPaymentAddresses(saplingAddresses);
         file << "\n";
@@ -1654,7 +1642,7 @@ UniValue z_importkey(const JSONRPCRequest& request)
                 },
                 RPCResult{
             "{\n"
-            "  \"type\" : \"xxxx\",                         (string) \"sprout\" or \"sapling\"\n"
+            "  \"type\" : \"xxxx\",                         (string) \"sapling\"\n"
             "  \"address\" : \"address|DefaultAddress\",    (string) The address corresponding to the spending key (for Sapling, this is the default address).\n"
             "}\n"
                 },
@@ -1731,9 +1719,7 @@ UniValue z_importkey(const JSONRPCRequest& request)
         {
             pwallet->MarkDirty();
             if (type == "sprout") {
-                if (!request.params[1].isNull() || pwallet->mapSproutAddressBook.count(dest) == 0) {
-                    pwallet->SetSproutAddressBook(dest, strLabel, "receive");
-                }
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "SPROUT addesses were removed");
             } else {
                 if (!request.params[1].isNull() || pwallet->mapSaplingAddressBook.count(dest) == 0) {
                     pwallet->SetSaplingAddressBook(dest, strLabel, "receive");
@@ -1768,7 +1754,7 @@ UniValue z_importviewingkey(const JSONRPCRequest& request)
                 },
                 RPCResult{
              "{\n"
-             "  \"type\" : \"xxxx\",                         (string) \"sprout\" or \"sapling\"\n"
+             "  \"type\" : \"xxxx\",                         (string) \"sapling\"\n"
              "  \"address\" : \"address|DefaultAddress\",    (string) The address corresponding to the viewing key (for Sapling, this is the default address).\n"
              "}\n"
                 },
@@ -1813,9 +1799,15 @@ UniValue z_importviewingkey(const JSONRPCRequest& request)
     LOCK(pwallet->cs_wallet);
 
     auto addrInfo = std::visit(libzcash::AddressInfoFromViewingKey{}, viewingkey);
+    auto type = addrInfo.first;
+    auto dest = addrInfo.second;
+
     UniValue result(UniValue::VOBJ);
-    result.pushKV("type", addrInfo.first);
-    result.pushKV("address", EncodePaymentAddress(addrInfo.second));
+    result.pushKV("type", type);
+    result.pushKV("address", EncodePaymentAddress(dest));
+
+    if (type == "sprout")
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "SPROUT addesses were removed");
 
     auto addResult = std::visit(AddViewingKeyToWallet(pwallet), viewingkey);
     if (addResult == SpendingKeyExists) {

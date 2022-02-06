@@ -82,6 +82,7 @@ public:
         consensus.ZIP209Enabled = true; // Prohibit Negative Shielded Value Pool
         consensus.CSVHeight = 585000;
         consensus.SegwitHeight = 590000;
+        consensus.DropSproutHeight = 670000;
         consensus.MinBIP9WarningHeight = 592016; // segwit activation height + miner confirmation window
         consensus.powLimit = uint256S("0007ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 
@@ -249,6 +250,7 @@ public:
         consensus.ZIP209Enabled = true;
         consensus.CSVHeight = 5500;
         consensus.SegwitHeight = 6150;
+        consensus.DropSproutHeight = 7000;
         consensus.MinBIP9WarningHeight = 8166; // segwit activation height + miner confirmation window
         consensus.powLimit = uint256S("07ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 
@@ -392,6 +394,7 @@ public:
         consensus.ZIP209Enabled = false;
         consensus.CSVHeight = 432; // CSV activated on regtest (Used in rpc activation tests)
         consensus.SegwitHeight = 0; // SEGWIT is always activated on regtest unless overridden
+        consensus.DropSproutHeight = 0;
         consensus.MinBIP9WarningHeight = 0;
         consensus.powLimit = uint256S("0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f");
 

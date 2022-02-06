@@ -110,15 +110,6 @@ CAmount CTransaction::GetValueOut() const
             throw std::runtime_error(std::string(__func__) + ": value out of range");
     }
 
-    for (std::vector<JSDescription>::const_iterator it(vJoinSplit.begin()); it != vJoinSplit.end(); ++it)
-    {
-        // NB: vpub_old "takes" money from the transparent value pool just as outputs do
-        nValueOut += it->vpub_old;
-
-        if (!MoneyRange(it->vpub_old) || !MoneyRange(nValueOut))
-            throw std::runtime_error(std::string(__func__) + ": value out of range");
-    }
-
     return nValueOut;
 }
 

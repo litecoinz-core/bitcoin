@@ -197,8 +197,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "z_listunspent", 2, "includeWatchonly" },
     { "z_listunspent", 3, "addresses" },
     { "z_listreceivedbyaddress", 1, "minconf" },
-    { "z_getpaymentdisclosure", 1, "js_index" },
-    { "z_getpaymentdisclosure", 2, "output_index" },
 };
 // clang-format on
 
