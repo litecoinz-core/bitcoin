@@ -154,7 +154,7 @@ BOOST_AUTO_TEST_CASE(LegacyLwmaCalculateNextWorkRequired_test)
     for (int i = 0; i < 50; i++) {
         blocks[i].pprev = i ? &blocks[i - 1] : nullptr;
         blocks[i].nHeight = i;
-        blocks[i].nTime = 1269211443 + i * nPowTargetSpacing;
+        blocks[i].nTime = 1269211443 + i * params.nPowTargetSpacing;
         blocks[i].nBits = 0x1d00ffff;
         blocks[i].nChainWork = i ? blocks[i - 1].nChainWork + GetBlockProof(blocks[i - 1]) : arith_uint256(0);
     }
@@ -172,7 +172,7 @@ BOOST_AUTO_TEST_CASE(LwmaCalculateNextWorkRequired_test)
     for (int i = 0; i < 50; i++) {
         blocks[i].pprev = i ? &blocks[i - 1] : nullptr;
         blocks[i].nHeight = i;
-        blocks[i].nTime = 1269211443 + i * nPowTargetSpacing;
+        blocks[i].nTime = 1269211443 + i * params.nPowTargetSpacing;
         blocks[i].nBits = 0x1d00ffff;
         blocks[i].nChainWork = i ? blocks[i - 1].nChainWork + GetBlockProof(blocks[i - 1]) : arith_uint256(0);
     }
