@@ -150,9 +150,6 @@ BOOST_AUTO_TEST_CASE(LegacyLwmaCalculateNextWorkRequired_test)
     const auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
     const auto params = chainParams->GetConsensus();
 
-    int64_t nPowTargetSpacing = params.nLegacyPowTargetSpacing;
-    int64_t nLwmaAveragingWindow = params.nLegacyLwmaAveragingWindow;
-
     std::vector<CBlockIndex> blocks(50);
     for (int i = 0; i < 50; i++) {
         blocks[i].pprev = i ? &blocks[i - 1] : nullptr;
@@ -162,7 +159,7 @@ BOOST_AUTO_TEST_CASE(LegacyLwmaCalculateNextWorkRequired_test)
         blocks[i].nChainWork = i ? blocks[i - 1].nChainWork + GetBlockProof(blocks[i - 1]) : arith_uint256(0);
     }
 
-    int bits = LwmaCalculateNextWorkRequired(&blocks.back(), params, nPowTargetSpacing, nLwmaAveragingWindow);
+    int bits = LwmaCalculateNextWorkRequired(&blocks.back(), params, true);
     BOOST_CHECK_EQUAL(bits, 0x1d010084);
 }
 
@@ -171,9 +168,6 @@ BOOST_AUTO_TEST_CASE(LwmaCalculateNextWorkRequired_test)
     const auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
     const auto params = chainParams->GetConsensus();
 
-    int64_t nPowTargetSpacing = params.nPowTargetSpacing;
-    int64_t nLwmaAveragingWindow = params.nLwmaAveragingWindow;
-
     std::vector<CBlockIndex> blocks(50);
     for (int i = 0; i < 50; i++) {
         blocks[i].pprev = i ? &blocks[i - 1] : nullptr;
@@ -183,7 +177,7 @@ BOOST_AUTO_TEST_CASE(LwmaCalculateNextWorkRequired_test)
         blocks[i].nChainWork = i ? blocks[i - 1].nChainWork + GetBlockProof(blocks[i - 1]) : arith_uint256(0);
     }
 
-    int bits = LwmaCalculateNextWorkRequired(&blocks.back(), params, nPowTargetSpacing, nLwmaAveragingWindow);
+    int bits = LwmaCalculateNextWorkRequired(&blocks.back(), params, false);
     BOOST_CHECK_EQUAL(bits, 0x1d010084);
 }
 

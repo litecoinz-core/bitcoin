@@ -168,10 +168,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblocktemplate->vTxFees[0] = -nFees;
 
     // Update the Sapling commitment tree.
-    for (const CTransactionRef& ptx : pblock->vtx) {
-        const CTransaction& tx = *ptx;
-        for (const OutputDescription& odesc : tx.vShieldedOutput) {
-            sapling_tree.append(odesc.cm);
+    for (unsigned int i = 0; i < pblock->vtx.size(); i++)
+    {
+        const CTransaction &tx = *(pblock->vtx[i]);
+        for (const OutputDescription &outputDescription : tx.vShieldedOutput) {
+            sapling_tree.append(outputDescription.cm);
         }
     }
 

@@ -74,7 +74,7 @@ double GetDifficulty(const CBlockIndex* blockindex)
             blockindex = ::ChainActive().Tip();
     }
 
-    uint32_t bits = blockindex->nBits;
+    uint32_t bits = GetNextWorkRequired(blockindex, nullptr, Params().GetConsensus());
     uint32_t powLimit = UintToArith256(Params().GetConsensus().powLimit).GetCompact();
 
     int nShift = (bits >> 24) & 0xff;
