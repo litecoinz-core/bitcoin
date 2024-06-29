@@ -195,6 +195,10 @@ struct Params {
 
     // Params for Lwma difficulty adjustment algorithm.
     int64_t nLwmaAveragingWindow;
+    int64_t nLwmaAdjustedWeight;  // k = (N+1)/2 * 0.998 * T
+    int64_t nLwmaMinDenominator;
+    bool fLwmaSolvetimeLimitation;
+
     int64_t nPowTargetSpacing;
 
     uint256 nMinimumChainWork;

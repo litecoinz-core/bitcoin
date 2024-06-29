@@ -119,72 +119,110 @@ unsigned int DigishieldCalculateNextWorkRequired(const CBlockIndex* pindexLast, 
 
 unsigned int LwmaGetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params, bool fLegacy)
 {
-    int64_t nPowTargetSpacing = params.nPowTargetSpacing;
-    int64_t nLwmaAveragingWindow = params.nLwmaAveragingWindow;
-
-    if (fLegacy) {
-        nPowTargetSpacing =  params.nLegacyPowTargetSpacing;
-        nLwmaAveragingWindow = params.nLegacyLwmaAveragingWindow;
-    }
-
     // Special difficulty rule for testnet:
     // If the new block's timestamp is more than 2 * 10 minutes
     // then allow mining of a min-difficulty block.
     if (params.fPowAllowMinDifficultyBlocks &&
-        pblock->GetBlockTime() > pindexLast->GetBlockTime() + nPowTargetSpacing * 2) {
+        pblock->GetBlockTime() > pindexLast->GetBlockTime() + params.nPowTargetSpacing * 2) {
         return UintToArith256(params.powLimit).GetCompact();
     }
-    return LwmaCalculateNextWorkRequired(pindexLast, params, nPowTargetSpacing, nLwmaAveragingWindow);
+    return LwmaCalculateNextWorkRequired(pindexLast, params, fLegacy);
 }
 
-unsigned int LwmaCalculateNextWorkRequired(const CBlockIndex* pindexLast, const Consensus::Params& params, const int64_t T, const int64_t N)
+unsigned int LwmaCalculateNextWorkRequired(const CBlockIndex* pindexLast, const Consensus::Params& params, bool fLegacy)
 {
-    // Define a k that will be used to get a proper average after weighting the solvetimes.
-    const int64_t k = N * (N + 1) * T / 2;
-
-    const int64_t height = pindexLast->nHeight;
     const arith_uint256 powLimit = UintToArith256(params.powLimit);
+    arith_uint256 nextTarget;
+    arith_uint256 avgTarget;
 
-    // New coins just "give away" first N blocks. It's better to guess
-    // this value instead of using powLimit, but err on high side to not get stuck.
-    if (height < N) { return powLimit.GetCompact(); }
+    if (fLegacy) {
+        // Define a k that will be used to get a proper average after weighting the solvetimes.
+        const int64_t T = params.nLegacyPowTargetSpacing;
+        const int64_t N = params.nLegacyLwmaAveragingWindow;
+        const int64_t k = N * (N + 1) * T / 2;
 
-    arith_uint256 avgTarget, nextTarget;
-    int64_t thisTimestamp, previousTimestamp;
-    int64_t sumWeightedSolvetimes = 0, j = 0;
+        const int64_t height = pindexLast->nHeight;
 
-    const CBlockIndex* blockPreviousTimestamp = pindexLast->GetAncestor(height - N);
-    previousTimestamp = blockPreviousTimestamp->GetBlockTime();
+        // New coins just "give away" first N blocks. It's better to guess
+        // this value instead of using powLimit, but err on high side to not get stuck.
+        if (height < N) { return powLimit.GetCompact(); }
 
-    // Loop through N most recent blocks.
-    for (int64_t i = height - N + 1; i <= height; i++) {
-        const CBlockIndex* block = pindexLast->GetAncestor(i);
+        int64_t thisTimestamp, previousTimestamp;
+        int64_t sumWeightedSolvetimes = 0, j = 0;
 
-        // Prevent solvetimes from being negative in a safe way. It must be done like this.
-        // Do not attempt anything like  if (solvetime < 1) {solvetime=1;}
-        // The +1 ensures new coins do not calculate nextTarget = 0.
-        thisTimestamp = (block->GetBlockTime() > previousTimestamp) ? block->GetBlockTime() : previousTimestamp + 1;
+        const CBlockIndex* blockPreviousTimestamp = pindexLast->GetAncestor(height - N);
+        previousTimestamp = blockPreviousTimestamp->GetBlockTime();
 
-        // 6*T limit prevents large drops in diff from long solvetimes which would cause oscillations.
-        int64_t solvetime = std::min(6 * T, thisTimestamp - previousTimestamp);
+        // Loop through N most recent blocks.
+        for (int64_t i = height - N + 1; i <= height; i++) {
+            const CBlockIndex* block = pindexLast->GetAncestor(i);
 
-        // The following is part of "preventing negative solvetimes".
-        previousTimestamp = thisTimestamp;
+            // Prevent solvetimes from being negative in a safe way. It must be done like this.
+            // Do not attempt anything like  if (solvetime < 1) {solvetime=1;}
+            // The +1 ensures new coins do not calculate nextTarget = 0.
+            thisTimestamp = (block->GetBlockTime() > previousTimestamp) ? block->GetBlockTime() : previousTimestamp + 1;
 
-        // Give linearly higher weight to more recent solvetimes.
-        j++;
-        sumWeightedSolvetimes += solvetime * j;
+            // 6*T limit prevents large drops in diff from long solvetimes which would cause oscillations.
+            int64_t solvetime = std::min(6 * T, thisTimestamp - previousTimestamp);
 
-        arith_uint256 target;
-        target.SetCompact(block->nBits);
-        avgTarget += target / N / k; // Dividing by k here prevents an overflow below.
+            // The following is part of "preventing negative solvetimes".
+            previousTimestamp = thisTimestamp;
+
+            // Give linearly higher weight to more recent solvetimes.
+            j++;
+            sumWeightedSolvetimes += solvetime * j;
+
+            arith_uint256 target;
+            target.SetCompact(block->nBits);
+            avgTarget += target / N / k; // Dividing by k here prevents an overflow below.
+        }
+
+        // Desired equation in next line was nextTarget = avgTarget * sumWeightSolvetimes / k
+        // but 1/k was moved to line above to prevent overflow in new coins
+        nextTarget = avgTarget * sumWeightedSolvetimes;
+    } else {
+        const int height = pindexLast->nHeight + 1;
+        const int64_t T = params.nPowTargetSpacing;
+        const int N = params.nLwmaAveragingWindow;
+        const int k = params.nLwmaAdjustedWeight;
+        const int dnorm = params.nLwmaMinDenominator;
+        const bool limit_st = params.fLwmaSolvetimeLimitation;
+        assert(height > N);
+
+        int t = 0, j = 0;
+
+        // Loop through N most recent blocks.
+        for (int i = height - N; i < height; i++) {
+            const CBlockIndex* block = pindexLast->GetAncestor(i);
+            const CBlockIndex* block_Prev = block->GetAncestor(i - 1);
+            int64_t solvetime = block->GetBlockTime() - block_Prev->GetBlockTime();
+
+            if (limit_st && solvetime > 6 * T) {
+                solvetime = 6 * T;
+            }
+
+            j++;
+            t += solvetime * j;  // Weighted solvetime sum.
+
+            // Target sum divided by a factor, (k N^2).
+            // The factor is a part of the final equation. However we divide avgTarget here to avoid
+            // potential overflow.
+            arith_uint256 target;
+            target.SetCompact(block->nBits);
+            avgTarget += target / (k * N * N);
+        }
+
+        // Keep t reasonable in case strange solvetimes occurred.
+        if (t < N * k / dnorm) {
+            t = N * k / dnorm;
+        }
+
+        nextTarget = avgTarget * t;
     }
 
-    // Desired equation in next line was nextTarget = avgTarget * sumWeightSolvetimes / k
-    // but 1/k was moved to line above to prevent overflow in new coins
-    nextTarget = avgTarget * sumWeightedSolvetimes;
-
-    if (nextTarget > powLimit) { nextTarget = powLimit; }
+    if (nextTarget > powLimit) {
+        nextTarget = powLimit;
+    }
 
     return nextTarget.GetCompact();
 }

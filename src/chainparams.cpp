@@ -95,8 +95,12 @@ public:
         consensus.nLegacyLwmaForkHeight = 600000;
         consensus.nLegacyLwmaAveragingWindow = 60;
         consensus.nLegacyPowTargetSpacing = 10 * 60;
-        consensus.nLwmaForkHeight = std::numeric_limits<int>::max();
-        consensus.nLwmaAveragingWindow = 120;
+        consensus.nLwmaForkHeight = 765949;
+        consensus.nLwmaAveragingWindow = 45;
+        consensus.nLwmaAdjustedWeight = 3443;
+        consensus.nLwmaMinDenominator = 10;
+        consensus.fLwmaSolvetimeLimitation = true;
+
         consensus.nPowTargetSpacing = 2.5 * 60;
 
         consensus.fPowAllowMinDifficultyBlocks = false;
@@ -263,7 +267,11 @@ public:
         consensus.nLegacyLwmaAveragingWindow = 60;
         consensus.nLegacyPowTargetSpacing = 10 * 60;
         consensus.nLwmaForkHeight = 7000;
-        consensus.nLwmaAveragingWindow = 120;
+        consensus.nLwmaAveragingWindow = 45;
+        consensus.nLwmaAdjustedWeight = 3443;
+        consensus.nLwmaMinDenominator = 10;
+        consensus.fLwmaSolvetimeLimitation = true;
+
         consensus.nPowTargetSpacing = 2.5 * 60;
 
         consensus.fPowAllowMinDifficultyBlocks = false;
@@ -406,7 +414,11 @@ public:
         consensus.nLegacyLwmaAveragingWindow = 60;
         consensus.nLegacyPowTargetSpacing = 10 * 60;
         consensus.nLwmaForkHeight = -1; // Activated on regtest
-        consensus.nLwmaAveragingWindow = 120;
+        consensus.nLwmaAveragingWindow = 45;
+        consensus.nLwmaAdjustedWeight = 3443;
+        consensus.nLwmaMinDenominator = 10;
+        consensus.fLwmaSolvetimeLimitation = true;
+
         consensus.nPowTargetSpacing = 2.5 * 60;
 
         consensus.fPowAllowMinDifficultyBlocks = true;

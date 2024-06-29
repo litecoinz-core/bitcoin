@@ -112,7 +112,7 @@ UniValue getinfo(const JSONRPCRequest& request)
     if(g_connman)
         obj.pushKV("connections",   (int)g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL));
     obj.pushKV("proxy",         (proxy.IsValid() ? proxy.proxy.ToStringIPPort() : std::string()));
-    obj.pushKV("difficulty",    (double)GetDifficulty(::ChainActive().Tip()));
+    obj.pushKV("difficulty",    (double)GetDifficulty(::ChainActive().Tip(), true));
     obj.pushKV("testnet",       Params().NetworkIDString() == CBaseChainParams::TESTNET);
 #ifdef ENABLE_WALLET
     if (pwallet) {
