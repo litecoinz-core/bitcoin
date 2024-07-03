@@ -9,7 +9,7 @@
 #include <txmempool.h>
 #include <validation.h>
 
-
+#include <array>
 #include <list>
 #include <vector>
 

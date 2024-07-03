@@ -490,8 +490,8 @@ static int CommandLineRPC(int argc, char *argv[])
                 const UniValue reply = CallRPC(rh.get(), method, args);
 
                 // Parse reply
-                const UniValue& result = find_value(reply, "result");
-                const UniValue& error  = find_value(reply, "error");
+                const UniValue& result = reply.find_value("result");
+                const UniValue& error  = reply.find_value("error");
 
                 if (!error.isNull()) {
                     // Error
@@ -502,8 +502,8 @@ static int CommandLineRPC(int argc, char *argv[])
                     nRet = abs(code);
                     if (error.isObject())
                     {
-                        UniValue errCode = find_value(error, "code");
-                        UniValue errMsg  = find_value(error, "message");
+                        UniValue errCode = error.find_value("code");
+                        UniValue errMsg  = error.find_value("message");
                         strPrint = errCode.isNull() ? "" : "error code: "+errCode.getValStr()+"\n";
 
                         if (errMsg.isStr())

@@ -33,6 +33,8 @@
 #include <wallet/fees.h>
 #include <wallet/wallet.h>
 
+#include <array>
+
 #include <QFontMetrics>
 #include <QScrollBar>
 #include <QSettings>
@@ -327,8 +329,8 @@ void ZSendCoinsDialog::on_sendButton_clicked()
     {
         try // Nice formatting for standard-format error
         {
-            int code = find_value(objError, "code").get_int();
-            std::string message = find_value(objError, "message").get_str();
+            int code = objError.find_value("code").get_int();
+            std::string message = objError.find_value("message").get_str();
             QMessageBox::critical(this, "Error", QString("Error: ") + QString::fromStdString(message) + " (code " + QString::number(code) + ")");
         }
         catch (const std::runtime_error&) // raised when converting to invalid type, i.e. missing code or message

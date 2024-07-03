@@ -1160,8 +1160,8 @@ UniValue getblockhashes(const JSONRPCRequest& request)
 
     if (request.params.size() > 2) {
         if (request.params[2].isObject()) {
-            UniValue noOrphans = find_value(request.params[2].get_obj(), "noOrphans");
-            UniValue returnLogical = find_value(request.params[2].get_obj(), "logicalTimes");
+            UniValue noOrphans = request.params[2].get_obj().find_value("noOrphans");
+            UniValue returnLogical = request.params[2].get_obj().find_value("logicalTimes");
 
             if (noOrphans.isBool())
                 fActiveOnly = noOrphans.get_bool();

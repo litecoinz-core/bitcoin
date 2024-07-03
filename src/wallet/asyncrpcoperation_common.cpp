@@ -48,7 +48,7 @@ UniValue SendTransaction(CTransactionRef& tx, CWallet* const pwallet, CAmount nF
 
 std::pair<CTransactionRef, UniValue> SignSendRawTransaction(UniValue obj, CWallet* const pwallet, CAmount nFee, bool testmode) {
     // Sign the raw transaction
-    UniValue rawtxnValue = find_value(obj, "rawtxn");
+    UniValue rawtxnValue = obj.find_value("rawtxn");
     if (rawtxnValue.isNull()) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Missing hex data for raw transaction");
     }
@@ -62,14 +62,14 @@ std::pair<CTransactionRef, UniValue> SignSendRawTransaction(UniValue obj, CWalle
 
     UniValue signResultValue = signrawtransactionwithwallet(request);
     UniValue signResultObject = signResultValue.get_obj();
-    UniValue completeValue = find_value(signResultObject, "complete");
+    UniValue completeValue = signResultObject.find_value("complete");
     bool complete = completeValue.get_bool();
     if (!complete) {
         // TODO: #1366 Maybe get "errors" and print array vErrors into a string
         throw JSONRPCError(RPC_WALLET_ENCRYPTION_FAILED, "Failed to sign transaction");
     }
 
-    UniValue hexValue = find_value(signResultObject, "hex");
+    UniValue hexValue = signResultObject.find_value("hex");
     if (hexValue.isNull()) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Missing hex data for signed transaction");
     }

@@ -2319,7 +2319,7 @@ static UniValue lockunspent(const JSONRPCRequest& request)
             });
 
         const uint256 txid(ParseHashO(o, "txid"));
-        const int nOutput = find_value(o, "vout").get_int();
+        const int nOutput = o.find_value("vout").get_int();
         if (nOutput < 0) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
         }
@@ -4544,8 +4544,8 @@ UniValue z_getoperationstatus_IMPL(const JSONRPCRequest& request, bool fRemoveFi
 
     // sort results chronologically by creation_time
     std::sort(arrTmp.begin(), arrTmp.end(), [](UniValue a, UniValue b) -> bool {
-        const int64_t t1 = find_value(a.get_obj(), "creation_time").get_int64();
-        const int64_t t2 = find_value(b.get_obj(), "creation_time").get_int64();
+        const int64_t t1 = a.get_obj().find_value("creation_time").get_int64();
+        const int64_t t2 = b.get_obj().find_value("creation_time").get_int64();
         return t1 < t2;
     });
 
@@ -4866,7 +4866,7 @@ UniValue z_sendmany(const JSONRPCRequest& request)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, unknown key: ")+s);
         }
 
-        std::string address = find_value(o, "address").get_str();
+        std::string address = o.find_value("address").get_str();
         bool isZaddr = false;
         CTxDestination taddr = DecodeDestination(address);
         if (!IsValidDestination(taddr)) {
@@ -4903,7 +4903,7 @@ UniValue z_sendmany(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ") + address);
         setAddress.insert(address);
 
-        UniValue memoValue = find_value(o, "memo");
+        UniValue memoValue = o.find_value("memo");
         std::string memo;
         if (!memoValue.isNull()) {
             memo = memoValue.get_str();
@@ -4917,7 +4917,7 @@ UniValue z_sendmany(const JSONRPCRequest& request)
             }
         }
 
-        UniValue av = find_value(o, "amount");
+        UniValue av = o.find_value("amount");
         CAmount nAmount = AmountFromValue( av );
         if (nAmount < 0)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");

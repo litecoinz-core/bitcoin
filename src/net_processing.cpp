@@ -11,7 +11,6 @@
 #include <arith_uint256.h>
 #include <blockencodings.h>
 #include <chainparams.h>
-#include <consensus/tx_check.h>
 #include <consensus/validation.h>
 #include <hash.h>
 #include <validation.h>
@@ -31,8 +30,10 @@
 #include <util/strencodings.h>
 #include <util/validation.h>
 
+#include <array>
 #include <memory>
 #include <typeinfo>
+#include <utility>
 
 #if defined(NDEBUG)
 # error "LitecoinZ cannot be compiled without assertions."

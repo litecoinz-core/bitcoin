@@ -19,6 +19,10 @@
 #include <curl/curl.h>
 #include <openssl/sha.h>
 
+#if OPENSSL_VERSION_NUMBER >= 0x030000000
+#include <openssl/evp.h>
+#endif
+
 #include <boost/thread.hpp>
 
 std::string filename;
@@ -34,36 +38,87 @@ bool VerifyParams(const fs::path& path, std::string sha256expected)
     int totalBytes = fs::file_size(path);
     int soFar = 0;
 
+#if OPENSSL_VERSION_NUMBER >= 0x030000000
+    unsigned char hash[EVP_MAX_MD_SIZE];
+    unsigned int md_len = EVP_MAX_MD_SIZE;
+#else
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    unsigned int md_len = SHA256_DIGEST_LENGTH;
+#endif
+
+    unsigned char buffer[BUFSIZ];
+
     if (file) {
         LogPrintf("Verifying %s...\n", path.string());
         LogPrintf("[0%%]..."); /* Continued */
 
-        unsigned char buffer[BUFSIZ];
-        unsigned char hash[SHA256_DIGEST_LENGTH];
-
+#if OPENSSL_VERSION_NUMBER >= 0x030000000
+        EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+#else
         SHA256_CTX ctx;
         SHA256_Init(&ctx);
+#endif
+
+        if (!ctx) {
+            LogPrintf("VerifyParams: Failed to create EVP context\n");
+            fclose(file);
+            return false;
+        }
+
+#if OPENSSL_VERSION_NUMBER >= 0x030000000
+        if (!EVP_DigestInit_ex(ctx, EVP_sha256(), NULL)) {
+            LogPrintf("VerifyParams: Failed to initialize digest\n");
+            EVP_MD_CTX_free(ctx);
+            fclose(file);
+            return false;
+        }
+#endif
 
         while((bytesRead = fread(buffer, 1, BUFSIZ, file)))
         {
             boost::this_thread::interruption_point();
-            SHA256_Update(&ctx, buffer, bytesRead);
+
+#if OPENSSL_VERSION_NUMBER >= 0x030000000
+            if (!EVP_DigestUpdate(ctx, buffer, bytesRead)) {
+                LogPrintf("VerifyParams: Failed to update digest\n");
+                break;
+            }
+#else
+            if (!SHA256_Update(&ctx, buffer, bytesRead)) {
+                LogPrintf("VerifyParams: Failed to update digest\n");
+                break;
+            }
+#endif
+
             soFar = soFar + (int)bytesRead;
             const int percentageDone = std::max(1, std::min(99, (int)((double)soFar / (double)totalBytes * 100)));
+
             if (reportDone < percentageDone/10) {
                 // report every 10% step
                 LogPrintf("[%d%%]...", percentageDone); /* Continued */
                 reportDone = percentageDone/10;
             }
+
             uiInterface.ShowProgress(_((strprintf("Verifying %s", filename)).c_str()).translated, percentageDone, false);
         }
-        SHA256_Final(hash, &ctx);
+
+#if OPENSSL_VERSION_NUMBER >= 0x030000000
+        if (!EVP_DigestFinal_ex(ctx, hash, &md_len)) {
+            LogPrintf("VerifyParams: Failed to finalize digest\n");
+        }
+        EVP_MD_CTX_free(ctx);
+#else
+        if (!SHA256_Final(hash, &ctx)) {
+            LogPrintf("VerifyParams: Failed to finalize digest\n");
+        }
+#endif
+
         LogPrintf("[DONE].\n");
 
         fclose(file);
 
         std::ostringstream oss;
-        for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i)
+        for (unsigned int i = 0; i < md_len; ++i)
             oss << strprintf("%02x", hash[i]);
 
         if (!(sha256expected.compare(oss.str()) == 0)) {

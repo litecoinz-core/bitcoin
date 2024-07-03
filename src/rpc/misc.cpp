@@ -612,7 +612,7 @@ bool getAddressesFromParams(const UniValue& params, std::vector<std::pair<uint16
     if (params[0].isStr()) {
         param_addresses.push_back(params[0].get_str());
     } else if (params[0].isObject()) {
-        UniValue addressValues = find_value(params[0].get_obj(), "addresses");
+        UniValue addressValues = params[0].get_obj().find_value("addresses");
         if (!addressValues.isArray()) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Addresses is expected to be an array");
         }
@@ -745,7 +745,7 @@ UniValue getaddressutxos(const JSONRPCRequest& request)
 
     bool includeChainInfo = false;
     if (request.params[0].isObject()) {
-        UniValue chainInfo = find_value(request.params[0].get_obj(), "chainInfo");
+        UniValue chainInfo = request.params[0].get_obj().find_value("chainInfo");
         if (chainInfo.isBool()) {
             includeChainInfo = chainInfo.get_bool();
         }
@@ -831,10 +831,10 @@ UniValue getaddressdeltas(const JSONRPCRequest& request)
         );
 
 
-    UniValue startValue = find_value(request.params[0].get_obj(), "start");
-    UniValue endValue = find_value(request.params[0].get_obj(), "end");
+    UniValue startValue = request.params[0].get_obj().find_value("start");
+    UniValue endValue = request.params[0].get_obj().find_value("end");
 
-    UniValue chainInfo = find_value(request.params[0].get_obj(), "chainInfo");
+    UniValue chainInfo = request.params[0].get_obj().find_value("chainInfo");
     bool includeChainInfo = false;
     if (chainInfo.isBool()) {
         includeChainInfo = chainInfo.get_bool();
@@ -1013,8 +1013,8 @@ UniValue getaddresstxids(const JSONRPCRequest& request)
     int start = 0;
     int end = 0;
     if (request.params[0].isObject()) {
-        UniValue startValue = find_value(request.params[0].get_obj(), "start");
-        UniValue endValue = find_value(request.params[0].get_obj(), "end");
+        UniValue startValue = request.params[0].get_obj().find_value("start");
+        UniValue endValue = request.params[0].get_obj().find_value("end");
         if (startValue.isNum() && endValue.isNum()) {
             start = startValue.get_int();
             end = endValue.get_int();
@@ -1083,8 +1083,8 @@ UniValue getspentinfo(const JSONRPCRequest& request)
             + HelpExampleRpc("getspentinfo", "{\"txid\": \"0437cd7f8525ceed2324359c2d0ba26006d92d856a9c20fa0241106ee5a597c9\", \"index\": 0}")
         );
 
-    UniValue txidValue = find_value(request.params[0].get_obj(), "txid");
-    UniValue indexValue = find_value(request.params[0].get_obj(), "index");
+    UniValue txidValue = request.params[0].get_obj().find_value("txid");
+    UniValue indexValue = request.params[0].get_obj().find_value("index");
 
     if (!txidValue.isStr() || !indexValue.isNum()) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid txid or index");

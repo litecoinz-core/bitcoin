@@ -41,7 +41,7 @@
 #include <sodium.h>
 
 int find_output(UniValue obj, int n) {
-    UniValue outputMapValue = find_value(obj, "outputmap");
+    UniValue outputMapValue = obj.find_value("outputmap");
     if (!outputMapValue.isArray()) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Missing outputmap for JoinSplit operation");
     }
@@ -136,8 +136,8 @@ void AsyncRPCOperation_sendmany::main() {
     try {
         success = main_impl();
     } catch (const UniValue& objError) {
-        int code = find_value(objError, "code").get_int();
-        std::string message = find_value(objError, "message").get_str();
+        int code = objError.find_value("code").get_int();
+        std::string message = objError.find_value("message").get_str();
         set_error_code(code);
         set_error_message(message);
     } catch (const std::runtime_error& e) {

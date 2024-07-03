@@ -16,7 +16,6 @@
 #include <blockfilter.h>
 #include <chain.h>
 #include <chainparams.h>
-#include <compat/sanity.h>
 #include <consensus/validation.h>
 #include <fs.h>
 #include <fetchparams.h>
@@ -754,9 +753,6 @@ static bool InitSanityCheck()
         InitError("Elliptic curve cryptography sanity check failure. Aborting.");
         return false;
     }
-
-    if (!glibc_sanity_test() || !glibcxx_sanity_test())
-        return false;
 
     if (!Random_SanityCheck()) {
         InitError("OS cryptographic RNG sanity check failure. Aborting.");
