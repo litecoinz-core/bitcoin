@@ -82,6 +82,8 @@ static const CAmount DEFAULT_TRANSACTION_MINFEE = 1000;
 static const CAmount WALLET_INCREMENTAL_RELAY_FEE = 5000;
 //! Default for -spendzeroconfchange
 static const bool DEFAULT_SPEND_ZEROCONF_CHANGE = true;
+//! Default for -sendchangeback
+static const bool DEFAULT_SEND_CHANGE_BACK = false;
 //! Default for -walletrejectlongchains
 static const bool DEFAULT_WALLET_REJECT_LONG_CHAINS = false;
 //! -txconfirmtarget default

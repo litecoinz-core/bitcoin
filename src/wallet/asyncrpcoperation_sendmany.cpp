@@ -302,21 +302,24 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         // TODO: Should we just use fromtaddr_ as the change address?
         ReserveDestination reservedest(pwallet);
         if (isfromtaddr_) {
-            auto locked_chain = pwallet->chain().lock();
-            LOCK(pwallet->cs_wallet);
+            if (gArgs.GetBoolArg("-sendchangeback", DEFAULT_SEND_CHANGE_BACK)) {
+                builder_.SendChangeTo(fromtaddr_);
+            } else {
+                auto locked_chain = pwallet->chain().lock();
+                LOCK(pwallet->cs_wallet);
 
-            EnsureWalletIsUnlocked(pwallet);
-            CTxDestination changeDest;
-            const OutputType change_type = pwallet->GetDefaultAddressType();
-            bool ret = reservedest.GetReservedDestination(change_type, changeDest, true);
-            if (!ret)
-            {
-                // should never fail, as we just unlocked
-                throw JSONRPCError(
-                    RPC_WALLET_KEYPOOL_RAN_OUT,
-                    "Could not generate a taddr to use as a change address");
+                EnsureWalletIsUnlocked(pwallet);
+                CTxDestination changeDest;
+                const OutputType change_type = pwallet->GetDefaultAddressType();
+                bool ret = reservedest.GetReservedDestination(change_type, changeDest, true);
+                if (!ret) {
+                    // should never fail, as we just unlocked
+                    throw JSONRPCError(
+                        RPC_WALLET_KEYPOOL_RAN_OUT,
+                        "Could not generate a taddr to use as a change address");
+                }
+                builder_.SendChangeTo(changeDest);
             }
-            builder_.SendChangeTo(changeDest);
         }
 
         // Select Sapling notes

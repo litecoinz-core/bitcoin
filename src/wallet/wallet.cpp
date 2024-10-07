@@ -4974,6 +4974,25 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 const CAmount nChange = nValueIn - nValueToSelect;
                 if (nChange > 0)
                 {
+                    if (std::get_if<CNoDestination>(&coin_control.destChange)) {
+                        CTxDestination changeAddr = CNoDestination();
+
+                        if (gArgs.GetBoolArg("-sendchangeback", DEFAULT_SEND_CHANGE_BACK)) {
+                            CAmount nMaxOutValue = 0;
+			    for (const auto& coin : setCoins) {
+                                if (coin.txout.nValue > nMaxOutValue) {
+                                    if (ExtractDestination(coin.txout.scriptPubKey, changeAddr)) {
+                                        nMaxOutValue = coin.txout.nValue;
+                                    }
+                                }
+                            }
+
+                            if (!std::get_if<CNoDestination>(&changeAddr)) {
+                                scriptChange = GetScriptForDestination(changeAddr);
+                            }
+                        }
+                    }
+
                     // Fill a vout to ourself
                     CTxOut newTxOut(nChange, scriptChange);
 
