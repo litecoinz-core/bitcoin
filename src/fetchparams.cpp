@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020 The LitecoinZ developers
+// Copyright (c) 2017-2024 The LitecoinZ developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -16,10 +16,9 @@
 #include <stdio.h>
 #include <string>
 
-#include <curl/curl.h>
-#include <openssl/sha.h>
-
 #include <boost/thread.hpp>
+#include <curl/curl.h>
+#include <openssl/evp.h>
 
 std::string filename;
 int reportDone;
@@ -39,34 +38,42 @@ bool VerifyParams(const fs::path& path, std::string sha256expected)
         LogPrintf("[0%%]..."); /* Continued */
 
         unsigned char buffer[BUFSIZ];
-        unsigned char hash[SHA256_DIGEST_LENGTH];
+        unsigned char hash[EVP_MAX_MD_SIZE]; // Array per il hash
+        unsigned int hashLen = 0; // Variabile per la lunghezza dell'hash
 
-        SHA256_CTX ctx;
-        SHA256_Init(&ctx);
+        // Create an EVP context for SHA256
+        EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+        if (!ctx || !EVP_DigestInit_ex(ctx, EVP_sha256(), NULL)) {
+            LogPrintf("Failed to initialize SHA256 context.\n");
+            fclose(file);
+            return false;
+        }
 
-        while((bytesRead = fread(buffer, 1, BUFSIZ, file)))
-        {
+        while ((bytesRead = fread(buffer, 1, BUFSIZ, file))) {
             boost::this_thread::interruption_point();
-            SHA256_Update(&ctx, buffer, bytesRead);
-            soFar = soFar + (int)bytesRead;
+            EVP_DigestUpdate(ctx, buffer, bytesRead);
+            soFar += bytesRead;
             const int percentageDone = std::max(1, std::min(99, (int)((double)soFar / (double)totalBytes * 100)));
-            if (reportDone < percentageDone/10) {
+            if (reportDone < percentageDone / 10) {
                 // report every 10% step
                 LogPrintf("[%d%%]...", percentageDone); /* Continued */
-                reportDone = percentageDone/10;
+                reportDone = percentageDone / 10;
             }
             uiInterface.ShowProgress(_((strprintf("Verifying %s", filename)).c_str()).translated, percentageDone, false);
         }
-        SHA256_Final(hash, &ctx);
-        LogPrintf("[DONE].\n");
 
+        // Finalize the digest
+        EVP_DigestFinal_ex(ctx, hash, &hashLen);
+        EVP_MD_CTX_free(ctx);
+
+        LogPrintf("[DONE].\n");
         fclose(file);
 
         std::ostringstream oss;
-        for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i)
+        for (unsigned int i = 0; i < hashLen; ++i)
             oss << strprintf("%02x", hash[i]);
 
-        if (!(sha256expected.compare(oss.str()) == 0)) {
+        if (sha256expected.compare(oss.str()) != 0) {
             fs::remove(path);
             return error("VerifyParams(): sha256 checksum mismatch %s", oss.str());
         }
@@ -83,10 +90,10 @@ static int xferinfo(void *p, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ul
     boost::this_thread::interruption_point();
     if ((double)dlnow > 0) {
         const int percentageDone = std::max(1, std::min(99, (int)((double)dlnow / (double)dltotal * 100)));
-        if (reportDone < percentageDone/10) {
+        if (reportDone < percentageDone / 10) {
             // report every 10% step
             LogPrintf("[%d%%]...", percentageDone); /* Continued */
-            reportDone = percentageDone/10;
+            reportDone = percentageDone / 10;
         }
         uiInterface.ShowProgress(_((strprintf("Downloading %s", filename)).c_str()).translated, percentageDone, false);
     }

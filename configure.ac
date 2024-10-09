@@ -670,6 +670,16 @@ if test x$use_pkgconfig = xyes; then
     AC_MSG_ERROR(pkg-config not found.)
   fi
   ])
+
+  # When compiling with depends, the `PKG_CONFIG_PATH` and `PKG_CONFIG_LIBDIR` variables,
+  # being set in a `config.site` file, are not exported to let the `--config-cache` option
+  # work properly.
+  if test -n "$PKG_CONFIG_PATH"; then
+    PKG_CONFIG="env PKG_CONFIG_PATH=$PKG_CONFIG_PATH $PKG_CONFIG"
+  fi
+  if test -n "$PKG_CONFIG_LIBDIR"; then
+    PKG_CONFIG="env PKG_CONFIG_LIBDIR=$PKG_CONFIG_LIBDIR $PKG_CONFIG"
+  fi
 fi
 
 if test x$use_extended_functional_tests != xno; then
@@ -1272,6 +1282,7 @@ if test x$use_pkgconfig = xyes; then
   m4_ifdef(
     [PKG_CHECK_MODULES],
     [
+      PKG_CHECK_MODULES([ZLIB], [zlib],,[AC_MSG_ERROR(libzip not found.)])
       PKG_CHECK_MODULES([CURL], [libcurl],,[AC_MSG_ERROR(libcurl not found.)])
       PKG_CHECK_MODULES([CRYPTO], [libcrypto],,[AC_MSG_ERROR(libcrypto not found.)])
       PKG_CHECK_MODULES([SODIUM], [libsodium],,[AC_MSG_ERROR(libsodium not found.)])
